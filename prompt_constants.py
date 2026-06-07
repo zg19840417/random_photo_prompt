@@ -1,0 +1,298 @@
+from __future__ import annotations
+
+
+RESOLUTIONS = {
+    "head_shot": (1024, 1344),
+    "upper_body": (1024, 1536),
+    "half_body": (1024, 1344),
+    "large_half_body": (896, 1536),
+    "full_body": (768, 1536),
+}
+
+MAX_POSITIVE_PROMPT_LENGTH = 800
+PROMPT_PART_ORDER = (
+    "pose_expression",
+    "scene_light",
+    "quality",
+    "camera",
+    "character",
+    "outfit",
+    "makeup",
+    "hair",
+)
+VISIBLE_PROMPT_PARTS = set(PROMPT_PART_ORDER)
+TRIMMABLE_PARTS = ("quality", "scene_light", "outfit", "camera", "hair", "makeup", "pose_expression")
+WHITE_EDGE_REPLACEMENTS = (
+    ("纯白背景", "浅彩背景"),
+    ("纯白侧边", "彩色环境侧边"),
+    ("空白侧边", "环境色侧边"),
+    ("白色边框", "自然环境边缘"),
+    ("白边", "环境边缘"),
+    ("白底", "浅彩背景"),
+    ("黑边", "场景内容边缘"),
+    ("黑色侧边", "横向场景内容"),
+    ("暗色侧边", "横向场景内容"),
+    ("左右环境空间", "横向场景内容铺满画面"),
+    ("左右边距保留外轮廓", "横向场景内容铺满画面并保留外轮廓"),
+    ("左右边距", "横向场景内容"),
+    ("四周留环境边距", "四周都有真实场景内容"),
+    ("四周留床面或地面边距", "四周都有床面或地面内容"),
+    ("四周边距", "四周场景内容"),
+)
+
+
+FEEDBACK_TAG_RULES = {
+    "active_smile": ("笑", "微笑", "大笑", "俏皮", "坏笑", "灿烂", "得意", "怪罪"),
+    "avoid_flat_face": ("冷淡", "平静", "淡淡", "含蓄", "礼貌", "几乎看不见"),
+    "full_body_foot_anchor": ("脚下", "地面", "沙面", "草地", "瓷砖", "甲板", "路面", "站点"),
+    "forced_perspective": ("近大远小", "强透视", "视觉路径"),
+    "vivid_color": ("高饱和", "鲜艳", "彩色", "湖蓝", "珊瑚粉", "柠檬黄", "薄荷绿", "桃橙", "玫瑰粉"),
+    "red_lip_risk": ("红唇", "深红", "酒红", "浆果", "暗红", "厚唇", "丰唇"),
+    "white_padding_risk": ("白边", "留白", "空白", "纯白", "白色边框", "黑边", "黑色侧边", "暗色侧边", "左右边距", "左右环境空间"),
+}
+
+QUALITY_BY_SCALE = {
+    "normal": "真实写真质感，主体清晰面部锐利，时尚大片级光影，高级商业摄影调色，best quality, ultra detailed",
+    "bold": "高级私房写真质感，主体清晰肤质细腻，杂志封面级光影与氛围，best quality, ultra detailed",
+    "nsfw": "私房情欲摄影质感，暧昧光影投射在肌肤上，皮肤泛着温润光泽，氛围充满张力，best quality, ultra detailed",
+}
+QUALITY_SUFFIX = QUALITY_BY_SCALE["bold"]  # fallback
+
+NEGATIVE_PROMPT_RULES = {
+    "base_quality": (
+        "low quality",
+        "blurry",
+        "bad anatomy",
+        "extra fingers",
+        "missing fingers",
+        "distorted face",
+        "deformed body",
+        "duplicated limbs",
+        "text",
+        "watermark",
+        "logo",
+    ),
+    "lips_makeup": (
+        "red lipstick",
+        "bright red lips",
+        "dark red lips",
+        "burgundy lips",
+        "wine-red lips",
+        "crimson lips",
+        "dark lipstick",
+        "black lipstick",
+        "over-saturated lip color",
+        "lip tint",
+        "colored lipstick",
+        "obvious lipstick",
+        "unnatural lip color",
+        "plump lips",
+        "full lips",
+        "thick lips",
+        "overlined lips",
+        "overfilled lips",
+        "swollen lips",
+        "lip filler",
+        "heavy smoky makeup",
+        "large red blush",
+        "flushed red face",
+    ),
+    "canvas_padding": (
+        "white border",
+        "black border",
+        "blank side margins",
+        "white side bars",
+        "black side bars",
+        "dark side bars",
+        "pillarbox",
+        "letterbox",
+        "empty white background",
+        "empty black background",
+        "white padding",
+        "black padding",
+        "dark padding",
+        "canvas padding",
+        "solid white sides",
+        "solid black sides",
+        "plain white side background",
+        "plain black side background",
+        "vertical photo on wide canvas",
+        "portrait image centered on landscape canvas",
+        "unused canvas sides",
+        "empty dark side background",
+        "black pillarbox",
+        "dark pillarbox",
+    ),
+    "landscape_mismatch": (
+        "portrait crop inside landscape canvas",
+        "vertical body centered with side bars",
+        "standing portrait composition on wide canvas",
+        "narrow portrait image in wide frame",
+        "empty left and right sides",
+    ),
+    "portrait_mismatch": (
+        "horizontal body cropped in vertical frame",
+        "sideways landscape composition in portrait frame",
+        "missing head",
+        "missing feet",
+    ),
+    "shot_scope_head": (
+        "full body",
+        "half body",
+        "legs",
+        "feet",
+        "shoes",
+        "standing pose",
+        "sitting pose",
+    ),
+    "shot_scope_upper": (
+        "legs",
+        "feet",
+        "shoes",
+        "full body",
+        "lower body",
+        "navel",
+    ),
+    "shot_scope_half": (
+        "feet",
+        "shoes",
+        "lower legs",
+        "full body",
+        "full figure",
+    ),
+    "full_body_integrity": (
+        "cropped feet",
+        "missing feet",
+        "cropped head",
+        "missing head",
+        "cut off legs",
+        "short distorted legs",
+        "compressed body proportions",
+    ),
+    "legal_safety": (
+        "explicit sexual act",
+        "exposed genitals",
+    ),
+    "nsfw_amateur_tone": (
+        "amateur photography",
+        "home video",
+        "webcam quality",
+        "clinical lighting",
+        "flat lighting",
+        "sanitary",
+        "sterile",
+        "overexposed",
+        "washed out",
+    ),
+}
+
+PART_LENGTH_BUDGETS = {
+    "camera": 74,
+    "character": 200,
+    "makeup": 74,
+    "hair": 84,
+    "outfit": 84,
+    "pose_expression": 155,
+    "scene_light": 170,
+    "quality": 120,
+}
+
+SHOT_ALIASES = {
+    "": "full_body",
+    "full": "full_body",
+    "full_body": "full_body",
+    "全身": "full_body",
+    "全身像": "full_body",
+    "全身镜头": "full_body",
+    "half": "half_body",
+    "half_body": "half_body",
+    "半身": "half_body",
+    "半身像": "half_body",
+    "半身镜头": "half_body",
+    "腰部及以上": "half_body",
+    "腰部及以上镜头": "half_body",
+    "large_half_body": "large_half_body",
+    "大半身": "large_half_body",
+    "大半身镜头": "large_half_body",
+    "大腿以上": "large_half_body",
+    "大腿以上镜头": "large_half_body",
+    "小腿及以上": "large_half_body",
+    "小腿及以上镜头": "large_half_body",
+    "upper_body": "upper_body",
+    "上半身": "upper_body",
+    "上半身镜头": "upper_body",
+    "胸部以上": "upper_body",
+    "胸部以上镜头": "upper_body",
+    "胸部及以上": "upper_body",
+    "胸部及以上镜头": "upper_body",
+    "head": "head_shot",
+    "head_shot": "head_shot",
+    "头部": "head_shot",
+    "头部镜头": "head_shot",
+    "肩膀及以上": "head_shot",
+    "肩膀及以上镜头": "head_shot",
+    "肩部以上": "head_shot",
+    "肩部以上镜头": "head_shot",
+    "face": "upper_body",
+    "face_closeup": "upper_body",
+    "默认": "full_body",
+    "全身": "full_body",
+    "全身像": "full_body",
+    "全身构图": "full_body",
+    "全身构图镜头": "full_body",
+    "全身像镜头": "full_body",
+    "半身": "half_body",
+    "半身像": "half_body",
+    "半身像镜头": "half_body",
+    "大腿及以上": "half_body",
+    "大腿及以上半身": "half_body",
+    "大腿及以上半身像": "half_body",
+    "腰部以上": "half_body",
+    "腰部以上半身": "half_body",
+    "腰部以上半身镜头": "half_body",
+    "脸部特写": "head_shot",
+    "面部特写": "head_shot",
+    "肩部以上": "upper_body",
+    "肩部以上镜头": "upper_body",
+    "肩部以上特写": "upper_body",
+    "胸部以上": "upper_body",
+    "胸部以上镜头": "upper_body",
+    "胸部以上特写": "upper_body",
+    "上半身": "upper_body",
+    "上半身镜头": "upper_body",
+    "上半身中近景": "upper_body",
+    "脸部特写镜头": "head_shot",
+    "面部特写镜头": "head_shot",
+}
+
+SCALE_ALIASES = {
+    "普通": "normal",
+    "大胆": "bold",
+    "NSFW": "nsfw",
+    "normal": "normal",
+    "bold": "bold",
+    "nsfw": "nsfw",
+}
+
+FORBIDDEN_BY_SHOT = {
+    "head_shot": (
+        "胸", "乳", "完整腰", "腰", "肚脐", "腹", "臀", "胯", "大腿", "小腿", "膝", "腿", "脚", "高跟", "鞋", "丝袜", "裸足", "裙", "全身", "半身", "站立", "坐姿", "跪", "躺",
+    ),
+    "upper_body": (
+        "完整腰", "腰线以下", "肚脐", "腹", "臀", "胯", "大腿", "小腿", "膝", "腿", "脚", "高跟", "鞋", "丝袜", "裸足", "裙", "全身", "半身像", "站立",
+    ),
+    "half_body": (
+        "全身", "完整身形", "臀部", "臀", "胯", "大腿", "小腿", "膝", "腿部", "长腿", "双腿", "脚", "脚趾", "脚部", "裸足", "高跟", "鞋", "丝袜覆盖双腿", "下半身", "底装", "短裙", "长裙",
+    ),
+    "large_half_body": (
+        "全身", "完整身形", "脚", "脚趾", "脚部", "裸足", "高跟", "鞋", "从头到脚", "头顶到脚",
+    ),
+    "full_body": (),
+}
+
+LIP_COLOR_CONSTRAINT = "纤薄原生唇形，透明无色水光，浅粉自然唇色"
+HEAD_SHOT_FRAMING_CONSTRAINT = "头部镜头，肩膀及以上入镜，头顶完整，脸部、发丝、颈部和双肩线条清楚，画面下缘停在肩膀下缘"
+UPPER_BODY_FRAMING_CONSTRAINT = "上半身镜头，胸部及以上入镜，头顶完整，脸部、肩颈、锁骨和完整胸部清楚，画面下缘停在胸部下方到上腰之间"
+HALF_BODY_FRAMING_CONSTRAINT = "半身镜头，腰部及以上入镜，头部、脸部、肩颈、胸部、腰部和双手清楚，画面下缘停在腰部区域"
+LARGE_HALF_BODY_FRAMING_CONSTRAINT = "大腿以上镜头，竖向构图"
+FULL_BODY_PORTRAIT_FRAMING_CONSTRAINT = "全身镜头，人物从头顶到脚部完整入镜，手臂、腿部、脚部落点和姿势外轮廓都清楚"

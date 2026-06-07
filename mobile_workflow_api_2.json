@@ -1,0 +1,483 @@
+{
+  "9": {
+    "inputs": {
+      "filename_prefix": "image/2026-05-21/194917",
+      "images": [
+        "170",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "保存图像"
+    }
+  },
+  "39": {
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "加载CLIP"
+    }
+  },
+  "40": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "加载VAE"
+    }
+  },
+  "42": {
+    "inputs": {
+      "conditioning": [
+        "490",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "条件零化"
+    }
+  },
+  "45": {
+    "inputs": {
+      "text": [
+        "595",
+        0
+      ],
+      "clip": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "47": {
+    "inputs": {
+      "shift": 3,
+      "model": [
+        "596",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "采样算法（AuraFlow）"
+    }
+  },
+  "64": {
+    "inputs": {
+      "rgthree_comparer": {
+        "images": [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_nbacg_00007_.png&type=temp&subfolder=&rand=0.42393340019508097"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_nbacg_00008_.png&type=temp&subfolder=&rand=0.014277686015382263"
+          }
+        ]
+      },
+      "image_a": [
+        "129",
+        0
+      ],
+      "image_b": [
+        "170",
+        0
+      ]
+    },
+    "class_type": "Image Comparer (rgthree)",
+    "_meta": {
+      "title": "SD Upscale Comapre"
+    }
+  },
+  "129": {
+    "inputs": {
+      "samples": [
+        "500",
+        0
+      ],
+      "vae": [
+        "40",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "170": {
+    "inputs": {
+      "upscale_by": [
+        "175",
+        0
+      ],
+      "seed": 521843461558599,
+      "steps": 3,
+      "cfg": 1,
+      "sampler_name": "euler_ancestral",
+      "scheduler": "beta",
+      "denoise": 0.2,
+      "mode_type": "Linear",
+      "tile_width": [
+        "176",
+        0
+      ],
+      "tile_height": [
+        "172",
+        0
+      ],
+      "mask_blur": 64,
+      "tile_padding": 32,
+      "seam_fix_mode": "None",
+      "seam_fix_denoise": 1,
+      "seam_fix_width": 64,
+      "seam_fix_mask_blur": 8,
+      "seam_fix_padding": 16,
+      "force_uniform_tiles": true,
+      "tiled_decode": false,
+      "batch_size": 1,
+      "image": [
+        "129",
+        0
+      ],
+      "model": [
+        "527",
+        0
+      ],
+      "positive": [
+        "45",
+        0
+      ],
+      "negative": [
+        "543",
+        0
+      ],
+      "vae": [
+        "40",
+        0
+      ],
+      "upscale_model": [
+        "481",
+        0
+      ]
+    },
+    "class_type": "UltimateSDUpscale",
+    "_meta": {
+      "title": "Ultimate SD Upscale"
+    }
+  },
+  "172": {
+    "inputs": {
+      "value": "(a*b + (32 * 2))/2",
+      "a": [
+        "450",
+        1
+      ],
+      "b": [
+        "175",
+        0
+      ]
+    },
+    "class_type": "SimpleMath+",
+    "_meta": {
+      "title": "Calculate optimized height"
+    }
+  },
+  "175": {
+    "inputs": {
+      "value": 1.5
+    },
+    "class_type": "FloatConstant",
+    "_meta": {
+      "title": "Upscale Factor"
+    }
+  },
+  "176": {
+    "inputs": {
+      "value": "(a*b + (32 * 2))/2",
+      "a": [
+        "450",
+        0
+      ],
+      "b": [
+        "175",
+        0
+      ]
+    },
+    "class_type": "SimpleMath+",
+    "_meta": {
+      "title": "Calculate optimized width"
+    }
+  },
+  "450": {
+    "inputs": {
+      "image": [
+        "129",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "获取图像尺寸"
+    }
+  },
+  "481": {
+    "inputs": {
+      "model_name": "1x-ITF-SkinDiffDetail-Lite-v1.pth"
+    },
+    "class_type": "UpscaleModelLoader",
+    "_meta": {
+      "title": "加载放大模型"
+    }
+  },
+  "483": {
+    "inputs": {
+      "shift": 3,
+      "model": [
+        "582",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "采样算法（AuraFlow）"
+    }
+  },
+  "490": {
+    "inputs": {
+      "text": "bad quality, worst quality, worst detail, sketch, censor, worst quality, low quality, displeasing, text, watermark, \nbad anatomy, artist name, signature, young",
+      "clip": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "500": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 490923384931642,
+      "steps": 14,
+      "cfg": 1,
+      "sampler_name": "sa_solver",
+      "scheduler": "beta",
+      "start_at_step": 4,
+      "end_at_step": 10000,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "47",
+        0
+      ],
+      "positive": [
+        "45",
+        0
+      ],
+      "negative": [
+        "42",
+        0
+      ],
+      "latent_image": [
+        "502",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced) 2ND"
+    }
+  },
+  "501": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 81413872096344,
+      "steps": 15,
+      "cfg": 4,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": 12,
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "483",
+        0
+      ],
+      "positive": [
+        "45",
+        0
+      ],
+      "negative": [
+        "490",
+        0
+      ],
+      "latent_image": [
+        "515",
+        4
+      ]
+    },
+    "class_type": "KSamplerAdvanced",
+    "_meta": {
+      "title": "KSampler (Advanced) 1ST"
+    }
+  },
+  "502": {
+    "inputs": {
+      "upscale_method": "bislerp",
+      "scale_by": 1.6,
+      "samples": [
+        "501",
+        0
+      ]
+    },
+    "class_type": "LatentUpscaleBy",
+    "_meta": {
+      "title": "缩放Latent（比例）"
+    }
+  },
+  "515": {
+    "inputs": {
+      "width": 400,
+      "height": 600,
+      "aspect_ratio": "custom",
+      "swap_dimensions": "Off",
+      "upscale_factor": 1,
+      "batch_size": 1
+    },
+    "class_type": "CR SDXL Aspect Ratio",
+    "_meta": {
+      "title": "SDXL宽高比v2"
+    }
+  },
+  "527": {
+    "inputs": {
+      "shift": 3.5,
+      "model": [
+        "596",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingAuraFlow",
+    "_meta": {
+      "title": "采样算法（AuraFlow）"
+    }
+  },
+  "543": {
+    "inputs": {
+      "conditioning": [
+        "490",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "条件零化"
+    }
+  },
+  "547": {
+    "inputs": {
+      "samples": [
+        "501",
+        0
+      ],
+      "vae": [
+        "40",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "579": {
+    "inputs": {
+      "images": [
+        "129",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image 2ND"
+    }
+  },
+  "582": {
+    "inputs": {
+      "unet_name": "z_image\\ZIB-z_image_bf16.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "584": {
+    "inputs": {
+      "unet_name": "z_image\\ZiT-超越真实BEYOND REALITY-V30.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNet加载器"
+    }
+  },
+  "585": {
+    "inputs": {
+      "anything": [
+        "170",
+        0
+      ]
+    },
+    "class_type": "easy cleanGpuUsed",
+    "_meta": {
+      "title": "清理显存占用"
+    }
+  },
+  "595": {
+    "inputs": {
+      "scale": "三档",
+      "shot": "半身像",
+      "use_pregenerated_prompt": false,
+      "auto_resolution": true,
+      "cached_prompt": "腰部以上近景半身像，脸部、肩颈、锁骨、胸线边缘、细腰和手部同时清楚，画面下缘严格停在腰部。\n固定冷白皮22岁k-pop韩国女星，脸部精致狭长，浅棕美瞳湿润，黑色齐胸直发顺直贴着肩颈，锁骨、胸前上缘和纤细腰线完整入镜，手指修长且指甲为黑色。\n成人镜前水光妆，底妆水润贴肤，眼周浅棕晕染集中在眼尾，浅棕美瞳有近距离反光，睫毛根根清楚，纤薄唇形带自然粉润亮泽，鼻梁高光和下颌阴影干净，纤薄原生唇形，透明无色水光，浅粉自然唇色。\n半身像，头部贴近肩侧回眸，半睁狐眼斜视镜头充满挑逗，嘴唇闭合湿亮，嘴角带轻蔑坏笑，上半身三分之二侧转，黑发垂在胸前边缘形成自然遮挡，双手停在腰线两侧轻轻按压，腰线凹陷明显。\n私房浴缸半身场景，暖光从水面反射照亮湿润的脸、肩颈和胸前边缘。\n真实写真质感，人物主体清晰，面部锐利，肤质细腻真实，电影感光影high-end editorial portrait, best quality, ultra detailed。，半身构图，头部到腰部或部分大腿完整保留，双手和上身姿势完整",
+      "cached_signature": "mobile-logic-v1|三档|半身像",
+      "cached_aspect": "portrait",
+      "预生成提示词": null,
+      "反推提示词": null
+    },
+    "class_type": "RandomPhotoPrompt",
+    "_meta": {
+      "title": "随机写真提示词"
+    }
+  },
+  "596": {
+    "inputs": {
+      "model": [
+        "584",
+        0
+      ],
+      "lora_name": "Zimage\\0526-NSFW_master_ZIT.safetensors",
+      "strength_model": 0
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  }
+}

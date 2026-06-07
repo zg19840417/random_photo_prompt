@@ -1,0 +1,3141 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>手机生成</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101114;
+      --panel: #191b20;
+      --panel-2: #22252b;
+      --text: #f3f0ea;
+      --muted: #aaa69d;
+      --line: #343740;
+      --accent: #e7b85f;
+      --accent-2: #74c7b8;
+      --danger: #ff8b8b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(720px, 100%);
+      margin: 0 auto;
+      padding: 18px 14px 32px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      margin: 0 -14px 14px;
+      padding: 4px 16px 10px;
+      background: rgba(16, 17, 20, .96);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(52, 55, 64, .7);
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .tab {
+      min-height: 44px;
+      border-color: var(--line);
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .tab.active {
+      border-color: var(--accent);
+      background: #3a3020;
+      color: #ffe2a3;
+    }
+
+    .panel[hidden] {
+      display: none;
+    }
+
+    .toolbar,
+    .jobs {
+      display: grid;
+      gap: 12px;
+    }
+
+    .section {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .label {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .label-row .label {
+      margin-bottom: 0;
+    }
+
+    button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      color: var(--text);
+      font: inherit;
+      font-size: 15px;
+    }
+
+    button:disabled {
+      opacity: .55;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .video-settings-row {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .video-control-row {
+      grid-template-columns: minmax(0, .95fr) minmax(0, .95fr) minmax(0, .85fr) minmax(0, .9fr);
+      gap: 8px;
+    }
+
+    .image-control-row {
+      grid-template-columns: minmax(0, .9fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(58px, .75fr);
+      gap: 6px;
+      align-items: end;
+    }
+
+    .prompt-rule-row {
+      margin-top: 10px;
+    }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #111317;
+      color: var(--text);
+      font: inherit;
+    }
+
+    select,
+    input {
+      height: 42px;
+      padding: 0 12px;
+    }
+
+    textarea {
+      min-height: 132px;
+      padding: 10px 12px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .custom-prompt-button {
+      width: 100%;
+      min-height: 42px;
+      margin-top: 10px;
+      border-color: rgba(231, 184, 95, .34);
+      background: #111317;
+      color: var(--text);
+    }
+
+    .custom-prompt-button.active {
+      border-color: rgba(231, 184, 95, .78);
+      color: #ffe2a3;
+      box-shadow: 0 0 0 2px rgba(231, 184, 95, .12);
+    }
+
+    select {
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+      background-position: calc(100% - 18px) 18px, calc(100% - 12px) 18px;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 32px;
+    }
+
+    .native-select-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .custom-select {
+      position: relative;
+      width: 100%;
+    }
+
+    .custom-select-trigger {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      width: 100%;
+      height: 42px;
+      min-height: 42px;
+      padding: 0 10px 0 12px;
+      border-color: rgba(231, 184, 95, .24);
+      background: #111317;
+      color: var(--text);
+      text-align: left;
+      touch-action: manipulation;
+    }
+
+    .custom-select-trigger::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      margin-left: 8px;
+      border-right: 2px solid var(--accent);
+      border-bottom: 2px solid var(--accent);
+      transform: translateY(-2px) rotate(45deg);
+      transition: transform 140ms ease;
+    }
+
+    .custom-select.open .custom-select-trigger {
+      border-color: rgba(231, 184, 95, .75);
+      box-shadow: 0 0 0 2px rgba(231, 184, 95, .12);
+    }
+
+    .custom-select.open .custom-select-trigger::after {
+      transform: translateY(2px) rotate(225deg);
+    }
+
+    .custom-select-value {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .custom-select-menu {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      z-index: 40;
+      display: none;
+      max-height: min(46vh, 320px);
+      padding: 6px;
+      border: 1px solid rgba(231, 184, 95, .34);
+      border-radius: 8px;
+      background: #14161b;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, .46);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    .custom-select.open .custom-select-menu {
+      display: grid;
+      gap: 4px;
+    }
+
+    .custom-select-option {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      font-size: 14px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .custom-select-option.selected {
+      background: rgba(231, 184, 95, .16);
+      color: #ffe2a3;
+    }
+
+    .custom-select-option.selected::after {
+      content: "✓";
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    .lora-select-wide-menu .custom-select-menu {
+      width: min(100%, 520px);
+      max-height: min(46vh, 320px);
+    }
+
+    .lora-row {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(86px, 1fr);
+      gap: 10px;
+      align-items: end;
+    }
+
+    .count-stepper {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 32px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #111317;
+    }
+
+    .count-value {
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .count-arrows {
+      display: grid;
+      border-left: 1px solid var(--line);
+    }
+
+    .count-arrow {
+      min-height: 0;
+      height: 21px;
+      border: 0;
+      border-radius: 0;
+      background: #22252b;
+      color: var(--accent);
+      font-size: 13px;
+      line-height: 1;
+      touch-action: manipulation;
+    }
+
+    .count-arrow:first-child {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #101216;
+    }
+
+    .mode-tab {
+      min-height: 36px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .mode-tab.active {
+      background: rgba(231, 184, 95, .18);
+      color: #ffe2a3;
+    }
+
+    .mode-panel[hidden] {
+      display: none;
+    }
+
+    .shared-shot-row.video-mode {
+      display: none;
+    }
+
+    .source-picker-button {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+      min-height: 54px;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .source-picker-button.has-source {
+      grid-template-columns: 46px minmax(0, 1fr);
+      border-color: rgba(231, 184, 95, .48);
+      background: rgba(231, 184, 95, .1);
+    }
+
+    .source-picker-thumb {
+      display: block;
+      width: 44px;
+      height: 44px;
+      border-radius: 7px;
+      object-fit: cover;
+      background: #08090b;
+    }
+
+    .source-picker-thumb[hidden] {
+      display: none;
+    }
+
+    .source-picker-text {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .source-picker-button.has-source .source-picker-text {
+      color: #ffe2a3;
+      font-weight: 800;
+    }
+
+    .source-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 72px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .source-clear {
+      min-height: 54px;
+      border-color: rgba(255, 139, 139, .42);
+      color: #ffd0d0;
+    }
+
+    .source-clear[hidden] {
+      display: none;
+    }
+
+    .recommend-action {
+      width: 100%;
+      min-height: 44px;
+      margin-top: 8px;
+      border-color: rgba(231, 184, 95, .48);
+      background: rgba(231, 184, 95, .12);
+      color: #ffe2a3;
+      font-weight: 800;
+    }
+
+    .primary {
+      width: 100%;
+      min-height: 52px;
+      margin-top: 12px;
+      border-color: #d6aa58;
+      background: var(--accent);
+      color: #191208;
+      font-weight: 700;
+    }
+
+    .connection {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(255, 139, 139, .12);
+    }
+
+    .connection.connected .dot {
+      background: var(--accent-2);
+      box-shadow: 0 0 0 3px rgba(116, 199, 184, .12);
+    }
+
+    .status {
+      min-height: 20px;
+      margin: 10px 2px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .job {
+      display: block;
+    }
+
+    .generation-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 58px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--photo-cols, 4), minmax(0, 1fr));
+      align-items: start;
+      gap: 8px;
+    }
+
+    .gallery-bar {
+      position: sticky;
+      top: 54px;
+      z-index: 8;
+      display: grid;
+      grid-template-columns: auto 1fr auto auto auto;
+      gap: 8px;
+      align-items: center;
+      margin: -12px -12px 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(18, 20, 25, .96);
+      backdrop-filter: blur(12px);
+    }
+
+    .gallery-media-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      width: 168px;
+      padding: 3px;
+      border: 1px solid rgba(52, 55, 64, .9);
+      border-radius: 8px;
+      background: #101216;
+    }
+
+    .gallery-media-tab {
+      min-height: 30px;
+      padding: 0 8px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .gallery-media-tab.active {
+      background: rgba(231, 184, 95, .18);
+      color: #ffe2a3;
+    }
+
+    #waterfallPanel {
+      padding-top: 0;
+    }
+
+    #waterfallPanel .gallery-bar {
+      margin-bottom: 10px;
+    }
+
+    .gallery-count {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .gallery-action {
+      min-height: 36px;
+      padding: 0 12px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .gallery-action.danger,
+    .viewer-action.danger {
+      border-color: rgba(255, 139, 139, .55);
+      color: var(--danger);
+    }
+
+    .viewer-action.active {
+      border-color: rgba(231, 184, 95, .62);
+      color: #ffe2a3;
+      background: rgba(231, 184, 95, .16);
+    }
+
+    .photo-item,
+    .video-item,
+    .thumb {
+      position: relative;
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      overflow: hidden;
+      background: #08090b;
+    }
+
+    .photo-item.selected,
+    .video-item.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(231, 184, 95, .55);
+    }
+
+    .photo-item.selected::after,
+    .video-item.selected::after {
+      content: "✓";
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      display: grid;
+      place-items: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #191208;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .photo-item img,
+    .video-item video,
+    .thumb img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .video-item {
+      aspect-ratio: 3 / 4;
+    }
+
+    .video-item video {
+      height: 100%;
+      object-fit: cover;
+      background: #08090b;
+      pointer-events: none;
+    }
+
+    .video-item::before {
+      content: "▶";
+      position: absolute;
+      left: 6px;
+      bottom: 5px;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(8, 9, 11, .68);
+      color: #fff3d5;
+      font-size: 12px;
+    }
+
+    .waterfall {
+      display: block;
+      touch-action: pan-y pinch-zoom;
+    }
+
+    .waterfall[hidden] {
+      display: none;
+    }
+
+    .empty {
+      padding: 42px 10px;
+      color: var(--muted);
+      text-align: center;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .viewer {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      overflow-x: hidden;
+      overflow-y: auto;
+      background: rgba(8, 9, 11, .96);
+      overscroll-behavior: contain;
+    }
+
+    .viewer.open {
+      display: block;
+    }
+
+    .viewer-image {
+      position: relative;
+      padding: 10px 10px 0;
+      overflow: hidden;
+      touch-action: pan-y;
+      user-select: none;
+    }
+
+    .viewer-image img {
+      display: block;
+      width: auto;
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto;
+      border-radius: 8px;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    .viewer-image video {
+      display: none;
+      width: 100%;
+      max-height: 72vh;
+      border-radius: 8px;
+      background: #08090b;
+    }
+
+    .viewer.video-mode .viewer-image {
+      overflow: visible;
+      touch-action: pan-y;
+    }
+
+    .viewer.video-mode .viewer-image img {
+      display: none;
+    }
+
+    .viewer.video-mode .viewer-image video {
+      display: block;
+    }
+
+    .viewer-image img.viewer-incoming {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: calc(100% - 20px);
+      opacity: 0;
+    }
+
+    .viewer-panel {
+      padding: 10px 14px calc(18px + env(safe-area-inset-bottom));
+      background: transparent;
+    }
+
+    .viewer-actions {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 44px;
+      margin-bottom: 8px;
+    }
+
+    .viewer-action {
+      min-height: 38px;
+      padding: 0 14px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .viewer-count {
+      margin: 0 0 8px;
+      color: var(--accent-2);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .viewer-prompt {
+      margin: 0;
+      color: #e4ded2;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-line;
+      word-break: break-word;
+    }
+
+    .confirm-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(8, 9, 11, .72);
+    }
+
+    .confirm-dialog.open {
+      display: flex;
+    }
+
+    .source-dialog.open {
+      align-items: flex-end;
+    }
+
+    .source-dialog .confirm-box {
+      width: min(720px, 100%);
+      max-height: 78vh;
+      overflow: hidden;
+    }
+
+    #promptDialog.open {
+      align-items: flex-start;
+      padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+    }
+
+    #promptDialog .confirm-box {
+      width: min(420px, 100%);
+      max-height: calc(100vh - max(16px, env(safe-area-inset-top)));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    #promptDialog .custom-select-menu {
+      max-height: min(34vh, 260px);
+    }
+
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      max-height: 58vh;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .source-choice {
+      padding: 0;
+      border: 1px solid var(--line);
+      overflow: hidden;
+      background: #08090b;
+    }
+
+    .source-choice img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .confirm-box {
+      width: min(320px, 100%);
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #191b20;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, .45);
+    }
+
+    .confirm-message {
+      margin: 0 0 16px;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .confirm-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .prompt-dialog-textarea {
+      width: 100%;
+      min-height: 140px;
+      max-height: min(34vh, 260px);
+      margin-top: 8px;
+    }
+
+    .prompt-dialog-actions {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .confirm-cancel,
+    .confirm-ok {
+      min-height: 42px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .confirm-cancel {
+      background: #2a2d34;
+      color: var(--text);
+    }
+
+    .confirm-ok {
+      background: var(--danger);
+      color: white;
+    }
+
+    @media (max-width: 430px) {
+      main {
+        padding: 14px 10px 28px;
+      }
+
+      .topbar {
+        margin: 0 -10px 12px;
+        padding: 2px 12px 10px;
+      }
+
+      .section {
+        padding: 12px;
+      }
+
+      button {
+        font-size: 14px;
+      }
+
+      .image-control-row {
+        gap: 5px;
+      }
+
+      .image-control-row .label {
+        font-size: 12px;
+      }
+
+      .image-control-row .custom-select-trigger,
+      .image-control-row .count-stepper {
+        height: 40px;
+        min-height: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <nav class="tabs" aria-label="页面切换">
+        <button class="tab active" type="button" data-tab="generate">生成界面</button>
+        <button class="tab" type="button" data-tab="waterfall">瀑布流</button>
+      </nav>
+      <div id="connection" class="connection">
+        <span class="dot"></span>
+        <span id="connectionText">未连接</span>
+      </div>
+    </div>
+
+    <section id="generatePanel" class="panel">
+      <div class="toolbar">
+        <section class="section">
+          <div class="mode-tabs" role="tablist" aria-label="生成类型">
+            <button class="mode-tab active" type="button" data-mode="image">图片</button>
+            <button class="mode-tab" type="button" data-mode="video">视频</button>
+          </div>
+          <div id="imageModePanel" class="mode-panel">
+            <div class="row image-control-row">
+              <label>
+                <div class="label">档位</div>
+                <select id="scale">
+                  <option value="normal">一档</option>
+                  <option value="bold" selected>二档</option>
+                  <option value="nsfw">三档</option>
+                </select>
+              </label>
+              <label class="shot-field">
+                <div class="label">镜头</div>
+                <select id="shot">
+                  <option value="head_shot">头部</option>
+                  <option value="upper_body">上半身</option>
+                  <option value="half_body">半身</option>
+                  <option value="large_half_body">大半身</option>
+                  <option value="full_body" selected>全身</option>
+                </select>
+              </label>
+              <label>
+                <div class="label">工作流</div>
+                <select id="workflow">
+                  <option value="zit_single" selected>ZIT单采</option>
+                  <option value="zitb_double">ZITB双采</option>
+                </select>
+              </label>
+              <label>
+                <div class="label">张数</div>
+                <div class="count-stepper" role="group" aria-label="生成张数">
+                  <div id="countValue" class="count-value">1</div>
+                  <div class="count-arrows">
+                    <button id="countUp" class="count-arrow" type="button" aria-label="增加张数">▲</button>
+                    <button id="countDown" class="count-arrow" type="button" aria-label="减少张数">▼</button>
+                  </div>
+                </div>
+              </label>
+            </div>
+            <label class="prompt-rule-row">
+              <div class="label">提示词生成方式</div>
+              <select id="promptRule">
+                <option value="rule1" selected>规则1</option>
+                <option value="rule2">规则2</option>
+              </select>
+            </label>
+            <div id="sharedShotRow" class="shared-shot-row" hidden></div>
+            <label>
+              <div class="label">z_image_turbo模型</div>
+              <select id="zitModel">
+                <option value="" selected>当前模型</option>
+              </select>
+            </label>
+            <label id="zibModelField" hidden>
+              <div class="label">ZIB模型</div>
+              <select id="zibModel">
+                <option value="" selected>当前ZIB模型</option>
+              </select>
+            </label>
+            <div class="lora-row">
+              <label>
+                <div class="label">LoRA</div>
+                <select id="loraName">
+                  <option value="" selected>不使用</option>
+                </select>
+              </label>
+              <label>
+                <div class="label">LoRA强度</div>
+                <input id="loraStrength" type="number" min="-2" max="2" step="0.05" value="0.8" inputmode="decimal">
+              </label>
+            </div>
+          </div>
+          <div id="videoModePanel" class="mode-panel" hidden>
+            <div class="row video-control-row">
+              <label>
+                <div class="label">档位</div>
+                <select id="videoScale">
+                  <option value="normal">一档</option>
+                  <option value="bold" selected>二档</option>
+                  <option value="nsfw">三档</option>
+                </select>
+              </label>
+              <label>
+                <div class="label">视频数</div>
+                <div class="count-stepper" role="group" aria-label="生成视频数">
+                  <div id="videoCountValue" class="count-value">1</div>
+                  <div class="count-arrows">
+                    <button id="videoCountUp" class="count-arrow" type="button" aria-label="增加视频数">▲</button>
+                    <button id="videoCountDown" class="count-arrow" type="button" aria-label="减少视频数">▼</button>
+                  </div>
+                </div>
+              </label>
+              <label>
+                <div class="label">帧率</div>
+                <select id="videoFps">
+                  <option value="12">12</option>
+                  <option value="16">16</option>
+                  <option value="24" selected>24</option>
+                  <option value="30">30</option>
+                </select>
+              </label>
+              <label>
+                <div class="label">时长</div>
+                <select id="videoSeconds">
+                  <option value="6">6秒</option>
+                  <option value="8">8秒</option>
+                  <option value="10" selected>10秒</option>
+                  <option value="12">12秒</option>
+                  <option value="16">16秒</option>
+                  <option value="20">20秒</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <div class="label">动作描述</div>
+              <textarea id="videoAction" placeholder="先选择图片，再点击下方按钮随机生成本次图生视频动作提示词。"></textarea>
+              <button id="pregenerateAction" class="recommend-action" type="button">生成提示词</button>
+            </label>
+            <div class="source-row">
+              <label>
+                <div class="label">图片</div>
+                <button id="sourcePicker" class="source-picker-button" type="button">
+                  <img id="sourcePreview" class="source-picker-thumb" alt="" hidden>
+                  <span id="sourcePickerText" class="source-picker-text">从瀑布流选择</span>
+                </button>
+              </label>
+              <button id="sourceClear" class="source-clear" type="button" hidden>清除</button>
+            </div>
+          </div>
+          <button id="customPromptButton" class="custom-prompt-button" type="button">填入提示词</button>
+          <button id="generate" class="primary">生成</button>
+        </section>
+      </div>
+
+      <div id="status" class="status"></div>
+      <div id="jobs" class="jobs"></div>
+    </section>
+
+    <section id="waterfallPanel" class="panel" hidden>
+      <div class="gallery-bar">
+        <div class="gallery-media-tabs" role="tablist" aria-label="瀑布流类型">
+          <button class="gallery-media-tab active" type="button" data-gallery-tab="images">图片</button>
+          <button class="gallery-media-tab" type="button" data-gallery-tab="videos">视频</button>
+          <button class="gallery-media-tab" type="button" data-gallery-tab="favorites">收藏</button>
+        </div>
+        <span id="galleryCount" class="gallery-count">0 张</span>
+        <button id="gallerySelectAll" class="gallery-action" type="button" hidden>全选</button>
+        <button id="galleryEdit" class="gallery-action" type="button">编辑</button>
+        <button id="galleryDelete" class="gallery-action danger" type="button" hidden>删除</button>
+      </div>
+      <div id="waterfall" class="waterfall"></div>
+      <div id="videoWaterfall" class="waterfall" hidden>
+        <div class="empty">生成后的视频会出现在这里。</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="viewer" class="viewer" aria-hidden="true">
+    <div class="viewer-image">
+      <img id="viewerImage" alt="生成图片原图" />
+      <img id="viewerIncomingImage" class="viewer-incoming" alt="切换中的生成图片" />
+      <video id="viewerVideo" controls playsinline preload="metadata"></video>
+    </div>
+    <div class="viewer-panel">
+      <div class="viewer-actions">
+        <span></span>
+        <button id="viewerFavorite" class="viewer-action" type="button">收藏</button>
+        <button id="viewerCopyPrompt" class="viewer-action" type="button">复制提示词</button>
+        <button id="viewerRotate" class="viewer-action" type="button">旋转</button>
+        <button id="viewerDelete" class="viewer-action danger" type="button">删除</button>
+      </div>
+      <p id="viewerCount" class="viewer-count"></p>
+      <p id="viewerPrompt" class="viewer-prompt"></p>
+    </div>
+  </div>
+
+  <div id="confirmDialog" class="confirm-dialog" aria-hidden="true">
+    <div class="confirm-box" role="dialog" aria-modal="true" aria-labelledby="confirmMessage">
+      <p id="confirmMessage" class="confirm-message"></p>
+      <div class="confirm-actions">
+        <button id="confirmCancel" class="confirm-cancel" type="button">取消</button>
+        <button id="confirmOk" class="confirm-ok" type="button">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="sourceDialog" class="confirm-dialog source-dialog" aria-hidden="true">
+    <div class="confirm-box" role="dialog" aria-modal="true">
+      <p class="confirm-message">选择一张图片</p>
+      <div id="sourceGrid" class="source-grid"></div>
+      <div class="confirm-actions" style="margin-top: 12px;">
+        <button id="sourceCancel" class="confirm-cancel" type="button">取消</button>
+        <button class="confirm-ok" type="button" disabled>确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="promptDialog" class="confirm-dialog" aria-hidden="true">
+    <div class="confirm-box" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle">
+      <p id="promptDialogTitle" class="confirm-message">填入提示词</p>
+      <textarea id="customPromptText" class="prompt-dialog-textarea" placeholder="输入后将直接使用这段提示词生成图片，不再读取档位和镜头。"></textarea>
+      <label style="display: block; margin-top: 12px;">
+        <div class="label">分辨率</div>
+        <select id="customPromptResolution">
+          <option value="" selected>自动判断</option>
+          <option value="768x1536">768 × 1536</option>
+          <option value="896x1536">896 × 1536</option>
+          <option value="1024x1536">1024 × 1536</option>
+          <option value="1024x1344">1024 × 1344</option>
+          <option value="1344x896">1344 × 896</option>
+          <option value="1536x1024">1536 × 1024</option>
+          <option value="1024x1024">1024 × 1024</option>
+        </select>
+      </label>
+      <div class="confirm-actions prompt-dialog-actions" style="margin-top: 12px;">
+        <button id="customPromptCancel" class="confirm-cancel" type="button">取消</button>
+        <button id="customPromptClear" class="confirm-cancel" type="button">清除</button>
+        <button id="customPromptOk" class="confirm-ok" type="button">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      jobs: new Map(),
+      galleryImages: [],
+      galleryVideos: [],
+      favoriteImages: [],
+      selectedImages: new Set(),
+      selectedVideos: new Set(),
+      selectedFavorites: new Set(),
+      editMode: false,
+      timer: null,
+      tab: "generate",
+      mode: "image",
+      galleryTab: "images",
+      customPrompt: "",
+      customResolution: "",
+      sourceImage: null,
+      videoActionNonce: 0,
+      waterfallCols: 4,
+      nextBatchId: 1,
+      maxActiveJobs: 100,
+      clientId: "",
+      progressSocket: null,
+      progressReconnectTimer: null,
+      viewerMediaType: "image",
+      viewerIndex: 0,
+      viewerRotation: 0,
+      viewerScale: 1,
+      viewerLayoutScale: 1,
+      viewerOffsetX: 0,
+      viewerOffsetY: 0,
+      viewerBaseOffsetY: 0,
+      viewerRenderedWidth: 0,
+      viewerRenderedHeight: 0,
+      viewerViewportHeight: 0
+    };
+
+    const tabs = document.querySelectorAll(".tab");
+    const generatePanel = document.querySelector("#generatePanel");
+    const waterfallPanel = document.querySelector("#waterfallPanel");
+    const connectionEl = document.querySelector("#connection");
+    const connectionText = document.querySelector("#connectionText");
+    const statusEl = document.querySelector("#status");
+    const jobsEl = document.querySelector("#jobs");
+    const waterfallEl = document.querySelector("#waterfall");
+    const videoWaterfallEl = document.querySelector("#videoWaterfall");
+    const galleryMediaTabs = document.querySelectorAll(".gallery-media-tab");
+    const galleryCount = document.querySelector("#galleryCount");
+    const gallerySelectAll = document.querySelector("#gallerySelectAll");
+    const galleryEdit = document.querySelector("#galleryEdit");
+    const galleryDelete = document.querySelector("#galleryDelete");
+    const generateBtn = document.querySelector("#generate");
+    const modeTabs = document.querySelectorAll(".mode-tab");
+    const imageModePanel = document.querySelector("#imageModePanel");
+    const videoModePanel = document.querySelector("#videoModePanel");
+    const sharedShotRow = document.querySelector("#sharedShotRow");
+    const viewer = document.querySelector("#viewer");
+    const viewerImageBox = document.querySelector(".viewer-image");
+    const viewerImage = document.querySelector("#viewerImage");
+    const viewerIncomingImage = document.querySelector("#viewerIncomingImage");
+    const viewerVideo = document.querySelector("#viewerVideo");
+    const viewerCount = document.querySelector("#viewerCount");
+    const viewerPrompt = document.querySelector("#viewerPrompt");
+    const viewerFavorite = document.querySelector("#viewerFavorite");
+    const viewerCopyPrompt = document.querySelector("#viewerCopyPrompt");
+    const viewerRotate = document.querySelector("#viewerRotate");
+    const viewerDelete = document.querySelector("#viewerDelete");
+    const confirmDialog = document.querySelector("#confirmDialog");
+    const confirmMessage = document.querySelector("#confirmMessage");
+    const confirmCancel = document.querySelector("#confirmCancel");
+    const confirmOk = document.querySelector("#confirmOk");
+    const scaleSelect = document.querySelector("#scale");
+    const videoScaleSelect = document.querySelector("#videoScale");
+    const shotSelect = document.querySelector("#shot");
+    const workflowSelect = document.querySelector("#workflow");
+    const promptRuleSelect = document.querySelector("#promptRule");
+    const zitModelSelect = document.querySelector("#zitModel");
+    const zibModelField = document.querySelector("#zibModelField");
+    const zibModelSelect = document.querySelector("#zibModel");
+    const loraNameSelect = document.querySelector("#loraName");
+    const loraStrengthInput = document.querySelector("#loraStrength");
+    const countValue = document.querySelector("#countValue");
+    const countUp = document.querySelector("#countUp");
+    const countDown = document.querySelector("#countDown");
+    const videoCountValue = document.querySelector("#videoCountValue");
+    const videoCountUp = document.querySelector("#videoCountUp");
+    const videoCountDown = document.querySelector("#videoCountDown");
+    const videoFpsSelect = document.querySelector("#videoFps");
+    const videoSecondsSelect = document.querySelector("#videoSeconds");
+    const customPromptButton = document.querySelector("#customPromptButton");
+    const promptDialog = document.querySelector("#promptDialog");
+    const customPromptText = document.querySelector("#customPromptText");
+    const customPromptResolution = document.querySelector("#customPromptResolution");
+    const customPromptCancel = document.querySelector("#customPromptCancel");
+    const customPromptClear = document.querySelector("#customPromptClear");
+    const customPromptOk = document.querySelector("#customPromptOk");
+    const videoActionInput = document.querySelector("#videoAction");
+    const pregenerateAction = document.querySelector("#pregenerateAction");
+    const sourcePicker = document.querySelector("#sourcePicker");
+    const sourcePreview = document.querySelector("#sourcePreview");
+    const sourcePickerText = document.querySelector("#sourcePickerText");
+    const sourceClear = document.querySelector("#sourceClear");
+    const sourceDialog = document.querySelector("#sourceDialog");
+    const sourceGrid = document.querySelector("#sourceGrid");
+    const sourceCancel = document.querySelector("#sourceCancel");
+    const settingsKey = "randomPhotoPrompt.mobile.settings";
+    const favoritesDbName = "randomPhotoPrompt.mobile.favorites";
+    const favoritesStoreName = "images";
+    let favoritesDbPromise = null;
+    const customSelects = new Map();
+
+    function optionExists(select, value) {
+      return [...select.options].some(option => option.value === value);
+    }
+
+    function enhanceSelect(select) {
+      if (!select || customSelects.has(select)) return;
+      const wrapper = document.createElement("div");
+      wrapper.className = "custom-select";
+      const trigger = document.createElement("button");
+      trigger.className = "custom-select-trigger";
+      trigger.type = "button";
+      trigger.setAttribute("aria-haspopup", "listbox");
+      trigger.setAttribute("aria-expanded", "false");
+      const valueEl = document.createElement("span");
+      valueEl.className = "custom-select-value";
+      trigger.appendChild(valueEl);
+      const menu = document.createElement("div");
+      menu.className = "custom-select-menu";
+      menu.setAttribute("role", "listbox");
+      select.parentNode.insertBefore(wrapper, select);
+      wrapper.appendChild(select);
+      wrapper.appendChild(trigger);
+      wrapper.appendChild(menu);
+      select.classList.add("native-select-hidden");
+      customSelects.set(select, {wrapper, trigger, valueEl, menu});
+      trigger.addEventListener("click", event => {
+        event.stopPropagation();
+        toggleCustomSelect(select);
+      });
+      renderCustomSelect(select);
+    }
+
+    function renderCustomSelect(select) {
+      const custom = customSelects.get(select);
+      if (!custom) return;
+      const selectedOption = select.selectedOptions[0] || select.options[0];
+      custom.valueEl.textContent = selectedOption ? selectedOption.textContent : "";
+      custom.menu.innerHTML = "";
+      [...select.options].forEach(option => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "custom-select-option";
+        button.textContent = option.textContent;
+        button.dataset.value = option.value;
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-selected", option.selected ? "true" : "false");
+        button.classList.toggle("selected", option.selected);
+        button.addEventListener("click", event => {
+          event.stopPropagation();
+          setSelectValue(select, option.value, true);
+          closeCustomSelect(select);
+        });
+        custom.menu.appendChild(button);
+      });
+    }
+
+    function setSelectValue(select, value, emitChange = false) {
+      if (optionExists(select, value)) {
+        select.value = value;
+      }
+      renderCustomSelect(select);
+      if (emitChange) {
+        select.dispatchEvent(new Event("change", {bubbles: true}));
+      }
+    }
+
+    function closeCustomSelect(select) {
+      const custom = customSelects.get(select);
+      if (!custom) return;
+      custom.wrapper.classList.remove("open");
+      custom.trigger.setAttribute("aria-expanded", "false");
+    }
+
+    function closeAllCustomSelects(exceptSelect = null) {
+      customSelects.forEach((_custom, select) => {
+        if (select !== exceptSelect) closeCustomSelect(select);
+      });
+    }
+
+    function toggleCustomSelect(select) {
+      const custom = customSelects.get(select);
+      if (!custom) return;
+      const shouldOpen = !custom.wrapper.classList.contains("open");
+      closeAllCustomSelects(select);
+      custom.wrapper.classList.toggle("open", shouldOpen);
+      custom.trigger.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+    }
+
+    function saveSettings() {
+      try {
+        localStorage.setItem(settingsKey, JSON.stringify({
+          mode: state.mode,
+          scale: scaleSelect.value,
+          videoScale: videoScaleSelect.value,
+          shot: shotSelect.value,
+          workflow: workflowSelect.value,
+          promptRule: promptRuleSelect.value,
+          zitModel: zitModelSelect.value,
+          zibModel: zibModelSelect.value,
+          loraName: loraNameSelect.value,
+          loraStrength: loraStrengthInput.value,
+          count: currentCount(),
+          videoCount: currentVideoCount(),
+          videoFps: videoFpsSelect.value,
+          videoSeconds: videoSecondsSelect.value,
+          customPrompt: state.customPrompt,
+          customResolution: state.customResolution,
+          videoAction: videoActionInput.value,
+          sourceFilename: state.sourceImage?.filename || ""
+        }));
+      } catch (error) {
+        // Local storage may be unavailable in strict privacy modes.
+      }
+    }
+
+    function restoreSettings() {
+      try {
+        const settings = JSON.parse(localStorage.getItem(settingsKey) || "{}");
+        switchMode(settings.mode === "video" ? "video" : "image", false);
+        if (optionExists(scaleSelect, settings.scale)) setSelectValue(scaleSelect, settings.scale);
+        if (optionExists(videoScaleSelect, settings.videoScale || settings.scale)) {
+          setSelectValue(videoScaleSelect, settings.videoScale || settings.scale);
+        }
+        const shotValue = normalizeStoredShot(settings.shot, settings.preset);
+        if (optionExists(shotSelect, shotValue)) setSelectValue(shotSelect, shotValue);
+        if (optionExists(workflowSelect, settings.workflow)) setSelectValue(workflowSelect, settings.workflow);
+        if (optionExists(promptRuleSelect, settings.promptRule)) setSelectValue(promptRuleSelect, settings.promptRule);
+        if (settings.zitModel) {
+          zitModelSelect.dataset.pendingValue = settings.zitModel;
+        }
+        if (settings.zibModel) {
+          zibModelSelect.dataset.pendingValue = settings.zibModel;
+        }
+        if (settings.loraName) {
+          loraNameSelect.dataset.pendingValue = settings.loraName;
+        }
+        if (settings.loraStrength) loraStrengthInput.value = settings.loraStrength;
+        if (settings.count) setCount(settings.count);
+        if (settings.videoCount) setVideoCount(settings.videoCount);
+        if (optionExists(videoFpsSelect, settings.videoFps)) setSelectValue(videoFpsSelect, settings.videoFps);
+        if (optionExists(videoSecondsSelect, settings.videoSeconds)) setSelectValue(videoSecondsSelect, settings.videoSeconds);
+        state.customPrompt = String(settings.customPrompt || "");
+        state.customResolution = String(settings.customResolution || "");
+        updateCustomPromptButton();
+        if (settings.videoAction) videoActionInput.value = settings.videoAction;
+        if (settings.sourceFilename) {
+          state.sourceImage = {filename: settings.sourceFilename, url: ""};
+          updateSourcePicker();
+        }
+      } catch (error) {
+        saveSettings();
+      }
+    }
+
+    function updateCustomPromptButton() {
+      const active = Boolean(state.customPrompt.trim());
+      customPromptButton.classList.toggle("active", active);
+      customPromptButton.textContent = active ? `已填入提示词${state.customResolution ? ` ${state.customResolution}` : ""}` : "填入提示词";
+    }
+
+    function openPromptDialog() {
+      customPromptText.value = state.customPrompt || "";
+      setSelectValue(customPromptResolution, state.customResolution || "");
+      promptDialog.classList.add("open");
+      promptDialog.setAttribute("aria-hidden", "false");
+      window.setTimeout(() => customPromptText.focus(), 0);
+    }
+
+    function closePromptDialog() {
+      promptDialog.classList.remove("open");
+      promptDialog.setAttribute("aria-hidden", "true");
+    }
+
+    function normalizeStoredShot(shot, preset) {
+      if (optionExists(shotSelect, shot)) return shot;
+      if (shot === "full_body_portrait_standing" || shot === "full_body_portrait_nonstanding" || shot === "full_body_portrait" || shot === "full_body_landscape" || shot === "full_body" || shot === "random") {
+        return "full_body";
+      }
+      if (shot === "large_half_body" || shot === "大半身") return "large_half_body";
+      if (shot === "half_body_portrait" || shot === "half_body_landscape" || shot === "half_body") return "half_body";
+      if (shot === "head_shot" || shot === "头部" || shot === "肩部以上" || shot === "肩膀及以上") return "head_shot";
+      return "upper_body";
+    }
+
+    function currentCount() {
+      return Math.max(1, Math.min(64, Number(countValue.textContent) || 1));
+    }
+
+    function currentVideoCount() {
+      return Math.max(1, Math.min(64, Number(videoCountValue.textContent) || 1));
+    }
+
+    function setCount(value) {
+      const allowed = [1, 2, 4, 8, 16, 32, 64];
+      const parsed = Number(value);
+      const safeValue = allowed.includes(parsed)
+        ? parsed
+        : allowed.reduce((best, item) => Math.abs(item - parsed) < Math.abs(best - parsed) ? item : best, 1);
+      countValue.textContent = String(safeValue);
+    }
+
+    function setVideoCount(value) {
+      const allowed = [1, 2, 4, 8, 16, 32, 64];
+      const parsed = Number(value);
+      const safeValue = allowed.includes(parsed)
+        ? parsed
+        : allowed.reduce((best, item) => Math.abs(item - parsed) < Math.abs(best - parsed) ? item : best, 1);
+      videoCountValue.textContent = String(safeValue);
+    }
+
+    function stepCount(direction) {
+      const next = direction > 0 ? currentCount() * 2 : currentCount() / 2;
+      setCount(next);
+      saveSettings();
+    }
+
+    function stepVideoCount(direction) {
+      const next = direction > 0 ? currentVideoCount() * 2 : currentVideoCount() / 2;
+      setVideoCount(next);
+      saveSettings();
+    }
+
+    function switchMode(name, persist = true) {
+      state.mode = name === "video" ? "video" : "image";
+      modeTabs.forEach(tab => tab.classList.toggle("active", tab.dataset.mode === state.mode));
+      imageModePanel.hidden = state.mode !== "image";
+      videoModePanel.hidden = state.mode !== "video";
+      sharedShotRow.classList.toggle("video-mode", state.mode === "video");
+      if (persist) saveSettings();
+      checkStatus();
+    }
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function setConnection(connected) {
+      connectionEl.classList.toggle("connected", connected);
+      connectionText.textContent = connected ? "已连接" : "未连接";
+    }
+
+    async function requestJson(url, options) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = readableError(data) || `请求失败（${response.status}）`;
+        throw new Error(detail);
+      }
+      return data;
+    }
+
+    function readableError(data) {
+      if (!data || typeof data !== "object") return "";
+      if (typeof data.error === "string" && data.error && data.error !== "0") return data.error;
+      if (typeof data.message === "string" && data.message && data.message !== "0") return data.message;
+      if (Array.isArray(data.errors) && data.errors.length) {
+        const first = data.errors[0];
+        if (first && typeof first === "object") {
+          return first.error || first.message || JSON.stringify(first);
+        }
+        if (first) return String(first);
+      }
+      if (data.node_errors && Object.keys(data.node_errors).length) {
+        return `工作流校验失败，涉及 ${Object.keys(data.node_errors).length} 个节点，请检查电脑端工作流模板。`;
+      }
+      if (data.detail) return String(data.detail);
+      return "";
+    }
+
+    async function checkStatus() {
+      try {
+        const statusWorkflow = state.mode === "video" ? "ltx_video" : workflowSelect.value;
+        const data = await requestJson(`/random_photo_prompt/mobile/status?workflow=${encodeURIComponent(statusWorkflow)}`);
+        updateZitModelOptions(data.zit_models || []);
+        updateZibModelOptions(data.zib_models || []);
+        updateLoraOptions(data.loras || []);
+        updateWorkflowModelVisibility();
+        const ready = state.mode === "video" ? data.video_workflow?.template_ready : data.template_ready;
+        if (ready) {
+          setConnection(true);
+          setStatus("");
+          generateBtn.disabled = false;
+        } else {
+          setConnection(false);
+          const templateName = state.mode === "video" ? data.video_workflow?.template_name : data.template_name;
+          setStatus(templateName ? `请先保存 ${templateName} 后再生成。` : (data.message || "请先准备工作流模板。"), true);
+          generateBtn.disabled = true;
+        }
+      } catch (error) {
+        setConnection(false);
+        setStatus(error.message, true);
+        generateBtn.disabled = true;
+      }
+    }
+
+    function updateSourcePicker() {
+      const sourceKey = imageKey(state.sourceImage);
+      const image = state.galleryImages.find(item => imageKey(item) === sourceKey) || state.sourceImage;
+      if (image?.url) {
+        sourcePreview.src = image.url;
+        sourcePreview.hidden = false;
+        sourcePicker.classList.add("has-source");
+        sourcePickerText.textContent = "已选择图片";
+        sourceClear.hidden = false;
+      } else if (image?.filename) {
+        sourcePreview.removeAttribute("src");
+        sourcePreview.hidden = true;
+        sourcePicker.classList.add("has-source");
+        sourcePickerText.textContent = "已选择图片";
+        sourceClear.hidden = false;
+      } else {
+        sourcePreview.removeAttribute("src");
+        sourcePreview.hidden = true;
+        sourcePicker.classList.remove("has-source");
+        sourcePickerText.textContent = "从瀑布流选择";
+        sourceClear.hidden = true;
+      }
+    }
+
+    function updateZitModelOptions(models) {
+      const previous = zitModelSelect.value || zitModelSelect.dataset.pendingValue || "";
+      const options = ['<option value="">当前模型</option>'].concat(
+        models.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+      );
+      zitModelSelect.innerHTML = options.join("");
+      if (optionExists(zitModelSelect, previous)) {
+        setSelectValue(zitModelSelect, previous);
+      } else {
+        renderCustomSelect(zitModelSelect);
+      }
+      delete zitModelSelect.dataset.pendingValue;
+    }
+
+    function updateZibModelOptions(models) {
+      const previous = zibModelSelect.value || zibModelSelect.dataset.pendingValue || "";
+      const options = ['<option value="">当前ZIB模型</option>'].concat(
+        models.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+      );
+      zibModelSelect.innerHTML = options.join("");
+      if (optionExists(zibModelSelect, previous)) {
+        setSelectValue(zibModelSelect, previous);
+      } else {
+        renderCustomSelect(zibModelSelect);
+      }
+      delete zibModelSelect.dataset.pendingValue;
+    }
+
+    function updateWorkflowModelVisibility() {
+      const showZib = workflowSelect.value === "zitb_double" && state.mode === "image";
+      zibModelField.hidden = !showZib;
+      closeCustomSelect(zibModelSelect);
+    }
+
+    function updateLoraOptions(loras) {
+      const previous = loraNameSelect.value || loraNameSelect.dataset.pendingValue || "";
+      const options = ['<option value="">不使用</option>'].concat(
+        loras.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name.replace(/^Zimage[\\/]/, ""))}</option>`)
+      );
+      loraNameSelect.innerHTML = options.join("");
+      if (optionExists(loraNameSelect, previous)) {
+        setSelectValue(loraNameSelect, previous);
+      } else {
+        renderCustomSelect(loraNameSelect);
+      }
+      delete loraNameSelect.dataset.pendingValue;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]);
+    }
+
+    function makeClientId() {
+      if (window.crypto?.randomUUID) return window.crypto.randomUUID().replace(/-/g, "");
+      return `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+    }
+
+    function ensureProgressSocket() {
+      if (!state.clientId) state.clientId = makeClientId();
+      if (state.progressSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(state.progressSocket.readyState)) return;
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const socket = new WebSocket(`${protocol}//${window.location.host}/ws?clientId=${encodeURIComponent(state.clientId)}`);
+      state.progressSocket = socket;
+      socket.addEventListener("message", event => {
+        let message = null;
+        try {
+          message = JSON.parse(event.data);
+        } catch (_error) {
+          return;
+        }
+        if (message?.type !== "progress") return;
+        const data = message.data || {};
+        const promptId = String(data.prompt_id || "");
+        const job = state.jobs.get(promptId);
+        if (!job) return;
+        const value = Number(data.value || 0);
+        const max = Number(data.max || 0);
+        if (max > 0) {
+          job.progress = {
+            value: Math.max(0, Math.min(max, value)),
+            max,
+            percent: Math.max(0, Math.min(100, Math.round((value / max) * 100))),
+            node: data.node || ""
+          };
+          renderJobs();
+        }
+      });
+      socket.addEventListener("close", () => {
+        if (state.progressSocket !== socket) return;
+        state.progressSocket = null;
+        if (state.progressReconnectTimer) clearTimeout(state.progressReconnectTimer);
+        state.progressReconnectTimer = setTimeout(() => {
+          state.progressReconnectTimer = null;
+          if ([...state.jobs.values()].some(isActiveJob)) ensureProgressSocket();
+        }, 1500);
+      });
+      socket.addEventListener("error", () => {
+        try {
+          socket.close();
+        } catch (_error) {
+          // Ignore close races.
+        }
+      });
+    }
+
+    function currentNodeText(progress) {
+      const node = String(progress?.node || "").trim();
+      return node ? `当前节点 ${node}` : "当前节点 等待节点";
+    }
+
+    function renderJobs() {
+      const allJobs = [...state.jobs.values()];
+      const pendingJobs = allJobs.filter(isActiveJob);
+      const active = pendingJobs.find(job => job.status === "running") || pendingJobs[0];
+      let text = "等待指令中";
+      if (active) {
+        const firstActiveBatchId = Math.min(...pendingJobs.map(job => Number(job.batchId) || 0));
+        const queueJobs = allJobs.filter(job => (Number(job.batchId) || 0) >= firstActiveBatchId);
+        const completedInQueue = queueJobs.filter(job => job.status === "completed").length;
+        const total = queueJobs.length || pendingJobs.length || 1;
+        const current = Math.min(total, completedInQueue + 1);
+        const progress = active.progress;
+        const progressText = currentNodeText(progress);
+        const activeVideo = Array.isArray(active.videos) && active.videos.length ? active.videos[0] : null;
+        const width = activeVideo?.width || active.width || "";
+        const height = activeVideo?.height || active.height || "";
+        text = `${width}x${height}\n生成中（${current}/${total}）\n${progressText}`;
+      }
+      jobsEl.innerHTML = `<div class="generation-state">${text.replace(/\n/g, "<br>")}</div>`;
+      if (state.tab === "waterfall") loadGallery();
+    }
+
+    function isActiveJob(job) {
+      return job && job.status !== "completed" && job.status !== "unknown";
+    }
+
+    function activeQueueJobs() {
+      const allJobs = [...state.jobs.values()];
+      const pendingJobs = allJobs.filter(isActiveJob);
+      if (!pendingJobs.length) return [];
+      const firstActiveBatchId = Math.min(...pendingJobs.map(job => Number(job.batchId) || 0));
+      return allJobs.filter(job => (Number(job.batchId) || 0) >= firstActiveBatchId);
+    }
+
+    function remainingActiveJobSlots() {
+      return Math.max(0, state.maxActiveJobs - activeQueueJobs().length);
+    }
+
+    function imageRecords() {
+      return state.galleryImages.map(image => ({image, job: {prompt: image.prompt || ""}, index: 0}));
+    }
+
+    function videoRecords() {
+      return state.galleryVideos.map(video => ({video, prompt: video.prompt || ""}));
+    }
+
+    function favoriteRecords() {
+      return state.favoriteImages.map(image => ({image, job: {prompt: image.prompt || ""}, index: 0}));
+    }
+
+    function prepareVideoThumbnails(root) {
+      root.querySelectorAll("video").forEach(video => {
+        video.muted = true;
+        video.playsInline = true;
+        const seekPreview = () => {
+          if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+          try {
+            video.currentTime = Math.min(.08, Math.max(0, video.duration - .05));
+          } catch (_error) {
+            // Some mobile browsers delay seeking until the video is fully ready.
+          }
+        };
+        if (video.readyState >= 1) {
+          seekPreview();
+        } else {
+          video.addEventListener("loadedmetadata", seekPreview, {once: true});
+        }
+      });
+    }
+
+    function imageKey(image) {
+      if (!image) return "";
+      if (image.key) return image.key;
+      if (image.filename) {
+        const subfolder = String(image.subfolder || "").replace(/^\/+|\/+$/g, "");
+        return subfolder ? `${subfolder}/${image.filename}` : image.filename;
+      }
+      return image.url || "";
+    }
+
+    function videoKey(video) {
+      return video && video.filename ? video.filename : "";
+    }
+
+    function activeImageRecords() {
+      return state.galleryTab === "favorites" ? favoriteRecords() : imageRecords();
+    }
+
+    function currentGalleryRecords() {
+      if (state.galleryTab === "videos") return videoRecords();
+      if (state.galleryTab === "favorites") return favoriteRecords();
+      return imageRecords();
+    }
+
+    function currentSelectedSet() {
+      if (state.galleryTab === "videos") return state.selectedVideos;
+      if (state.galleryTab === "favorites") return state.selectedFavorites;
+      return state.selectedImages;
+    }
+
+    function openFavoritesDb() {
+      if (!("indexedDB" in window)) return Promise.reject(new Error("手机浏览器不支持本地图片收藏。"));
+      if (favoritesDbPromise) return favoritesDbPromise;
+      favoritesDbPromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(favoritesDbName, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(favoritesStoreName)) {
+            db.createObjectStore(favoritesStoreName, {keyPath: "filename"});
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error("打开收藏数据库失败。"));
+      });
+      return favoritesDbPromise;
+    }
+
+    async function favoriteDbTransaction(mode, handler) {
+      const db = await openFavoritesDb();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(favoritesStoreName, mode);
+        const store = tx.objectStore(favoritesStoreName);
+        let result;
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => reject(tx.error || new Error("收藏数据库操作失败。"));
+        tx.onabort = () => reject(tx.error || new Error("收藏数据库操作被中断。"));
+        result = handler(store);
+      });
+    }
+
+    function requestToPromise(request) {
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error("收藏数据库请求失败。"));
+      });
+    }
+
+    function blobToObjectUrl(blob) {
+      return URL.createObjectURL(blob);
+    }
+
+    function releaseFavoriteObjectUrls() {
+      state.favoriteImages.forEach(image => {
+        if (image.objectUrl && image.url !== viewerImage.src && image.url !== viewerIncomingImage.src) {
+          URL.revokeObjectURL(image.url);
+        }
+      });
+    }
+
+    async function loadFavorites() {
+      try {
+        const records = await favoriteDbTransaction("readonly", store => requestToPromise(store.getAll()));
+        releaseFavoriteObjectUrls();
+        state.favoriteImages = (records || [])
+          .filter(item => item && item.filename && item.blob)
+          .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+          .map(item => ({
+            filename: String(item.filename),
+            originalUrl: String(item.originalUrl || ""),
+            url: blobToObjectUrl(item.blob),
+            objectUrl: true,
+            prompt: String(item.prompt || ""),
+            mime: String(item.mime || item.blob.type || "image/jpeg"),
+            createdAt: item.createdAt || Date.now()
+          }));
+      } catch (error) {
+        state.favoriteImages = [];
+        setStatus(error.message || "读取收藏失败。", true);
+      }
+    }
+
+    function isFavoriteImage(image) {
+      const key = imageKey(image);
+      return !!key && state.favoriteImages.some(item => imageKey(item) === key);
+    }
+
+    function updateViewerFavoriteButton(record) {
+      if (!record || state.viewerMediaType === "video") {
+        viewerFavorite.hidden = true;
+        return;
+      }
+      viewerFavorite.hidden = false;
+      viewerFavorite.textContent = isFavoriteImage(record.image) ? "已收藏" : "收藏";
+      viewerFavorite.classList.toggle("active", isFavoriteImage(record.image));
+    }
+
+    async function setFavoriteImage(image, prompt, enabled) {
+      const key = imageKey(image);
+      if (!key) return;
+      if (!enabled) {
+        await favoriteDbTransaction("readwrite", store => store.delete(key));
+        await loadFavorites();
+        renderWaterfall();
+        return;
+      }
+      const response = await fetch(image.url);
+      if (!response.ok) throw new Error("图片保存失败，无法读取原图。");
+      const blob = await response.blob();
+      await favoriteDbTransaction("readwrite", store => store.put({
+        filename: image.filename || key,
+        originalUrl: image.url || "",
+        blob,
+        mime: blob.type || "image/jpeg",
+        prompt: prompt || image.prompt || "",
+        createdAt: Date.now()
+      }));
+      await loadFavorites();
+      renderWaterfall();
+    }
+
+    async function toggleCurrentFavorite() {
+      if (state.viewerMediaType === "video") return;
+      const images = activeImageRecords();
+      const record = images[state.viewerIndex];
+      if (!record) return;
+      const shouldFavorite = !isFavoriteImage(record.image);
+      try {
+        viewerFavorite.disabled = true;
+        viewerFavorite.textContent = shouldFavorite ? "保存中" : "取消中";
+        await setFavoriteImage(record.image, record.job.prompt || "", shouldFavorite);
+        const refreshed = activeImageRecords()[state.viewerIndex] || record;
+        updateViewerFavoriteButton(refreshed);
+        setStatus(shouldFavorite ? "已保存到手机本地收藏" : "已取消收藏");
+      } catch (error) {
+        updateViewerFavoriteButton(record);
+        setStatus(error.message || "收藏失败。", true);
+      } finally {
+        viewerFavorite.disabled = false;
+      }
+    }
+
+    function renderWaterfall() {
+      renderGalleryShell();
+      if (state.galleryTab === "videos") {
+        const videos = videoRecords();
+        videoWaterfallEl.style.setProperty("--photo-cols", String(Math.max(1, Math.min(10, Number(state.waterfallCols) || 4))));
+        galleryCount.textContent = `${videos.length} 个视频`;
+        galleryCount.textContent = state.editMode ? `已选 ${state.selectedVideos.size} / ${videos.length}` : `${videos.length} 个视频`;
+        gallerySelectAll.hidden = !state.editMode;
+        gallerySelectAll.textContent = state.selectedVideos.size === videos.length && videos.length > 0 ? "取消全选" : "全选";
+        gallerySelectAll.disabled = videos.length < 1;
+        galleryEdit.textContent = state.editMode ? "完成" : "编辑";
+        galleryDelete.hidden = !state.editMode;
+        galleryDelete.disabled = state.selectedVideos.size < 1;
+        if (!videos.length) {
+          videoWaterfallEl.innerHTML = '<div class="empty">生成后的视频会出现在这里。</div>';
+          return;
+        }
+        videoWaterfallEl.innerHTML = `
+          <div class="photo-grid">
+            ${videos.map(record => `
+              <button class="video-item ${state.selectedVideos.has(videoKey(record.video)) ? "selected" : ""}" type="button" data-filename="${record.video.filename}" aria-label="查看视频">
+                <video src="${record.video.url}" muted playsinline preload="metadata"></video>
+              </button>
+            `).join("")}
+          </div>
+        `;
+        window.requestAnimationFrame(() => prepareVideoThumbnails(videoWaterfallEl));
+        return;
+      }
+      const images = state.galleryTab === "favorites" ? favoriteRecords() : imageRecords();
+      const selectedImages = state.galleryTab === "favorites" ? state.selectedFavorites : state.selectedImages;
+      const emptyText = state.galleryTab === "favorites" ? "收藏的图片会出现在这里。" : "生成后的图片会出现在这里。";
+      const colCount = Math.max(1, Math.min(10, Number(state.waterfallCols) || 4));
+      waterfallEl.style.setProperty("--photo-cols", String(colCount));
+      galleryCount.textContent = state.editMode ? `已选 ${selectedImages.size} / ${images.length}` : `${images.length} 张`;
+      gallerySelectAll.hidden = !state.editMode;
+      gallerySelectAll.textContent = selectedImages.size === images.length && images.length > 0 ? "取消全选" : "全选";
+      gallerySelectAll.disabled = images.length < 1;
+      galleryEdit.textContent = state.editMode ? "完成" : "编辑";
+      galleryDelete.hidden = !state.editMode;
+      galleryDelete.disabled = selectedImages.size < 1;
+      if (!images.length) {
+        waterfallEl.innerHTML = `<div class="empty">${emptyText}</div>`;
+        return;
+      }
+      waterfallEl.innerHTML = `
+        <div class="photo-grid">
+          ${images.map(record => `
+            <button class="photo-item ${selectedImages.has(imageKey(record.image)) ? "selected" : ""}" type="button" data-filename="${escapeHtml(imageKey(record.image))}" aria-label="查看原图">
+              <img src="${escapeHtml(record.image.url)}" alt="生成图片" loading="lazy">
+            </button>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderGalleryShell() {
+      const isVideo = state.galleryTab === "videos";
+      galleryMediaTabs.forEach(tab => tab.classList.toggle("active", tab.dataset.galleryTab === state.galleryTab));
+      waterfallEl.hidden = isVideo;
+      videoWaterfallEl.hidden = !isVideo;
+      gallerySelectAll.hidden = !state.editMode;
+      galleryEdit.hidden = false;
+      galleryDelete.hidden = !state.editMode;
+      if (isVideo) galleryCount.textContent = "0 个视频";
+    }
+
+    function switchGalleryTab(name) {
+      state.galleryTab = ["images", "videos", "favorites"].includes(name) ? name : "images";
+      renderWaterfall();
+    }
+
+    async function loadGallery() {
+      try {
+        await loadFavorites();
+        const [imageData, videoData] = await Promise.all([
+          requestJson("/random_photo_prompt/mobile/gallery"),
+          requestJson("/random_photo_prompt/mobile/videos").catch(() => ({videos: []}))
+        ]);
+        state.galleryImages = imageData.images || [];
+        state.galleryVideos = videoData.videos || [];
+        state.selectedImages = new Set([...state.selectedImages].filter(filename => state.galleryImages.some(image => imageKey(image) === filename)));
+        state.selectedVideos = new Set([...state.selectedVideos].filter(filename => state.galleryVideos.some(video => video.filename === filename)));
+        state.selectedFavorites = new Set([...state.selectedFavorites].filter(filename => state.favoriteImages.some(image => imageKey(image) === filename)));
+        if (state.sourceImage?.filename) {
+          const sourceKey = imageKey(state.sourceImage);
+          const fresh = state.galleryImages.find(image => imageKey(image) === sourceKey);
+          if (fresh) state.sourceImage = fresh;
+        }
+        updateSourcePicker();
+        renderWaterfall();
+      } catch (error) {
+        const target = state.galleryTab === "videos" ? videoWaterfallEl : waterfallEl;
+        target.innerHTML = `<div class="empty">${error.message}</div>`;
+      }
+    }
+
+    function switchTab(name) {
+      state.tab = name;
+      tabs.forEach(tab => tab.classList.toggle("active", tab.dataset.tab === name));
+      generatePanel.hidden = name !== "generate";
+      waterfallPanel.hidden = name !== "waterfall";
+      if (name === "waterfall") loadGallery();
+    }
+
+    async function openSourceDialog() {
+      await loadGallery();
+      if (!state.galleryImages.length) {
+        setStatus("瀑布流里还没有可选图片。", true);
+        return;
+      }
+      sourceGrid.innerHTML = state.galleryImages.map(image => `
+        <button class="source-choice" type="button" data-filename="${escapeHtml(imageKey(image))}" aria-label="选择图片">
+          <img src="${image.url}" alt="">
+        </button>
+      `).join("");
+      sourceDialog.classList.add("open");
+      sourceDialog.setAttribute("aria-hidden", "false");
+    }
+
+    function closeSourceDialog() {
+      sourceDialog.classList.remove("open");
+      sourceDialog.setAttribute("aria-hidden", "true");
+    }
+
+    function showViewerImage(index) {
+      const images = activeImageRecords();
+      if (!images.length) return;
+      state.viewerMediaType = "image";
+      viewer.classList.remove("video-mode");
+      viewerRotate.hidden = false;
+      viewerCopyPrompt.hidden = false;
+      resetViewerScroll();
+      state.viewerIndex = (index + images.length) % images.length;
+      const record = images[state.viewerIndex];
+      viewerVideo.pause();
+      viewerVideo.removeAttribute("src");
+      viewerImage.src = record.image.url;
+      viewerPrompt.textContent = record.job.prompt || "";
+      viewerCount.textContent = `${state.viewerIndex + 1} / ${images.length}`;
+      viewerDelete.dataset.filename = imageKey(record.image);
+      viewerCopyPrompt.dataset.prompt = record.job.prompt || "";
+      updateViewerFavoriteButton(record);
+      state.viewerRotation = 0;
+      resetViewerLayout();
+      resetViewerImage();
+      resetViewerScroll();
+    }
+
+    function showViewerVideo(index) {
+      const videos = videoRecords();
+      if (!videos.length) return;
+      state.viewerMediaType = "video";
+      viewer.classList.add("video-mode");
+      viewerRotate.hidden = true;
+      viewerFavorite.hidden = true;
+      viewerFavorite.classList.remove("active");
+      viewerCopyPrompt.hidden = false;
+      resetViewerScroll();
+      state.viewerIndex = (index + videos.length) % videos.length;
+      const record = videos[state.viewerIndex];
+      viewerImage.removeAttribute("src");
+      viewerIncomingImage.removeAttribute("src");
+      viewerIncomingImage.removeAttribute("data-index");
+      viewerVideo.src = record.video.url;
+      viewerPrompt.textContent = record.prompt || "";
+      const resolution = record.video.width && record.video.height ? ` · ${record.video.width}x${record.video.height}` : "";
+      viewerCount.textContent = `${state.viewerIndex + 1} / ${videos.length}${resolution}`;
+      viewerDelete.dataset.filename = videoKey(record.video);
+      viewerCopyPrompt.dataset.prompt = record.prompt || "";
+      state.viewerRotation = 0;
+      resetViewerLayout();
+      resetViewerScroll();
+    }
+
+    function resetViewerScroll() {
+      viewer.scrollTop = 0;
+      window.requestAnimationFrame(() => {
+        viewer.scrollTop = 0;
+      });
+    }
+
+    function currentViewerTransform(dx) {
+      const rotate = state.viewerRotation ? ` rotate(${state.viewerRotation}deg)` : "";
+      const scaleValue = state.viewerLayoutScale * state.viewerScale;
+      const scale = scaleValue !== 1 ? ` scale(${scaleValue})` : "";
+      const x = dx + state.viewerOffsetX;
+      const y = state.viewerBaseOffsetY + state.viewerOffsetY;
+      return `translate3d(${x}px, ${y}px, 0)${rotate}${scale}`;
+    }
+
+    function resetViewerLayout() {
+      state.viewerScale = 1;
+      state.viewerLayoutScale = 1;
+      state.viewerOffsetX = 0;
+      state.viewerOffsetY = 0;
+      state.viewerBaseOffsetY = 0;
+      state.viewerRenderedWidth = 0;
+      state.viewerRenderedHeight = 0;
+      state.viewerViewportHeight = 0;
+      viewerImage.style.width = "";
+      viewerImageBox.style.height = "";
+    }
+
+    function updateViewerLayout() {
+      const availableWidth = Math.max(1, viewerImageBox.clientWidth - 20);
+      const browserHeight = window.visualViewport?.height || viewer.clientHeight || window.innerHeight || 1;
+      const viewportHeight = Math.max(1, browserHeight - 20);
+      const naturalWidth = viewerImage.naturalWidth || viewerImage.clientWidth || availableWidth;
+      const naturalHeight = viewerImage.naturalHeight || viewerImage.clientHeight || availableWidth;
+      const rotatedSideways = state.viewerRotation % 180 !== 0;
+      const baseScale = Math.min(
+        1,
+        availableWidth / Math.max(1, naturalWidth),
+        viewportHeight / Math.max(1, naturalHeight)
+      );
+      const displayWidth = Math.max(1, Math.floor(naturalWidth * baseScale));
+      const renderedHeight = Math.max(1, Math.floor(naturalHeight * baseScale));
+      state.viewerLayoutScale = 1;
+      state.viewerBaseOffsetY = 0;
+      state.viewerOffsetX = 0;
+      state.viewerOffsetY = 0;
+      state.viewerRenderedWidth = displayWidth;
+      state.viewerRenderedHeight = renderedHeight;
+      state.viewerViewportHeight = viewportHeight;
+      viewerImage.style.width = `${displayWidth}px`;
+      if (rotatedSideways) {
+        state.viewerLayoutScale = Math.min(
+          1,
+          availableWidth / Math.max(1, renderedHeight),
+          viewportHeight / Math.max(1, displayWidth)
+        );
+        const visualHeight = displayWidth * state.viewerLayoutScale;
+        state.viewerBaseOffsetY = (visualHeight - renderedHeight) / 2;
+        state.viewerViewportHeight = Math.max(viewportHeight, renderedHeight, visualHeight);
+        viewerImageBox.style.height = `${state.viewerViewportHeight + 10}px`;
+      } else {
+        state.viewerScale = 1;
+        state.viewerViewportHeight = Math.max(viewportHeight, renderedHeight);
+        viewerImageBox.style.height = `${state.viewerViewportHeight + 10}px`;
+      }
+      viewerImage.style.transform = currentViewerTransform(0);
+    }
+
+    function setViewerImageOffset(dx, animated = false) {
+      const transition = animated ? "transform 180ms cubic-bezier(.2, .75, .2, 1)" : "none";
+      viewerImage.style.transition = transition;
+      viewerIncomingImage.style.transition = transition;
+      viewerImage.style.transform = currentViewerTransform(dx);
+    }
+
+    function resetViewerImage(animated = false) {
+      setViewerImageOffset(0, animated);
+      viewerIncomingImage.style.opacity = "0";
+      viewerIncomingImage.style.transform = "";
+      viewerIncomingImage.removeAttribute("data-index");
+    }
+
+    function previewViewerSwipe(dx) {
+      if (state.viewerMediaType === "video") return;
+      const images = activeImageRecords();
+      if (images.length < 2) {
+        setViewerImageOffset(dx, false);
+        return;
+      }
+      const width = viewer.clientWidth || window.innerWidth || 360;
+      const direction = dx < 0 ? 1 : -1;
+      const nextIndex = (state.viewerIndex + direction + images.length) % images.length;
+      const nextRecord = images[nextIndex];
+      if (viewerIncomingImage.dataset.index !== String(nextIndex)) {
+        viewerIncomingImage.src = nextRecord.image.url;
+        viewerIncomingImage.dataset.index = String(nextIndex);
+      }
+      viewerImage.style.transition = "none";
+      viewerIncomingImage.style.transition = "none";
+      viewerImage.style.transform = currentViewerTransform(dx);
+      viewerIncomingImage.style.opacity = "1";
+      viewerIncomingImage.style.transform = `translate3d(${direction * width + dx}px, 0, 0)`;
+    }
+
+    function animateViewerSwitch(direction) {
+      if (state.viewerMediaType === "video") return;
+      const images = activeImageRecords();
+      if (images.length < 2) return;
+      const width = viewer.clientWidth || window.innerWidth || 360;
+      const nextIndex = (state.viewerIndex + direction + images.length) % images.length;
+      viewerIncomingImage.src = images[nextIndex].image.url;
+      viewerIncomingImage.style.opacity = "1";
+      viewerImage.style.transition = "none";
+      viewerIncomingImage.style.transition = "none";
+      viewerIncomingImage.style.transform = `translate3d(${direction * width}px, 0, 0)`;
+      window.requestAnimationFrame(() => {
+        viewerImage.style.transition = "transform 180ms cubic-bezier(.2, .75, .2, 1)";
+        viewerIncomingImage.style.transition = "transform 180ms cubic-bezier(.2, .75, .2, 1)";
+        viewerImage.style.transform = currentViewerTransform(-direction * width);
+        viewerIncomingImage.style.transform = "translate3d(0, 0, 0)";
+      });
+      window.setTimeout(() => {
+        showViewerImage(nextIndex);
+        viewerIncomingImage.removeAttribute("src");
+        viewerIncomingImage.removeAttribute("data-index");
+        resetViewerImage(false);
+      }, 180);
+    }
+
+    function openViewer(index) {
+      viewer.classList.add("open");
+      viewer.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      resetViewerScroll();
+      showViewerImage(index);
+    }
+
+    function openVideoViewer(index) {
+      viewer.classList.add("open");
+      viewer.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      resetViewerScroll();
+      showViewerVideo(index);
+    }
+
+    function closeViewer() {
+      viewer.classList.remove("open");
+      viewer.setAttribute("aria-hidden", "true");
+      viewer.classList.remove("video-mode");
+      viewerImage.removeAttribute("src");
+      viewerIncomingImage.removeAttribute("src");
+      viewerIncomingImage.removeAttribute("data-index");
+      viewerVideo.pause();
+      viewerVideo.removeAttribute("src");
+      viewerVideo.load();
+      viewerImage.style.transition = "";
+      viewerImage.style.transform = "";
+      viewerIncomingImage.style.transition = "";
+      viewerIncomingImage.style.transform = "";
+      viewerIncomingImage.style.opacity = "";
+      state.viewerRotation = 0;
+      state.viewerMediaType = "image";
+      viewerFavorite.hidden = false;
+      viewerFavorite.classList.remove("active");
+      viewerFavorite.textContent = "收藏";
+      viewerCopyPrompt.hidden = false;
+      viewerRotate.hidden = false;
+      resetViewerScroll();
+      resetViewerLayout();
+      viewerDelete.removeAttribute("data-filename");
+      viewerCopyPrompt.removeAttribute("data-prompt");
+      document.body.style.overflow = "";
+    }
+
+    function askConfirm(message) {
+      confirmMessage.textContent = message;
+      confirmDialog.classList.add("open");
+      confirmDialog.setAttribute("aria-hidden", "false");
+      return new Promise(resolve => {
+        const cleanup = result => {
+          confirmDialog.classList.remove("open");
+          confirmDialog.setAttribute("aria-hidden", "true");
+          confirmCancel.removeEventListener("click", onCancel);
+          confirmOk.removeEventListener("click", onOk);
+          confirmDialog.removeEventListener("click", onBackdrop);
+          resolve(result);
+        };
+        const onCancel = () => cleanup(false);
+        const onOk = () => cleanup(true);
+        const onBackdrop = event => {
+          if (event.target === confirmDialog) cleanup(false);
+        };
+        confirmCancel.addEventListener("click", onCancel);
+        confirmOk.addEventListener("click", onOk);
+        confirmDialog.addEventListener("click", onBackdrop);
+      });
+    }
+
+    async function deleteImages(filenames) {
+      const unique = [...new Set(filenames.filter(Boolean))];
+      if (!unique.length) return;
+      const ok = await askConfirm(`删除 ${unique.length} 张图片？`);
+      if (!ok) return;
+      await requestJson("/random_photo_prompt/mobile/gallery/delete", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({items: unique.map(filename => ({filename}))})
+      });
+      unique.forEach(filename => state.selectedImages.delete(filename));
+      await loadGallery();
+    }
+
+    async function deleteVideos(filenames) {
+      const unique = [...new Set(filenames.filter(Boolean))];
+      if (!unique.length) return;
+      const ok = await askConfirm(`删除 ${unique.length} 个视频？`);
+      if (!ok) return;
+      await requestJson("/random_photo_prompt/mobile/videos/delete", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({items: unique.map(filename => ({filename}))})
+      });
+      unique.forEach(filename => state.selectedVideos.delete(filename));
+      await loadGallery();
+    }
+
+    async function deleteFavorites(filenames) {
+      const unique = [...new Set(filenames.filter(Boolean))];
+      if (!unique.length) return;
+      const ok = await askConfirm(`移除 ${unique.length} 张收藏？`);
+      if (!ok) return;
+      await favoriteDbTransaction("readwrite", store => {
+        unique.forEach(filename => store.delete(filename));
+      });
+      unique.forEach(filename => state.selectedFavorites.delete(filename));
+      await loadFavorites();
+      renderWaterfall();
+    }
+
+    async function copyPromptText(text) {
+      const value = String(text || "").trim();
+      if (!value) {
+        setStatus("当前没有可复制的提示词。", true);
+        return;
+      }
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const textarea = document.createElement("textarea");
+          textarea.value = value;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          document.execCommand("copy");
+          textarea.remove();
+        }
+        setStatus("提示词已复制");
+      } catch (error) {
+        setStatus("复制失败，手机浏览器没有授权剪贴板。", true);
+      }
+    }
+
+    jobsEl.addEventListener("click", event => {
+      const button = event.target.closest(".thumb");
+      if (!button) return;
+      const images = imageRecords();
+      const index = images.findIndex(record => record.job.prompt_id === button.dataset.promptId && record.index === Number(button.dataset.imageIndex));
+      if (index >= 0) openViewer(index);
+    });
+
+    waterfallEl.addEventListener("click", event => {
+      if (state.galleryTab === "videos") return;
+      if (ignoreNextGalleryClick) {
+        ignoreNextGalleryClick = false;
+        return;
+      }
+      const button = event.target.closest(".photo-item");
+      if (!button) return;
+      const filename = button.dataset.filename;
+      if (state.editMode) {
+        toggleGalleryItem(button);
+        return;
+      }
+      const images = activeImageRecords();
+      const index = images.findIndex(record => imageKey(record.image) === filename);
+      if (index >= 0) openViewer(index);
+    });
+
+    videoWaterfallEl.addEventListener("click", event => {
+      if (state.galleryTab !== "videos") return;
+      if (ignoreNextGalleryClick) {
+        ignoreNextGalleryClick = false;
+        return;
+      }
+      const button = event.target.closest(".video-item");
+      if (!button) return;
+      const filename = button.dataset.filename;
+      if (state.editMode) {
+        toggleGalleryItem(button);
+        return;
+      }
+      const videos = videoRecords();
+      const index = videos.findIndex(record => videoKey(record.video) === filename);
+      if (index >= 0) openVideoViewer(index);
+    });
+
+    gallerySelectAll.addEventListener("click", () => {
+      if (state.galleryTab === "videos") {
+        const videos = videoRecords();
+        const allSelected = videos.length > 0 && state.selectedVideos.size === videos.length;
+        state.selectedVideos = allSelected ? new Set() : new Set(videos.map(record => videoKey(record.video)));
+        renderWaterfall();
+        return;
+      }
+      const images = activeImageRecords();
+      const selected = currentSelectedSet();
+      const allSelected = images.length > 0 && selected.size === images.length;
+      if (state.galleryTab === "favorites") {
+        state.selectedFavorites = allSelected ? new Set() : new Set(images.map(record => imageKey(record.image)));
+      } else {
+        state.selectedImages = allSelected ? new Set() : new Set(images.map(record => imageKey(record.image)));
+      }
+      renderWaterfall();
+    });
+
+    galleryEdit.addEventListener("click", () => {
+      state.editMode = !state.editMode;
+      if (!state.editMode) {
+        state.selectedImages.clear();
+        state.selectedVideos.clear();
+        state.selectedFavorites.clear();
+      }
+      renderWaterfall();
+    });
+
+    galleryDelete.addEventListener("click", () => {
+      if (state.galleryTab === "videos") {
+        deleteVideos([...state.selectedVideos]);
+        return;
+      }
+      if (state.galleryTab === "favorites") {
+        deleteFavorites([...state.selectedFavorites]);
+        return;
+      }
+      deleteImages([...state.selectedImages]);
+    });
+
+    viewerFavorite.addEventListener("click", () => {
+      toggleCurrentFavorite();
+    });
+
+    viewerCopyPrompt.addEventListener("click", () => {
+      copyPromptText(viewerCopyPrompt.dataset.prompt || viewerPrompt.textContent || "");
+    });
+
+    viewerRotate.addEventListener("click", () => {
+      if (state.viewerMediaType === "video") return;
+      state.viewerRotation = (state.viewerRotation + 90) % 360;
+      viewerImage.style.transition = "transform 180ms cubic-bezier(.2, .75, .2, 1)";
+      updateViewerLayout();
+    });
+
+    viewerDelete.addEventListener("click", async () => {
+      const filename = viewerDelete.dataset.filename;
+      if (state.viewerMediaType === "video") {
+        await deleteVideos([filename]);
+      } else if (state.galleryTab === "favorites") {
+        await deleteFavorites([filename]);
+      } else {
+        await deleteImages([filename]);
+      }
+      closeViewer();
+    });
+
+    viewerImage.addEventListener("load", () => {
+      updateViewerLayout();
+    });
+
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => switchTab(tab.dataset.tab));
+    });
+
+    galleryMediaTabs.forEach(tab => {
+      tab.addEventListener("click", () => switchGalleryTab(tab.dataset.galleryTab));
+    });
+
+    [scaleSelect, videoScaleSelect, shotSelect, workflowSelect, promptRuleSelect, zitModelSelect, zibModelSelect, loraNameSelect, videoFpsSelect, videoSecondsSelect, customPromptResolution].forEach(enhanceSelect);
+    customSelects.get(loraNameSelect)?.wrapper.classList.add("lora-select-wide-menu");
+    document.addEventListener("click", () => closeAllCustomSelects());
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeAllCustomSelects();
+    });
+
+    countUp.addEventListener("click", () => stepCount(1));
+    countDown.addEventListener("click", () => stepCount(-1));
+    videoCountUp.addEventListener("click", () => stepVideoCount(1));
+    videoCountDown.addEventListener("click", () => stepVideoCount(-1));
+    modeTabs.forEach(tab => {
+      tab.addEventListener("click", () => switchMode(tab.dataset.mode));
+    });
+    [scaleSelect, videoScaleSelect, shotSelect].forEach(select => {
+      select.addEventListener("change", () => {
+        renderCustomSelect(select);
+        saveSettings();
+      });
+    });
+    customPromptButton.addEventListener("click", openPromptDialog);
+    customPromptCancel.addEventListener("click", closePromptDialog);
+    promptDialog.addEventListener("click", event => {
+      if (event.target === promptDialog) closePromptDialog();
+    });
+    customPromptClear.addEventListener("click", () => {
+      state.customPrompt = "";
+      state.customResolution = "";
+      customPromptText.value = "";
+      setSelectValue(customPromptResolution, "");
+      updateCustomPromptButton();
+      saveSettings();
+      closePromptDialog();
+    });
+    customPromptOk.addEventListener("click", () => {
+      state.customPrompt = customPromptText.value.trim();
+      state.customResolution = customPromptResolution.value;
+      updateCustomPromptButton();
+      saveSettings();
+      closePromptDialog();
+    });
+    workflowSelect.addEventListener("change", () => {
+      renderCustomSelect(workflowSelect);
+      updateWorkflowModelVisibility();
+      saveSettings();
+      checkStatus();
+    });
+    zitModelSelect.addEventListener("change", () => {
+      renderCustomSelect(zitModelSelect);
+      saveSettings();
+    });
+    zibModelSelect.addEventListener("change", () => {
+      renderCustomSelect(zibModelSelect);
+      saveSettings();
+    });
+    loraNameSelect.addEventListener("change", () => {
+      renderCustomSelect(loraNameSelect);
+      saveSettings();
+    });
+    loraStrengthInput.addEventListener("input", saveSettings);
+    [videoFpsSelect, videoSecondsSelect].forEach(select => {
+      select.addEventListener("change", () => {
+        renderCustomSelect(select);
+        saveSettings();
+      });
+    });
+    videoActionInput.addEventListener("input", saveSettings);
+    async function refreshVideoActionForSource() {
+      if (!state.sourceImage?.filename) {
+        setStatus("请先选择一张图片。", true);
+        return;
+      }
+      state.videoActionNonce += 1;
+      pregenerateAction.disabled = true;
+      try {
+        const data = await requestJson("/random_photo_prompt/mobile/video/action", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            source_filename: imageKey(state.sourceImage),
+            scale: videoScaleSelect.value,
+            seconds: videoSecondsSelect.value,
+            previous_action: videoActionInput.value,
+            nonce: `${state.videoActionNonce}-${Date.now()}-${Math.random()}`
+          })
+        });
+        videoActionInput.value = data.action || "";
+        saveSettings();
+        setStatus("");
+      } catch (error) {
+        setStatus(error.message, true);
+      } finally {
+        pregenerateAction.disabled = false;
+      }
+    }
+    pregenerateAction.addEventListener("click", refreshVideoActionForSource);
+    sourcePicker.addEventListener("click", openSourceDialog);
+    sourceClear.addEventListener("click", () => {
+      if (state.sourceImage?.filename) {
+        state.sourceImage = null;
+        videoActionInput.value = "";
+        updateSourcePicker();
+        saveSettings();
+        setStatus("");
+      }
+    });
+    sourceCancel.addEventListener("click", closeSourceDialog);
+    sourceDialog.addEventListener("click", event => {
+      if (event.target === sourceDialog) closeSourceDialog();
+    });
+    sourceGrid.addEventListener("click", event => {
+      const button = event.target.closest(".source-choice");
+      if (!button) return;
+      const image = state.galleryImages.find(item => imageKey(item) === button.dataset.filename);
+      if (!image) return;
+      state.sourceImage = image;
+      videoActionInput.value = "";
+      updateSourcePicker();
+      saveSettings();
+      closeSourceDialog();
+      setStatus("");
+      refreshVideoActionForSource();
+    });
+
+    let pinchStartDistance = 0;
+    let pinchStartCols = 4;
+    let gallerySelecting = false;
+    let gallerySelectCandidate = false;
+    let gallerySelectionMode = "add";
+    let galleryTouchStartX = 0;
+    let galleryTouchStartY = 0;
+    let ignoreNextGalleryClick = false;
+    let viewerTouchStartX = 0;
+    let viewerTouchStartY = 0;
+    let viewerTouchDx = 0;
+    let viewerSwiping = false;
+    let viewerPinching = false;
+    let viewerDragging = false;
+    let viewerSwipeZone = false;
+    let viewerSuppressClick = false;
+    let viewerStartScale = 1;
+    let viewerStartOffsetX = 0;
+    let viewerStartOffsetY = 0;
+    let viewerPinchStartDistance = 0;
+
+    function touchDistance(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    }
+
+    function clampViewerScale(value) {
+      return Math.max(1, Math.min(5, value));
+    }
+
+    function clampViewerOffsets() {
+      const visualScale = state.viewerLayoutScale * state.viewerScale;
+      const visualWidth = Math.max(1, state.viewerRenderedWidth || viewerImage.clientWidth || viewerImageBox.clientWidth - 20) * visualScale;
+      const visualHeight = Math.max(1, state.viewerRenderedHeight || viewerImage.clientHeight || viewerImageBox.clientHeight - 10) * visualScale;
+      const boxWidth = Math.max(1, viewerImageBox.clientWidth - 20);
+      const boxHeight = Math.max(1, state.viewerViewportHeight || viewerImageBox.clientHeight - 10);
+      const extraX = Math.max(0, (visualWidth - boxWidth) / 2);
+      const extraY = Math.max(0, (visualHeight - boxHeight) / 2);
+      if (state.viewerScale <= 1.01 && extraY <= 1) {
+        state.viewerScale = 1;
+        state.viewerOffsetX = 0;
+        state.viewerOffsetY = 0;
+        return;
+      }
+      if (state.viewerScale <= 1.01) {
+        state.viewerScale = 1;
+        state.viewerOffsetX = 0;
+      }
+      state.viewerOffsetX = Math.max(-extraX, Math.min(extraX, state.viewerOffsetX));
+      state.viewerOffsetY = Math.max(-extraY, Math.min(extraY, state.viewerOffsetY));
+    }
+
+    function applyViewerZoom(animated = false) {
+      clampViewerOffsets();
+      viewerImage.style.transition = animated ? "transform 160ms cubic-bezier(.2, .75, .2, 1)" : "none";
+      viewerImage.style.transform = currentViewerTransform(0);
+    }
+
+    function isViewerSwipeZone(touch) {
+      return true;
+    }
+
+    function canDragViewerImage() {
+      return state.viewerScale > 1.01;
+    }
+
+    function setWaterfallCols(cols) {
+      state.waterfallCols = Math.max(1, Math.min(10, Math.round(cols)));
+      renderWaterfall();
+    }
+
+    function galleryItemSelector() {
+      return state.galleryTab === "videos" ? ".video-item" : ".photo-item";
+    }
+
+    function galleryItemContainer() {
+      return state.galleryTab === "videos" ? videoWaterfallEl : waterfallEl;
+    }
+
+    function setGalleryItemSelected(button, selectedState) {
+      const filename = button.dataset.filename;
+      const selected = currentSelectedSet();
+      if (!filename) return;
+      if (selectedState) {
+        selected.add(filename);
+        button.classList.add("selected");
+      } else {
+        selected.delete(filename);
+        button.classList.remove("selected");
+      }
+      galleryCount.textContent = `已选 ${selected.size} / ${currentGalleryRecords().length}`;
+      galleryDelete.disabled = selected.size < 1;
+    }
+
+    function toggleGalleryItem(button) {
+      const filename = button.dataset.filename;
+      if (!filename) return;
+      setGalleryItemSelected(button, !currentSelectedSet().has(filename));
+    }
+
+    function selectPhotoFromPoint(x, y) {
+      const element = document.elementFromPoint(x, y);
+      const button = element && element.closest ? element.closest(galleryItemSelector()) : null;
+      if (!button || !galleryItemContainer().contains(button)) return;
+      setGalleryItemSelected(button, gallerySelectionMode !== "remove");
+    }
+
+    waterfallPanel.addEventListener("touchstart", event => {
+      if (state.editMode && event.touches.length === 1) {
+        const touch = event.touches[0];
+        const button = event.target.closest(galleryItemSelector());
+        if (!button) return;
+        gallerySelectCandidate = true;
+        gallerySelecting = false;
+        gallerySelectionMode = currentSelectedSet().has(button.dataset.filename) ? "remove" : "add";
+        galleryTouchStartX = touch.clientX;
+        galleryTouchStartY = touch.clientY;
+        return;
+      }
+      if (event.touches.length !== 2) return;
+      pinchStartDistance = touchDistance(event.touches);
+      pinchStartCols = state.waterfallCols;
+    }, {passive: false});
+
+    waterfallPanel.addEventListener("touchmove", event => {
+      if (gallerySelecting && event.touches.length === 1) {
+        event.preventDefault();
+        const touch = event.touches[0];
+        selectPhotoFromPoint(touch.clientX, touch.clientY);
+        return;
+      }
+      if (gallerySelectCandidate && event.touches.length === 1) {
+        const touch = event.touches[0];
+        const dx = touch.clientX - galleryTouchStartX;
+        const dy = touch.clientY - galleryTouchStartY;
+        const distance = Math.hypot(dx, dy);
+        if (distance < 10) return;
+        if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+          gallerySelectCandidate = false;
+          galleryTouchStartX = 0;
+          galleryTouchStartY = 0;
+          return;
+        }
+        event.preventDefault();
+        gallerySelectCandidate = false;
+        gallerySelecting = true;
+        selectPhotoFromPoint(galleryTouchStartX, galleryTouchStartY);
+        selectPhotoFromPoint(touch.clientX, touch.clientY);
+        return;
+      }
+      if (event.touches.length !== 2 || !pinchStartDistance) return;
+      event.preventDefault();
+      const ratio = touchDistance(event.touches) / pinchStartDistance;
+      setWaterfallCols(pinchStartCols / ratio);
+    }, {passive: false});
+
+    waterfallPanel.addEventListener("touchend", event => {
+      if (gallerySelecting && event.touches.length < 1) {
+        gallerySelecting = false;
+        ignoreNextGalleryClick = true;
+        renderWaterfall();
+      }
+      if (gallerySelectCandidate && event.touches.length < 1) {
+        const changed = event.changedTouches[0];
+        const dx = changed ? changed.clientX - galleryTouchStartX : 0;
+        const dy = changed ? changed.clientY - galleryTouchStartY : 0;
+        if (Math.hypot(dx, dy) < 10) {
+          const button = document.elementFromPoint(galleryTouchStartX, galleryTouchStartY)?.closest?.(galleryItemSelector());
+          if (button && galleryItemContainer().contains(button)) {
+            toggleGalleryItem(button);
+            ignoreNextGalleryClick = true;
+          }
+        }
+        gallerySelectCandidate = false;
+        galleryTouchStartX = 0;
+        galleryTouchStartY = 0;
+      }
+      if (event.touches.length < 2) pinchStartDistance = 0;
+    }, {passive: true});
+
+    waterfallPanel.addEventListener("touchcancel", () => {
+      gallerySelecting = false;
+      gallerySelectCandidate = false;
+      galleryTouchStartX = 0;
+      galleryTouchStartY = 0;
+      pinchStartDistance = 0;
+      renderWaterfall();
+    }, {passive: true});
+
+    viewerImageBox.addEventListener("click", event => {
+      if (state.viewerMediaType === "video" && event.target === viewerVideo) return;
+      if (viewerSuppressClick) {
+        viewerSuppressClick = false;
+        return;
+      }
+      closeViewer();
+    });
+    viewer.addEventListener("click", event => {
+      if (event.target === viewer) closeViewer();
+    });
+    viewerPrompt.addEventListener("click", () => {
+      if (state.viewerMediaType === "video") closeViewer();
+    });
+    function resetViewerTouchState() {
+      viewerTouchStartX = 0;
+      viewerTouchStartY = 0;
+      viewerTouchDx = 0;
+      viewerSwiping = false;
+      viewerPinching = false;
+      viewerDragging = false;
+      viewerSwipeZone = false;
+      viewerPinchStartDistance = 0;
+      viewerIncomingImage.removeAttribute("data-index");
+    }
+
+    function handleViewerTouchStart(event) {
+      if (state.viewerMediaType === "video") return;
+      if (event.touches.length === 2) {
+        if (!viewerImageBox.contains(event.target)) return;
+        event.preventDefault();
+        viewerPinching = true;
+        viewerDragging = false;
+        viewerSwipeZone = false;
+        viewerSwiping = false;
+        viewerPinchStartDistance = touchDistance(event.touches);
+        viewerStartScale = state.viewerScale;
+        viewerStartOffsetX = state.viewerOffsetX;
+        viewerStartOffsetY = state.viewerOffsetY;
+        viewerImage.style.transition = "none";
+        return;
+      }
+      if (event.touches.length !== 1) return;
+      viewerTouchStartX = event.touches[0].clientX;
+      viewerTouchStartY = event.touches[0].clientY;
+      viewerTouchDx = 0;
+      viewerSwiping = false;
+      viewerSwipeZone = isViewerSwipeZone(event.touches[0]);
+      viewerDragging = canDragViewerImage() && !viewerSwipeZone;
+      viewerStartOffsetX = state.viewerOffsetX;
+      viewerStartOffsetY = state.viewerOffsetY;
+      viewerImage.style.transition = "none";
+    }
+
+    function handleViewerTouchMove(event) {
+      if (state.viewerMediaType === "video") return;
+      if (viewerPinching && event.touches.length === 2 && viewerPinchStartDistance) {
+        event.preventDefault();
+        const ratio = touchDistance(event.touches) / viewerPinchStartDistance;
+        state.viewerScale = clampViewerScale(viewerStartScale * ratio);
+        state.viewerOffsetX = viewerStartOffsetX;
+        state.viewerOffsetY = viewerStartOffsetY;
+        applyViewerZoom(false);
+        return;
+      }
+      if (!viewerTouchStartX || event.touches.length !== 1) return;
+      const dx = event.touches[0].clientX - viewerTouchStartX;
+      const dy = event.touches[0].clientY - viewerTouchStartY;
+      if (viewerDragging) {
+        if (state.viewerScale > 1.01) event.preventDefault();
+        state.viewerOffsetX = viewerStartOffsetX + dx;
+        state.viewerOffsetY = viewerStartOffsetY + dy;
+        applyViewerZoom(false);
+        return;
+      }
+      if (!viewerSwiping && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        viewerSwiping = true;
+      }
+      if (!viewerSwiping) return;
+      event.preventDefault();
+      viewerTouchDx = dx;
+      previewViewerSwipe(dx);
+    }
+
+    function handleViewerTouchEnd(event) {
+      if (state.viewerMediaType === "video") return;
+      if (viewerPinching) {
+        if (event.touches.length >= 2) return;
+        viewerPinching = false;
+        viewerPinchStartDistance = 0;
+        viewerSuppressClick = true;
+        applyViewerZoom(true);
+        return;
+      }
+      if (!viewerTouchStartX || !event.changedTouches.length) return;
+      const dx = viewerTouchDx || (event.changedTouches[0].clientX - viewerTouchStartX);
+      const dy = event.changedTouches[0].clientY - viewerTouchStartY;
+      viewerTouchStartX = 0;
+      viewerTouchStartY = 0;
+      viewerTouchDx = 0;
+      const swipeZone = viewerSwipeZone;
+      viewerSwipeZone = false;
+      if (viewerDragging) {
+        viewerDragging = false;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) viewerSuppressClick = true;
+        applyViewerZoom(true);
+        return;
+      }
+      const images = activeImageRecords();
+      const threshold = Math.min(72, (viewer.clientWidth || window.innerWidth || 360) * .14);
+      if (!swipeZone || !viewerSwiping || images.length < 2 || Math.abs(dx) < threshold || Math.abs(dx) < Math.abs(dy) * 1.15) {
+        viewerSwiping = false;
+        resetViewerImage(true);
+        return;
+      }
+      viewerSwiping = false;
+      viewerSuppressClick = true;
+      animateViewerSwitch(dx < 0 ? 1 : -1);
+    }
+
+    function handleViewerTouchCancel() {
+      resetViewerTouchState();
+      resetViewerImage(true);
+    }
+
+    [viewerImageBox, viewerPrompt].forEach(element => {
+      element.addEventListener("touchstart", handleViewerTouchStart, {passive: false});
+      element.addEventListener("touchmove", handleViewerTouchMove, {passive: false});
+      element.addEventListener("touchend", handleViewerTouchEnd, {passive: true});
+      element.addEventListener("touchcancel", handleViewerTouchCancel, {passive: true});
+    });
+    window.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeViewer();
+    });
+    window.addEventListener("resize", () => {
+      if (viewer.classList.contains("open")) updateViewerLayout();
+    });
+    document.addEventListener("gesturestart", event => {
+      event.preventDefault();
+    });
+
+    generatePanel.addEventListener("touchmove", event => {
+      if (event.touches.length > 1) event.preventDefault();
+    }, {passive: false});
+
+    function statusText(status) {
+      if (status === "completed") return "已完成";
+      if (status === "running") return "生成中";
+      if (status === "pending") return "排队中";
+      return "等待结果";
+    }
+
+    async function pollJobs() {
+      const active = [...state.jobs.values()].filter(isActiveJob);
+      if (!active.length) {
+        clearInterval(state.timer);
+        state.timer = null;
+        return;
+      }
+      for (const job of active) {
+        try {
+          const data = await requestJson(`/random_photo_prompt/mobile/job/${job.prompt_id}`);
+          job.status = data.status;
+          job.statusText = statusText(data.status);
+          job.images = data.images || [];
+          job.videos = data.videos || [];
+          if (data.status === "completed") {
+            const max = job.progress?.max || 1;
+            job.progress = {value: max, max, percent: 100, node: job.progress?.node || ""};
+          }
+          const video = job.videos[0];
+          if (video?.width && video?.height) {
+            job.width = video.width;
+            job.height = video.height;
+          }
+        } catch (error) {
+          job.statusText = error.message;
+        }
+      }
+      renderJobs();
+    }
+
+    function startPolling() {
+      if (state.timer) return;
+      ensureProgressSocket();
+      state.timer = setInterval(pollJobs, 2500);
+      pollJobs();
+    }
+
+    async function restoreSessionJobs() {
+      try {
+        const data = await requestJson("/random_photo_prompt/mobile/jobs");
+        const jobs = data.jobs || [];
+        const batchId = state.nextBatchId++;
+        jobs.forEach((job, index) => {
+          state.jobs.set(job.prompt_id, {
+            ...job,
+            batchId,
+            batchIndex: index + 1,
+            batchTotal: jobs.length,
+            statusText: statusText(job.status),
+            progress: job.status === "completed" ? {value: 1, max: 1, percent: 100, node: ""} : null,
+            images: job.images || [],
+            videos: job.videos || []
+          });
+        });
+        renderJobs();
+        startPolling();
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    }
+
+    generateBtn.addEventListener("click", async () => {
+      const isVideoMode = state.mode === "video";
+      const requestedCount = isVideoMode ? currentVideoCount() : currentCount();
+      saveSettings();
+      const remainingSlots = remainingActiveJobSlots();
+      if (remainingSlots <= 0) {
+        setStatus(`当前任务数已达到 ${state.maxActiveJobs}，请等待完成后再添加。`, true);
+        return;
+      }
+      const count = Math.min(requestedCount, remainingSlots);
+      if (count < requestedCount) {
+        setStatus(`当前最多还能添加 ${count} 个任务，已自动限制到 ${state.maxActiveJobs}。`);
+      }
+      if (isVideoMode && !state.sourceImage?.filename) {
+        setStatus("请先选择一张图片。", true);
+        return;
+      }
+      if (count > 8 && !(await askConfirm(`确认一次生成 ${count} ${isVideoMode ? "个视频" : "张图片"}？`))) {
+        return;
+      }
+      generateBtn.disabled = true;
+      try {
+        ensureProgressSocket();
+        const url = isVideoMode ? "/random_photo_prompt/mobile/video/generate" : "/random_photo_prompt/mobile/generate";
+        const payload = isVideoMode
+          ? {
+              client_id: state.clientId,
+              scale: videoScaleSelect.value,
+              source_filename: imageKey(state.sourceImage),
+              action_text: videoActionInput.value,
+              fps: videoFpsSelect.value,
+              seconds: videoSecondsSelect.value,
+              count
+            }
+          : {
+              client_id: state.clientId,
+              scale: scaleSelect.value,
+              shot: shotSelect.value,
+              workflow: workflowSelect.value,
+              prompt_rule: promptRuleSelect.value,
+              zit_model: zitModelSelect.value,
+              zib_model: zibModelSelect.value,
+              lora_name: loraNameSelect.value,
+              lora_strength: loraStrengthInput.value,
+              custom_prompt: state.customPrompt.trim(),
+              custom_resolution: state.customResolution,
+              count
+            };
+        const data = await requestJson(url, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const batchId = state.nextBatchId++;
+        const jobs = data.jobs || [];
+        jobs.forEach((job, index) => {
+          state.jobs.set(job.prompt_id, {
+            ...job,
+            batchId,
+            batchIndex: index + 1,
+            batchTotal: jobs.length || count,
+            status: "pending",
+            statusText: "排队中",
+            progress: null,
+            images: [],
+            videos: []
+          });
+        });
+        if (data.errors && data.errors.length) {
+          setStatus("有任务没有排进去，请检查电脑端工作流。", true);
+        } else {
+          setStatus("");
+        }
+        renderJobs();
+        startPolling();
+        if (isVideoMode) switchGalleryTab("videos");
+      } catch (error) {
+        setStatus(error.message, true);
+        window.alert(error.message);
+      } finally {
+        await checkStatus();
+      }
+    });
+
+    restoreSettings();
+    checkStatus();
+    restoreSessionJobs();
+    loadGallery();
+  </script>
+</body>
+</html>
