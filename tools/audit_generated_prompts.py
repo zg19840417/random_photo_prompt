@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "generated_prompt_audit.md"
 
-SCALES = ("normal", "bold", "nsfw")
+SCALES = ("normal", "bold", "bold_no_outfit", "nsfw")
 SHOTS = ("head_shot", "upper_body", "half_body", "large_half_body", "full_body")
 SHOT_INPUTS = {
     "head_shot": "头部",
@@ -22,9 +22,10 @@ SHOT_INPUTS = {
 }
 
 EXPECTED_DIMENSIONS = {
-    "normal": ("camera", "character", "makeup", "outfit", "pose_expression", "scene_light"),
-    "bold": ("camera", "character", "makeup", "outfit", "pose_expression", "scene_light"),
-    "nsfw": ("camera", "character", "makeup", "pose_expression", "scene_light"),
+    "normal": ("camera", "character", "outfit", "pose_expression", "scene_light"),
+    "bold": ("camera", "character", "outfit", "pose_expression", "scene_light"),
+    "bold_no_outfit": ("camera", "character", "pose_expression", "scene_light"),
+    "nsfw": ("camera", "character", "pose_expression", "scene_light"),
 }
 
 DIMENSION_LABELS = {
@@ -97,7 +98,7 @@ MOBILE_RESOLUTION_RULES = {
     ),
     "half_body": (
         (("横躺", "侧躺", "仰躺", "平躺", "俯拍", "顶视角", "床", "横向", "横跨", "横向靠", "横向坐", "横向趴", "沿宽画幅", "斜向铺"), {"aspect": "landscape", "framing": "横向半身镜头，腰部及以上入镜，头部、肩颈、胸部和腰部完整"}),
-        (("坐", "坐姿", "跪", "跪坐", "膝", "直立", "站", "站立", "竖向", "纵向"), {"aspect": "portrait", "framing": "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手完整"}),
+        (("坐", "坐姿", "跪", "跪坐", "膝", "直立", "站", "站立", "竖向", "纵向"), {"aspect": "portrait", "framing": "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手入镜"}),
     ),
     "large_half_body": (
         (("横躺", "侧躺", "仰躺", "平躺", "俯拍", "顶视角", "床", "横向", "横跨", "横向靠", "横向坐", "横向趴", "沿宽画幅", "斜向铺"), {"aspect": "landscape", "framing": "横向大半身镜头，小腿及以上入镜，身体沿宽画幅展开到小腿"}),
@@ -114,7 +115,7 @@ MOBILE_RESOLUTION_RULES = {
 MOBILE_DEFAULT_RESOLUTIONS = {
     "full_body": {"aspect": "portrait", "framing": "竖向全身构图，从头到脚完整入镜，姿势外轮廓完整"},
     "large_half_body": {"aspect": "portrait", "framing": "竖向大半身镜头，小腿及以上入镜，头部、脸部、肩颈、胸部、腰部、臀部、大腿、膝盖和小腿完整入镜"},
-    "half_body": {"aspect": "portrait", "framing": "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手完整"},
+    "half_body": {"aspect": "portrait", "framing": "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手入镜"},
     "upper_body": {"aspect": "portrait", "framing": "上半身镜头，胸部及以上入镜，头顶完整，画面停在上腰"},
     "head_shot": {"aspect": "portrait", "framing": "头部镜头，肩膀及以上入镜，头顶完整"},
 }
@@ -165,7 +166,7 @@ MOBILE_FRAMING_COMPACT_REPLACEMENTS = {
     "绔栧悜鍏ㄨ韩鏋勫浘锛屽ご閮ㄣ€佹墜鑷傘€佽吙閮ㄣ€佽剼閮ㄥ拰濮垮娍澶栬疆寤撳畬鏁?": "竖向全身构图，外轮廓完整",
     "绐勯暱鍏ㄨ韩鏋勫浘锛屼粠澶撮《鍒拌剼鎺屽畬鏁村叆闀滐紝鑴氫笅鐣欏湴闈㈣竟璺?": "窄长全身构图，脚下留地面边距",
     "妯悜鍗婅韩闀滃ご锛岃叞閮ㄥ強浠ヤ笂鍏ラ暅锛屽ご閮ㄣ€佽偐棰堛€佽兏閮ㄥ拰鑵伴儴瀹屾暣": "横向半身构图，腰部以上完整",
-    "绔栧悜鍗婅韩闀滃ご锛岃叞閮ㄥ強浠ヤ笂鍏ラ暅锛屽ご閮ㄣ€佽兏鑵板拰鍙屾墜瀹屾暣": "竖向半身构图，胸腰和双手完整",
+    "绔栧悜鍗婅韩闀滃ご锛岃叞閮ㄥ強浠ヤ笂鍏ラ暅锛屽ご閮ㄣ€佽兏鑵板拰鍙屾墜瀹屾暣": "竖向半身构图，胸腰和双手入镜",
     "妯悜澶у崐韬暅澶达紝灏忚吙鍙婁互涓婂叆闀滐紝韬綋娌垮鐢诲箙灞曞紑鍒板皬鑵?": "横向大半身构图，身体沿宽画幅展开",
     "绔栧悜澶у崐韬暅澶达紝灏忚吙鍙婁互涓婂叆闀滐紝澶撮儴鍒板皬鑵垮畬鏁?": "竖向大半身构图，头部到小腿完整",
     "妯悜涓婂崐韬暅澶达紝鑳搁儴鍙婁互涓婂叆闀滐紝澶撮《瀹屾暣": "横向上半身构图，头顶完整",
@@ -223,14 +224,363 @@ PROMPT_LENGTH_BUDGETS = {
 
 DIMENSION_LENGTH_BUDGETS = {
     "camera": 90,
-    "character": 130,
+    "character": 210,
     "makeup": 90,
-    "outfit": 100,
-    "pose_expression": 130,
-    "scene_light": 110,
-    "quality": 80,
+    "outfit": 140,
+    "pose_expression": 170,
+    "scene_light": 180,
+    "quality": 130,
 }
-PROMPT_PART_ORDER = ("camera", "character", "makeup", "outfit", "pose_expression", "scene_light", "quality")
+PROMPT_PART_ORDER = ("camera", "character", "outfit", "pose_expression", "scene_light", "quality")
+
+PHOTOGRAPHIC_NATURALNESS_MARKERS = (
+    "真实皮肤纹理",
+    "自然皮肤纹理",
+    "真实镜头景深",
+    "清晰镜头景深",
+    "高光不过曝",
+    "暗部有层次",
+    "真实反光",
+    "细颗粒",
+)
+CONCRETE_PHOTO_MARKERS = (
+    "高光",
+    "阴影",
+    "暗部",
+    "层次",
+    "边缘光",
+    "轮廓光",
+    "反光",
+    "景深",
+    "胶片",
+    "调色",
+    "颗粒",
+    "肤质",
+    "肤纹",
+)
+GENERIC_QUALITY_MARKERS = ("高级", "质感", "氛围", "大片", "真实写真", "ultra detailed")
+SENSUAL_TENSION_MARKERS = (
+    "直视",
+    "凝视",
+    "盯",
+    "眼神",
+    "挑衅",
+    "克制微笑",
+    "嘴角",
+    "锁骨",
+    "胸腰",
+    "腰线",
+    "臀腿",
+    "大腿",
+    "曲线",
+    "贴近",
+    "压向镜头",
+)
+
+SEDUCTIVE_LIGHT_MARKERS = (
+    "夜景",
+    "夜色",
+    "床头",
+    "暗光",
+    "暗部",
+    "霓虹",
+    "灯带",
+    "窄光",
+    "侧光",
+    "暖光",
+    "镜面",
+    "湿光",
+    "雨夜",
+    "低位",
+    "窗外城市",
+)
+
+TEASING_POSE_MARKERS = (
+    "舌尖",
+    "俯视镜头",
+    "低机位",
+    "贴近镜头",
+    "靠近镜头",
+    "近大远小",
+    "脚尖",
+    "脚掌",
+    "裸足",
+    "足弓",
+    "手掌",
+    "手指",
+    "黑色指甲",
+    "黑色手指甲",
+    "眼神微眯",
+    "斜看镜头",
+)
+
+BOLD_OUTFIT_NUDE_RISK_MARKERS = (
+    "极少覆盖",
+    "最低覆盖",
+    "覆盖面积极少",
+    "极少量半透明必要遮挡",
+    "半透明必要遮挡",
+    "必要遮挡",
+    "近似饰品",
+    "接近饰品",
+    "几乎没有完整衣物轮廓",
+    "几乎没有传统衣物轮廓",
+    "不形成完整上衣或裙装轮廓",
+    "布料存在感降到最低",
+    "轻薄料少到近似饰品",
+    "大片皮肤边距",
+    "只剩几条窄带",
+    "只有极细窄带",
+    "微型布片",
+    "小片不透明布片",
+)
+
+BOLD_OUTFIT_BANNED_MATERIAL_MARKERS = (
+    "乳胶",
+    "乳胶感",
+    "亮面皮革",
+    "皮革",
+    "皮质",
+    "皮裙",
+    "PVC",
+    "pvc",
+    "latex",
+    "leather",
+)
+
+FINAL_PROMPT_BAD_PHRASES = (
+    "横向竖向",
+    "横向平视腰部及以",
+    "看着向镜头",
+    "斜看观众",
+    "形成近景焦点",
+    "嘴角是眼神",
+    "嘴角是明亮嘲弄笑",
+    "浅淡微笑意",
+    "表情眼神",
+    "画，面",
+    "把，阳光",
+    "大下巴",
+    "大膝盖",
+    "非显式边界",
+    "维持清晰姿态边界",
+    "诱惑焦点",
+    "诱惑感集中",
+    "带着勾引意味",
+    "私密邀请感",
+    "私房张力",
+    "压住镜头",
+    "让手脚更醒目",
+    "完整身体轮廓",
+    "双乳挺立",
+    "甜中带藐视",
+    "表情微笑",
+    "嘴角带浅淡微笑感",
+    "嘴角带一点嘴角",
+    "眼神斜看镜头和",
+    "腰部、腰部",
+    "乳沟深邃",
+    "从上方角度可以看到",
+    "双手手指轻轻按压在自己胸前",
+    "乳尖在衣物下挺立",
+    "双乳在胸前挺立",
+    "宽大的，落地",
+    "午后，光线",
+    "高光把画面推到近处",
+    "高光地画面推到近处",
+    "彩色棚拍近景",
+    "视线沿手指",
+    "抬眼露出嘴角",
+    "抬眼露出甜美又危险",
+    "甜美又危险的挑逗笑",
+    "成为构图重点",
+    "脚部落点",
+    "连续拉开",
+    "非室内道具",
+    "人物轮廓清楚轻盈",
+    "强烈诱惑的竖向构图",
+    "，。",
+    "收出腰线",
+    "贴颈细项圈",
+    "贴锁细项圈",
+    "胸腰和双手完整",
+    "形成斜向对角线",
+    "眼神燃跳",
+    "托亮身体全色阳光镶边",
+    "人物轮廓带出轻盈轮廓",
+    "轻轻侧偏带浅淡",
+    "侧偏带浅淡",
+    "竖向S形曲线",
+    "纵向S曲线",
+    "纵向S形曲线",
+    "完整S线",
+    "被姿态拉开",
+    "双手引导视线经过",
+    "墙角或，",
+    "显得更有冲击力",
+    "成为画面重点",
+    "形成横向张力",
+    "形成竖向曲线",
+    "形成紧张对角线",
+    "紧张对角线",
+    "竖向坐立",
+    "眼神看向镜头",
+    "狐眼眼神放松带",
+    "自然反光托亮人物边缘",
+    "明亮笑弧",
+    "小号刺绣标出现在画面下缘",
+    "性感更直接",
+    "更直接",
+    "眼神眼神",
+    "嘴角嘴角",
+    "身体身体",
+    "彩色光只停在水面边缘",
+    "日光反射到身体边缘",
+    "手指从画面前景靠近唇边，近大远小",
+    "她抬眼",
+    "透明薄唇",
+    "肩线保持干净",
+    "横向展开左手",
+    "肩颈线条眼神",
+    "眼神勾人地看向镜头",
+    "近处手掌贴近镜头，脚尖落在画面下缘，近处手掌贴近镜头",
+    "她抬眼微笑",
+    "抬眼微笑",
+    "让腿部和手指更醒目",
+    "保持优雅S线",
+    "的裤腰",
+    "腰部以上半身",
+    "上下呼应",
+    "很浅的浅淡",
+)
+
+NON_VISUAL_SCENE_PHRASES = (
+    "空气里弥漫",
+    "空气中充满",
+    "空气中是",
+    "气息",
+    "花香",
+    "水声",
+    "回响",
+    "传来",
+    "让人联想到",
+)
+
+ABSTRACT_POSE_PHRASES = (
+    "勾引意味",
+    "诱惑感集中",
+    "压迫感",
+    "藐视感",
+    "私密邀请",
+    "勾人弧度",
+    "视觉路径",
+    "视线沿手指",
+    "画面大胆",
+    "姿态边界",
+    "构图重点",
+    "连续拉开",
+)
+
+HUMAN_REVIEW_ABSTRACT_MARKERS = (
+    "焦点",
+    "重点",
+    "构图重点",
+    "视觉中心",
+    "视觉焦点",
+    "张力",
+    "氛围",
+    "诱惑感",
+    "压迫感",
+    "邀请感",
+    "边界",
+    "层次感",
+)
+
+HUMAN_REVIEW_HIGH_RISK_MARKERS = (
+    "焦点",
+    "视觉焦点",
+    "构图重点",
+    "视觉中心",
+    "诱惑感",
+    "压迫感",
+    "邀请感",
+    "边界",
+    "显得",
+    "可以看到",
+    "而非",
+    "用于",
+    "用来",
+    "收出",
+    "连续拉开",
+)
+
+HUMAN_REVIEW_EXPLANATION_MARKERS = (
+    "可以看到",
+    "来自",
+    "而非",
+    "用于",
+    "用来",
+    "作为",
+    "让人",
+    "显得",
+    "呈现",
+    "形成",
+    "成为",
+    "保持",
+    "维持",
+)
+
+HUMAN_REVIEW_UNNATURAL_MARKERS = (
+    "收出",
+    "完整",
+    "清楚",
+    "明确",
+    "自然垂落",
+    "非常醒目",
+    "轮廓稳定",
+    "入画",
+    "入镜",
+    "短截",
+    "下方重点",
+    "胸腰",
+)
+
+HUMAN_REVIEW_SCOPE_MARKERS = (
+    "全身像",
+    "半身像",
+    "大半身像",
+    "上半身像",
+    "脸部特写",
+    "头部特写",
+    "横向构图",
+    "竖向构图",
+    "方形头部",
+)
+
+BOLD_OUTFIT_AESTHETIC_CONFLICT_GROUPS = (
+    (
+        ("吊带丝袜", "长筒丝袜", "连裤袜", "过膝长袜"),
+        ("工装短裤", "运动短裤", "运动短裙", "牛仔短裤", "直筒短裤", "热裤", "运动风短背心"),
+        "丝袜/袜带不应和工装、运动、牛仔短裤硬混搭",
+    ),
+)
+
+BOLD_OUTFIT_TOO_CASUAL_MARKERS = (
+    "西装马甲",
+    "西装短裤",
+    "针织",
+    "运动风",
+    "运动背心",
+    "阔腿短裤",
+    "普通短裤",
+    "热裤",
+)
+
+CAMERA_STACK_PATTERNS = (
+    ("头部近景", "方形头部镜头"),
+    ("贴近镜头的头部肖像", "肩膀及以上入镜"),
+    ("竖向上半身写真构图", "竖向上半身构图"),
+)
 
 
 def load_prompt_engine():
@@ -311,8 +661,8 @@ def stats_for_item(scale: str, shot: str, aspect: str, sample: int, item: dict) 
 def missing_dimensions(scale: str, parts: dict[str, str]) -> list[str]:
     expected = EXPECTED_DIMENSIONS[scale]
     missing = [name for name in expected if not parts.get(name, "").strip()]
-    if scale == "nsfw" and parts.get("outfit", "").strip():
-        missing.append("nsfw_outfit_should_be_empty")
+    if scale in {"bold_no_outfit", "nsfw"} and parts.get("outfit", "").strip():
+        missing.append(f"{scale}_outfit_should_be_empty")
     return missing
 
 
@@ -365,7 +715,9 @@ def enforce_prompt_length(parts: dict[str, str], max_length: int = MAX_POSITIVE_
     return compacted
 
 
-def apply_mobile_framing(item: dict, resolution: dict[str, str]) -> dict:
+def apply_mobile_framing(item: dict, resolution: dict[str, str], enabled: bool = False) -> dict:
+    if not enabled:
+        return item
     framing = resolution.get("framing")
     if not framing:
         return item
@@ -373,7 +725,17 @@ def apply_mobile_framing(item: dict, resolution: dict[str, str]) -> dict:
     camera = str(parts.get("camera") or "")
     if any(marker in camera for marker in ("入镜", "镜头", "构图", "画面", "头顶", "完整")):
         framing = MOBILE_FRAMING_COMPACT_REPLACEMENTS.get(framing, framing)
-    if framing not in camera:
+    camera_first = re.split(r"[，,]", camera)[0].strip() if camera else ""
+    framing_first = re.split(r"[，,]", framing)[0].strip()
+    scope_markers = ("胸部及以上入镜", "腰部及以上入镜", "肩膀及以上入镜", "从头到脚完整入镜", "大腿以上镜头", "头顶完整")
+    already_covered = (
+        framing in camera
+        or camera_first == framing_first
+        or (camera_first and camera_first in framing)
+        or (framing_first and framing_first in camera)
+        or any(marker in camera and marker in framing for marker in scope_markers)
+    )
+    if not already_covered:
         parts["camera"] = f"{camera}，{framing}" if camera else framing
     parts = enforce_prompt_length(parts)
     rebuilt = dict(item)
@@ -417,17 +779,25 @@ def duplicate_findings(scale: str, shot: str, aspect: str, sample: int, prompt: 
 def contradiction_findings(scale: str, shot: str, aspect: str, sample: int, prompt: str, parts: dict[str, str]) -> list[Finding]:
     findings: list[Finding] = []
 
-    if scale == "nsfw" and parts.get("outfit", "").strip():
-        findings.append(Finding("error", scale, shot, aspect, sample, "nsfw_outfit_leak", "NSFW final prompt should not include outfit dimension", prompt))
+    if scale in {"bold_no_outfit", "nsfw"} and parts.get("outfit", "").strip():
+        findings.append(Finding("error", scale, shot, aspect, sample, "outfit_leak", "This scale should not include outfit dimension", prompt))
+    if scale == "bold":
+        outfit = parts.get("outfit", "")
+        hits = [marker for marker in BOLD_OUTFIT_NUDE_RISK_MARKERS if marker in outfit]
+        if hits:
+            findings.append(Finding("error", scale, shot, aspect, sample, "bold_outfit_nude_risk", "、".join(hits), prompt))
+        material_hits = [marker for marker in BOLD_OUTFIT_BANNED_MATERIAL_MARKERS if marker in outfit]
+        if material_hits:
+            findings.append(Finding("error", scale, shot, aspect, sample, "bold_outfit_banned_material", "、".join(material_hits), prompt))
 
     camera = parts.get("camera", "")
-    if shot == "head_shot" and not ("头部" in camera or "肩膀及以上" in camera or "肩部以上" in camera):
+    if shot == "head_shot" and not ("头部" in camera or "肩膀以上" in camera or "肩膀及以上" in camera or "肩部以上" in camera):
         findings.append(Finding("warning", scale, shot, aspect, sample, "camera_sentence_mismatch", camera, prompt))
-    if shot == "upper_body" and not ("上半身" in camera or "胸部及以上" in camera or "完整胸部" in camera):
+    if shot == "upper_body" and not ("上半身" in camera or "胸部及以上" in camera or "胸部以上" in camera):
         findings.append(Finding("warning", scale, shot, aspect, sample, "camera_sentence_mismatch", camera, prompt))
-    if shot == "half_body" and not ("半身" in camera and ("腰部" in camera or "腰线" in camera)):
+    if shot == "half_body" and not ("半身" in camera or "腰部及以上" in camera or "腰部以上" in camera):
         findings.append(Finding("warning", scale, shot, aspect, sample, "camera_sentence_mismatch", camera, prompt))
-    if shot == "large_half_body" and not ("大半身" in camera or "小腿及以上" in camera or "小腿" in camera):
+    if shot == "large_half_body" and not ("大半身" in camera or "小腿及以上" in camera or "小腿" in camera or "大腿以上镜头" in camera):
         findings.append(Finding("warning", scale, shot, aspect, sample, "camera_sentence_mismatch", camera, prompt))
     if shot == "full_body" and "全身" not in camera:
         findings.append(Finding("warning", scale, shot, aspect, sample, "camera_sentence_mismatch", camera, prompt))
@@ -457,6 +827,111 @@ def contradiction_findings(scale: str, shot: str, aspect: str, sample: int, prom
     return findings
 
 
+def quality_findings(scale: str, shot: str, aspect: str, sample: int, prompt: str, parts: dict[str, str]) -> list[Finding]:
+    findings: list[Finding] = []
+    scene_quality = "，".join(str(parts.get(name, "")) for name in ("scene_light", "quality"))
+    concrete_hits = [marker for marker in CONCRETE_PHOTO_MARKERS if marker in scene_quality]
+    natural_hits = [marker for marker in PHOTOGRAPHIC_NATURALNESS_MARKERS if marker in prompt]
+    generic_count = sum(prompt.count(marker) for marker in GENERIC_QUALITY_MARKERS)
+    if generic_count >= 4 and len(concrete_hits) < 2:
+        findings.append(Finding("info", scale, shot, aspect, sample, "generic_quality_stack", f"generic={generic_count}, concrete={len(concrete_hits)}", prompt))
+    if len(natural_hits) < 2:
+        findings.append(Finding("info", scale, shot, aspect, sample, "photo_naturalness_missing", "missing enough real skin / exposure / depth markers", prompt))
+    if scale in {"bold", "bold_no_outfit", "nsfw"}:
+        pose = str(parts.get("pose_expression") or "")
+        tension_hits = [marker for marker in SENSUAL_TENSION_MARKERS if marker in pose]
+        if len(tension_hits) < 2:
+            findings.append(Finding("info", scale, shot, aspect, sample, "low_sensual_tension", "missing gaze / expression / body-line tension anchors", prompt))
+    if scale in {"bold", "bold_no_outfit"}:
+        scene = str(parts.get("scene_light") or "")
+        pose = str(parts.get("pose_expression") or "")
+        seductive_light_hits = [marker for marker in SEDUCTIVE_LIGHT_MARKERS if marker in scene]
+        teasing_pose_hits = [marker for marker in TEASING_POSE_MARKERS if marker in pose]
+        if len(seductive_light_hits) < 2:
+            findings.append(Finding("warning", scale, shot, aspect, sample, "weak_seductive_light", "二/三档场景光线没有足够夜景/暗光/霓虹/镜面/湿光支撑", prompt))
+        if len(teasing_pose_hits) < 2:
+            findings.append(Finding("warning", scale, shot, aspect, sample, "weak_teasing_pose", "二/三档姿势缺少手足前景/俯视/低机位/舌尖等挑逗动作", prompt))
+    return findings
+
+
+def final_semantic_findings(scale: str, shot: str, aspect: str, sample: int, prompt: str, parts: dict[str, str]) -> list[Finding]:
+    findings: list[Finding] = []
+    bad_hits = [phrase for phrase in FINAL_PROMPT_BAD_PHRASES if phrase in prompt]
+    if bad_hits:
+        findings.append(Finding("error", scale, shot, aspect, sample, "final_bad_phrase", "、".join(bad_hits[:8]), prompt))
+
+    scene = str(parts.get("scene_light") or "")
+    scene_hits = [phrase for phrase in NON_VISUAL_SCENE_PHRASES if phrase in scene]
+    if scene_hits:
+        findings.append(Finding("error", scale, shot, aspect, sample, "non_visual_scene_text", "、".join(scene_hits), prompt))
+
+    pose = str(parts.get("pose_expression") or "")
+    abstract_hits = [phrase for phrase in ABSTRACT_POSE_PHRASES if phrase in pose]
+    if abstract_hits:
+        findings.append(Finding("warning", scale, shot, aspect, sample, "abstract_pose_text", "、".join(abstract_hits), prompt))
+    if shot == "head_shot" and re.match(r"^(头部近景|贴近镜头的头部肖像|竖向头部写真构图|方形头部)", pose):
+        findings.append(Finding("warning", scale, shot, aspect, sample, "pose_repeats_camera_scope", pose.split("，", 1)[0], prompt))
+
+    camera = str(parts.get("camera") or "")
+    camera_clause_count = len([clause for clause in re.split(r"[，。]", camera) if clause.strip()])
+    if camera_clause_count > 2:
+        findings.append(Finding("warning", scale, shot, aspect, sample, "camera_over_stacked", f"{camera_clause_count} clauses: {camera}", prompt))
+    for left, right in CAMERA_STACK_PATTERNS:
+        if left in camera and right in camera:
+            findings.append(Finding("warning", scale, shot, aspect, sample, "camera_duplicate_scope", f"{left} + {right}: {camera}", prompt))
+            break
+
+    if scale in {"bold", "bold_no_outfit"} and any(marker in prompt for marker in ("露点", "乳头", "私处", "全裸", "裸露")):
+        findings.append(Finding("error", scale, shot, aspect, sample, "bold_explicit_leak", "二档/三档不应出现露点/裸体直白词", prompt))
+    if scale == "bold":
+        outfit = str(parts.get("outfit") or "")
+        casual_hits = [marker for marker in BOLD_OUTFIT_TOO_CASUAL_MARKERS if marker in outfit]
+        if casual_hits:
+            findings.append(Finding("warning", scale, shot, aspect, sample, "bold_outfit_too_casual", "、".join(casual_hits), prompt))
+        for left_markers, right_markers, detail in BOLD_OUTFIT_AESTHETIC_CONFLICT_GROUPS:
+            if any(marker in outfit for marker in left_markers) and any(marker in outfit for marker in right_markers):
+                findings.append(Finding("warning", scale, shot, aspect, sample, "bold_outfit_aesthetic_conflict", detail, prompt))
+                break
+    if scale == "normal" and any(marker in pose for marker in ("挑逗", "诱惑", "勾引", "私房")):
+        findings.append(Finding("warning", scale, shot, aspect, sample, "normal_sensual_drift", "一档姿势不应服务性感诱惑", prompt))
+    if re.search(r"嘴角(?:带|是|有)?[^，。]{0,10}(?:微笑|笑意)[，。][^。]{0,40}嘴角(?:带|是|有)?[^，。]{0,10}(?:微笑|笑意)", prompt):
+        findings.append(Finding("warning", scale, shot, aspect, sample, "duplicated_expression_semantics", "嘴角/笑意重复堆叠", prompt))
+    return findings
+
+
+def human_review_findings(scale: str, shot: str, aspect: str, sample: int, prompt: str, parts: dict[str, str]) -> list[Finding]:
+    findings: list[Finding] = []
+    review_parts = ("camera", "outfit", "pose_expression", "scene_light", "quality")
+    for name in review_parts:
+        text = str(parts.get(name) or "")
+        if not text:
+            continue
+        label = DIMENSION_LABELS.get(name, name)
+        for clause in split_clauses(text):
+            if "形成背景层次" in clause:
+                continue
+            reasons: list[str] = []
+            high_risk_hits = [marker for marker in HUMAN_REVIEW_HIGH_RISK_MARKERS if marker in clause]
+            abstract_hits = [marker for marker in HUMAN_REVIEW_ABSTRACT_MARKERS if marker in clause]
+            explanation_hits = [marker for marker in HUMAN_REVIEW_EXPLANATION_MARKERS if marker in clause]
+            unnatural_hits = [marker for marker in HUMAN_REVIEW_UNNATURAL_MARKERS if marker in clause]
+            scope_hits = [marker for marker in HUMAN_REVIEW_SCOPE_MARKERS if marker in clause]
+            if abstract_hits and (high_risk_hits or len(abstract_hits) >= 2):
+                reasons.append(f"抽象目的词: {'、'.join(abstract_hits[:3])}")
+            if explanation_hits and (high_risk_hits or (name == "pose_expression" and abstract_hits)):
+                reasons.append(f"解释型语言: {'、'.join(explanation_hits[:3])}")
+            if unnatural_hits and name != "camera" and (high_risk_hits or len(unnatural_hits) >= 2):
+                reasons.append(f"泛词/别扭搭配: {'、'.join(unnatural_hits[:4])}")
+            if name != "camera" and scope_hits:
+                reasons.append(f"镜头词混入{label}: {'、'.join(scope_hits[:3])}")
+            if not reasons:
+                continue
+            detail = f"{label}句子可疑：{clause}（{'; '.join(reasons)}）"
+            findings.append(Finding("warning", scale, shot, aspect, sample, "human_review_sentence", detail, prompt))
+            break
+    return findings
+
+
 def audit_item(scale: str, shot: str, aspect: str, sample: int, item: dict) -> list[Finding]:
     prompt = item["positive_prompt"]
     parts = item["dimension_parts"]
@@ -469,6 +944,9 @@ def audit_item(scale: str, shot: str, aspect: str, sample: int, item: dict) -> l
 
     findings.extend(duplicate_findings(scale, shot, aspect, sample, prompt, parts))
     findings.extend(contradiction_findings(scale, shot, aspect, sample, prompt, parts))
+    findings.extend(quality_findings(scale, shot, aspect, sample, prompt, parts))
+    findings.extend(final_semantic_findings(scale, shot, aspect, sample, prompt, parts))
+    findings.extend(human_review_findings(scale, shot, aspect, sample, prompt, parts))
     budget = PROMPT_LENGTH_BUDGETS.get(shot)
     if budget and len(prompt) > budget:
         findings.append(Finding("error", scale, shot, aspect, sample, "prompt_length_over_budget", f"{len(prompt)} > {budget}", prompt))

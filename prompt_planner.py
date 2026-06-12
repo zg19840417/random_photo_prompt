@@ -360,9 +360,16 @@ def choose_filter_grade(scale: str, director: dict | None, palette: dict | None,
         tuple(director.get("keywords", ())) + tuple(palette.get("keywords", ())) + tuple(palette.get("colors", ())) + (str(scene_light or ""),)
         if director and palette else (str(scene_light or ""),)
     )
+    bright_scene = any(
+        marker in source
+        for marker in ("阳光", "暖阳", "窗光", "晴天", "明亮", "棚拍", "彩色墙面", "泳池", "海边", "露台", "花园", "度假")
+    )
+    dark_grades = {"dark_film_noir", "high_contrast_sensual", "warm_boudoir_glow", "cool_moonlit_drama"}
     weighted = []
     eligible = [g for g in FILTER_GRADE_TABLE if scale in g.get("scales", ("normal", "bold", "nsfw"))]
     for grade in eligible:
+        if bright_scene and grade.get("name") in dark_grades:
+            continue
         score = _score_keywords(source, tuple(grade.get("keywords", ())))
         weighted.extend([grade] * (1 + min(score, 4)))
     fallback = [g for g in FILTER_GRADE_TABLE if scale in g.get("scales", ("normal", "bold", "nsfw"))]

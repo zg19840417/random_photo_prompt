@@ -8,7 +8,7 @@ This repository generates adult fashion/glamour portrait prompts for image gener
 
 1. **Prompt Generation**: Create detailed, natural-language prompts for adult fashion/glamour portraits
 2. **Dimension Assembly**: Combine camera, character, makeup, outfit, pose/expression, scene/light dimensions
-3. **Scale Management**: Support three content scales - normal, bold, nsfw
+3. **Scale Management**: Support four content scales - normal, bold, bold_no_outfit, nsfw
 
 ## Scale Definitions
 
@@ -24,12 +24,18 @@ This repository generates adult fashion/glamour portrait prompts for image gener
 - Strong sensual atmosphere
 - Adult-only but not explicit
 
+### Bold No Outfit Scale
+- User-facing 三档, internal `bold_no_outfit`
+- Reuses Bold Scale prompt logic for camera, pose/expression, scene/light, quality, color, and emotion
+- Skips the outfit dimension entirely during final prompt assembly
+- Non-explicit; original NSFW behavior is now user-facing 四档
+
 ### NSFW Scale
-- Adult intimate photography style
-- Full nudity allowed
-- Direct body descriptions including exposed breasts and nude figure
-- Explicit sexual descriptions allowed
-- No concealment wording required
+- User-facing 四档, internal `nsfw`
+- Uses 三档-style non-outfit prompt logic for camera, character, makeup, scene/light, quality, color, and emotion
+- Keeps only the pose/expression dimension on the dedicated `nsfw` pool
+- Skips outfit dimension entirely
+- Adult intimate photography style for pose/expression only
 
 ## Dimension System
 
@@ -121,10 +127,36 @@ Rule 1 character/body text must stay camera-scoped. Preserve the fixed identity 
 - scene_light数据中不含"明亮glamour写真""背景鲜艳但不抢脸""彩色反光保持小面积"等固定质量尾巴
 - camera中的镜头约束分句（入镜/清楚/完整等）不应在pose中重复出现（代码层自动去重）
 
+**衣着审美一致性规则**：
+- 衣着维度必须是一套真实可穿、风格一致的搭配，不允许把互相打架的风格元素硬拼在一起。
+- 二档衣着不能全部收敛成短裙；需要在短裙/半裙、吊带连衣裙、开衩长裙、修身连体衣、连体泳装加罩衫、胸衣加热裤/短裤套装之间保持多样性。
+- 二档可以使用丝袜、吊带丝袜、连裤袜等性感元素，但应搭配胸衣、缎面短裙、包臀短裙、百褶短裙、西装短裙、连体衣等私房或夜店语境服装；短裤/热裤套装通常不要搭配丝袜。
+- 二档不要使用乳胶、乳胶感、亮面皮革、皮质、皮裙或PVC风格；提高诱惑度应靠缎面、薄纱、蕾丝边、胸衣鱼骨、交叉绑带、挂脖结构、金属扣、腰链、腿环、吊带丝袜和薄透手套。
+- 工装短裤、运动短裤、牛仔短裤、热裤、运动背心等休闲/运动/街头单品，不应再硬接吊带丝袜或袜带；如需要丝袜，应先把下装改成同风格裙装或私房款式。
+- 审查截图时，如果用户反馈"搭配混乱"或图片看起来像不同风格随机拼接，优先检查 outfit 后处理和审查脚本，而不是只修改单条提示词。
+
+**二/三档诱惑氛围规则**：
+- 二档和三档不能长期输出白天、明亮、清爽度假氛围；场景光线需要服务诱惑和性感，优先使用夜景窗边、酒店卧室、床头暖灯、暗红灯带、低位侧光、镜面暗房、浴室湿光、雨夜霓虹和暗色地面反光。
+- 二档和三档姿势需要与镜头配合：头部/上半身强化手指近景、黑色手指甲、舌尖轻轻探出、俯视镜头；半身强化手部靠近镜头、腰侧/锁骨动作、斜看镜头；大半身/全身强化低机位、脚尖/裸足/足弓前景、手掌前景、俯视镜头、跪坐/侧躺/前倾。
+- 不直接写"恋足癖/恋手癖"等抽象标签，要写成可见画面：脚尖靠近镜头、足弓侧面清楚、脚踝链、手指贴近唇边、黑色手指甲近大远小。
+- 三档沿用二档诱惑氛围和姿势逻辑，但不组合衣着维度，诱惑感主要由暗光环境、手足前景、低机位和表情完成。
+
+**提示词截图回归方法论**：
+- 用户截图暴露的问题一律按共性问题处理，不只修截图里的单条文本。
+- 自检对象必须和用户看到的一致：除了离线 `positive_prompt`，还必须检查节点/API实际返回的 `display_prompt`。
+- 桌面节点、手机端、网页端的展示文本和生成文本必须共用同一条最终清理链路；不能出现"生成用文本已清理、界面展示文本未清理"。
+- 修改提示词规则后，如果需要本地验证，必须确认旧 ComfyUI 进程已真正退出，新的 8188 进程已加载最新代码，再进行接口抽样。
+- 自检必须实例化完整提示词后逐句审查，不能只检查维度池或坏词表。重点看句子是否能被图像模型直接画出来，避免抽象目的词、解释性语言、代词指代、拼接病句和重复表情/眼神。
+- 每轮真实接口抽样后，必须额外扫描评价型副词和连续重复词，例如"更直接/更强/更明显/更集中"、"眼神眼神/嘴角嘴角/身体身体"。这类词通常说明句子在评价效果而不是描述画面。
+- 姿势维度如果单句超过40个中文字符且包含多个动作主体（头部、手指、眼神、嘴角、身体等），必须检查逗号分隔是否清楚；缺少动作边界的长句不能通过。
+- 审查器发现不了但截图暴露的问题，要补入审查规则或最终清理规则，形成坏例库。
+- 通过标准至少包含：语法检查、离线抽样审查、真实本地接口展示文本抽样。只有三者都通过，才可声称本轮规则已通过自检。
+
 **Quality按scale分化规则**：
 - 1档(normal)的quality尾巴使用"时尚大片级光影，高级商业摄影调色" → 引导SD往高级时尚摄影方向
 - 2档(bold)的quality尾巴使用"高级私房写真质感，杂志封面级光影与氛围" → 引导SD往私房写真方向
-- 3档(nsfw)的quality尾巴使用"私房情欲摄影质感，暧昧光影投射在肌肤上，皮肤泛著温润光泽" → 引导SD往情欲摄影方向
+- 3档(bold_no_outfit)的quality尾巴沿用2档(bold)，但最终不组合衣着维度
+- 4档(nsfw)的quality尾巴与3档保持一致；四档只有姿势维度使用专用NSFW池，其余维度并入3档/2档逻辑
 - 每档追加filter_grade的调色描述（关键词匹配或scale筛选）
 - NSFW负面提示词额外追加"amateur, clinical lighting, flat lighting"等反义
 
@@ -156,6 +188,12 @@ Rule 1 character/body text must stay camera-scoped. Preserve the fixed identity 
 3. **Audit Tools**: `tools/audit_prompt_pools.py` and `tools/audit_generated_prompts.py` for quality checking (no content blocking)
 4. **Documentation**: Update `docs/` for rule changes
 5. **Temporary Scripts**: Any temporary script generated for one-off analysis, conversion, cleanup, or verification must be deleted immediately after execution. Do not leave scratch `.py`, `.js`, `.ps1`, `.bat`, `.json`, `.csv`, or similar helper artifacts in the project.
+
+**远端同步规则**：
+- 只要改动 custom node 代码、提示词规则、模型/LoRA 列表读取逻辑、分辨率逻辑、工作流模板或前端静态页面，并且用户可能通过远端 `192.168.123.111:8188` 网页端使用，就必须把相关文件同步到远端 `D:\ComfyUI\ComfyUI\custom_nodes\random_photo_prompt`。
+- 同步后必须重启远端 ComfyUI；否则远端网页端的节点下拉、预生成提示词、接口和工作流 patch 仍会使用旧代码。
+- 重启后必须做远端运行时验证，例如读取 `/object_info/RandomPhotoPrompt` 确认下拉选项，或调用对应远端接口确认行为已更新。不能只以本地 8188 验证代替远端验证。
+- 如果本轮只改纯文档、审查报告，或明确只影响 Mac 18199 代理且远端不会直接读取该文件，可以不同步远端，但需要在回复里说明不需要同步的原因。
 
 ## NSFW Content Policy
 
@@ -286,5 +324,13 @@ random_photo_prompt/
 2. Identify affected dimensions and scales
 3. Modify appropriate pool(s) in `prompt_data.py`
 4. Update logic in `prompt_engine.py` if needed
-5. Run audit tools to verify
-6. Update documentation if rules change
+5. For screenshot-driven prompt fixes, trace whether the issue appears in source pools, postprocess, rebuilt prompt text, `display_prompt`, or stale running processes before patching.
+6. If changed files affect remote desktop/web usage, sync them to the Windows remote custom node folder, restart remote ComfyUI, and verify remote runtime state.
+   - Prompt generation/runtime files include `prompt_engine.py`, `prompt_postprocess.py`, `prompt_data.py`, `prompt_data_generated.py`, `prompt_normalize.py`, `prompt_planner.py`, `prompt_constants.py`, `negative_prompt_engine.py`, `keyword_expansion_engine.py`, `video_prompt_engine.py`, `__init__.py`, and related audit/build tools when changed.
+   - Sync command pattern: `scp <changed files> administrator@192.168.123.111:'D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/'`
+   - Files under subdirectories must keep their remote subdirectory, for example `web/mobile.html` -> `D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/web/mobile.html`.
+   - Restart command: `python3 tools/restart_windows_remote_comfyui.py`
+   - Reason: remote ComfyUI loads custom node Python modules at process startup; webpage nodes and pregenerated prompt previews will not see local logic changes until the changed files are synced and remote ComfyUI is restarted.
+   - Do not claim a prompt rule is active on the remote/web node until sync + restart has completed successfully.
+7. Run audit tools and real local/remote API display-prompt samples as applicable
+8. Update documentation if rules change

@@ -9,10 +9,9 @@ from typing import Iterable
 MAX_KEYWORD_PROMPT_LENGTH = 800
 
 FIXED_CHARACTER_ORIGINAL = (
-    "22岁冷白皮K-pop韩国夜店女王，极致通透冷瓷白皮肤，八头身模特沙漏身材，腿细且极致的长，"
-    "小蛮腰，细长瓜子脸，脸部轮廓清晰，高鼻梁尖鼻子尖下巴，骨架偏瘦，但胸部和臀部丰满，"
-    "锁骨明显，细长的嘴唇，细长狐狸眼，卧蚕明显，夜店极致斩男妆，锋利上扬眼线，长密睫毛，"
-    "浅棕色眼影，黑色直发长度到腰部，细长黑色手指甲和脚指甲"
+    "22岁冷白皮K-pop韩国女生，夜店斩男精致妆容，御姐范十足，通透瓷白皮肤，黑色直发，标准瓜子脸，狐狸眼，浅棕色眼影，"
+    "深棕色美瞳，高鼻梁，尖鼻子，尖下巴，黑色手指甲，性感锁骨，骨架偏瘦但胸部和臀部丰满，"
+    "小蛮腰，腿细且长"
 )
 
 SUBJECT_KEYWORDS = [
@@ -21,27 +20,21 @@ SUBJECT_KEYWORDS = [
 
 CHARACTER_BY_SHOT = {
     "head_shot": (
-        "22岁冷白皮K-pop韩国夜店女王，极致通透冷瓷白皮肤，细长瓜子脸，脸部轮廓清晰，"
-        "高鼻梁尖鼻子尖下巴，细长的嘴唇，细长狐狸眼，卧蚕明显，夜店极致斩男妆，"
-        "锋利上扬眼线，长密睫毛，浅棕色眼影，黑色直发"
+        "22岁冷白皮K-pop韩国女生，夜店斩男精致妆容，御姐范十足，通透瓷白皮肤，黑色直发，标准瓜子脸，狐狸眼，"
+        "浅棕色眼影，深棕色美瞳，高鼻梁，尖鼻子，尖下巴"
     ),
     "upper_body": (
-        "22岁冷白皮K-pop韩国夜店女王，极致通透冷瓷白皮肤，细长瓜子脸，脸部轮廓清晰，"
-        "高鼻梁尖鼻子尖下巴，骨架偏瘦，但胸部丰满，锁骨明显，细长的嘴唇，"
-        "细长狐狸眼，卧蚕明显，夜店极致斩男妆，锋利上扬眼线，长密睫毛，"
-        "浅棕色眼影，黑色直发，细长黑色手指甲"
+        "22岁冷白皮K-pop韩国女生，夜店斩男精致妆容，御姐范十足，通透瓷白皮肤，黑色直发，标准瓜子脸，狐狸眼，"
+        "浅棕色眼影，深棕色美瞳，高鼻梁，尖鼻子，尖下巴，黑色手指甲，性感锁骨，骨架偏瘦但胸部丰满"
     ),
     "half_body": (
-        "22岁冷白皮K-pop韩国夜店女王，极致通透冷瓷白皮肤，小蛮腰，细长瓜子脸，"
-        "脸部轮廓清晰，高鼻梁尖鼻子尖下巴，骨架偏瘦，但胸部丰满，锁骨明显，"
-        "细长的嘴唇，细长狐狸眼，卧蚕明显，夜店极致斩男妆，锋利上扬眼线，"
-        "长密睫毛，浅棕色眼影，黑色直发，细长黑色手指甲"
+        "22岁冷白皮K-pop韩国女生，夜店斩男精致妆容，御姐范十足，通透瓷白皮肤，黑色直发，标准瓜子脸，狐狸眼，"
+        "浅棕色眼影，深棕色美瞳，高鼻梁，尖鼻子，尖下巴，黑色手指甲，性感锁骨，骨架偏瘦但胸部丰满，小蛮腰"
     ),
     "large_half_body": (
-        "22岁冷白皮K-pop韩国夜店女王，极致通透冷瓷白皮肤，小蛮腰，细长瓜子脸，"
-        "脸部轮廓清晰，高鼻梁尖鼻子尖下巴，骨架偏瘦，但胸部和臀部丰满，锁骨明显，"
-        "细长的嘴唇，细长狐狸眼，卧蚕明显，夜店极致斩男妆，锋利上扬眼线，"
-        "长密睫毛，浅棕色眼影，黑色直发，细长黑色手指甲"
+        "22岁冷白皮K-pop韩国女生，夜店斩男精致妆容，御姐范十足，通透瓷白皮肤，黑色直发，标准瓜子脸，狐狸眼，"
+        "浅棕色眼影，深棕色美瞳，高鼻梁，尖鼻子，尖下巴，黑色手指甲，性感锁骨，"
+        "骨架偏瘦但胸部和臀部丰满，小蛮腰，腿细且长"
     ),
     "full_body": FIXED_CHARACTER_ORIGINAL,
 }
@@ -402,13 +395,24 @@ def _scale_key(scale: str) -> str:
         return "normal"
     if text in {"二档", "大胆", "bold"}:
         return "bold"
-    if text in {"三档", "NSFW", "nsfw"}:
+    if text in {"三档", "bold_no_outfit", "no_outfit", "d", "D"}:
+        return "bold_no_outfit"
+    if text in {"四档", "NSFW", "nsfw"}:
         return "nsfw"
     return "bold"
 
 
 def _is_nsfw_scale(scale: str) -> bool:
     return _scale_key(scale) == "nsfw"
+
+
+def _keyword_pool_scale(scale: str) -> str:
+    key = _scale_key(scale)
+    return "bold" if key == "bold_no_outfit" else key
+
+
+def _skip_outfit_scale(scale: str) -> bool:
+    return _scale_key(scale) in {"bold_no_outfit", "nsfw"}
 
 
 SCALE_KEYWORD_HINTS = {
@@ -418,7 +422,10 @@ SCALE_KEYWORD_HINTS = {
     "二档": "明亮glamour写真氛围，半眯狐眼直看前方，轻薄鲜艳穿着保留衣物结构",
     "大胆": "明亮glamour写真氛围，半眯狐眼直看前方，轻薄鲜艳穿着保留衣物结构",
     "bold": "明亮glamour写真氛围，半眯狐眼直看前方，轻薄鲜艳穿着保留衣物结构",
-    "三档": "成人私房写真氛围，镜头距离更近，腰背曲线和肌肤光泽更大胆",
+    "三档": "明亮glamour写真氛围，半眯狐眼直看前方，不组合衣着维度",
+    "bold_no_outfit": "明亮glamour写真氛围，半眯狐眼直看前方，不组合衣着维度",
+    "no_outfit": "明亮glamour写真氛围，半眯狐眼直看前方，不组合衣着维度",
+    "四档": "成人私房写真氛围，镜头距离更近，腰背曲线和肌肤光泽更大胆",
     "NSFW": "成人私房写真氛围，镜头距离更近，腰背曲线和肌肤光泽更大胆",
     "nsfw": "成人私房写真氛围，镜头距离更近，腰背曲线和肌肤光泽更大胆",
 }
@@ -450,16 +457,16 @@ SCALE_VARIATION_PACKS = {
     "bold": {
         "style": [
             "明亮glamour风格，半眯狐眼直看前方，湿润嘴角微张",
-            "轻薄鲜艳造型，肩带、衣料边缘和细链结构清楚",
+            "缎面胸衣风格，交叉绑带、鱼骨压线和细链结构清楚",
             "高饱和成人时尚大片，脸部靠近前景，半眯狐眼直看前方",
-            "泳池或露台性感构图，服装与配饰衬托腰背曲线",
+            "泳池或露台性感构图，缎面衣料、腰链和吊带丝袜衬托腰背曲线",
         ],
         "pose": [],
         "outfit": [
-            "半透明珊瑚粉薄纱吊带搭配湖蓝色短裙，锁骨链和脚链作为亮点",
-            "亮黄色轻薄短上衣搭配薄荷绿高腰短裤，透明手套边缘贴近手腕",
-            "玫粉色亮面细吊带搭配天空蓝短裙，腰侧有一条细银链",
-            "薰衣草紫薄款泳装感套装，搭配少量珍珠链和湖蓝色指甲",
+            "珊瑚粉缎面胸衣上衣搭配湖蓝包臀短裙，鱼骨压线和锁骨链作为亮点",
+            "柠檬黄交叉绑带短上衣搭配薄荷绿百褶短裙，透明手套边缘贴近手腕",
+            "玫粉色挂脖胸衣搭配天空蓝缎面短裙，腰侧有一条细银链",
+            "薰衣草紫薄纱叠层吊带搭配浅色短裙，珍珠链和腿环作为小面积点缀",
         ],
         "pose_hints": {
             "head_shot": ["头部贴近前景，右手指尖停在下唇旁，半眯狐眼直视前方，嘴角带坏笑"],
@@ -539,7 +546,7 @@ def _scale_hint(scale: str) -> str:
 
 
 def _scale_variation_parts(scale: str, shot: str, rng: random.Random) -> list[str]:
-    pack = SCALE_VARIATION_PACKS.get(_scale_key(scale), SCALE_VARIATION_PACKS["bold"])
+    pack = SCALE_VARIATION_PACKS.get(_keyword_pool_scale(scale), SCALE_VARIATION_PACKS["bold"])
     shot_key = _shot_key(shot)
     pose_hints = pack.get("pose_hints", {})
     shot_pose = pose_hints.get(shot_key) or pose_hints.get("full_body") or []
@@ -576,14 +583,15 @@ def _choice_for_shot(options: Iterable[str], rng: random.Random, shot: str) -> s
 
 def _outfit_for_shot(scale: str, shot: str, rng: random.Random) -> str:
     scale_key = _scale_key(scale)
-    if scale_key == "nsfw":
+    if _skip_outfit_scale(scale):
         return ""
+    pool_key = _keyword_pool_scale(scale)
     shot_key = _shot_key(shot)
-    shot_pool = SHOT_OUTFIT_OPTIONS.get(scale_key, {}).get(shot_key, [])
+    shot_pool = SHOT_OUTFIT_OPTIONS.get(pool_key, {}).get(shot_key, [])
     if shot_pool:
         return _choice(shot_pool, rng)
-    pool = SCALE_VARIATION_PACKS.get(scale_key, {}).get("outfit", [])
-    if scale_key == "normal":
+    pool = SCALE_VARIATION_PACKS.get(pool_key, {}).get("outfit", [])
+    if pool_key == "normal":
         pool = [*pool, *OUTFIT_KEYWORDS]
     return _choice_for_shot(pool, rng, shot_key)
 
@@ -669,11 +677,24 @@ def _concretize_prompt(text: str) -> str:
     return result
 
 
+def _strip_outfit_language_for_no_outfit_scale(text: str, scale: str) -> str:
+    if not _skip_outfit_scale(scale):
+        return text
+    cleaned_sections = []
+    for section in str(text or "").split("\n\n"):
+        if any(marker in section for marker in ("上衣", "短裙", "短裤", "连衣裙", "泳装", "吊带", "穿着", "服装", "衣料", "裙摆", "肩带")):
+            continue
+        cleaned_sections.append(section)
+    return "\n\n".join(part for part in cleaned_sections if part.strip())
+
+
 def build_auto_keyword_parts(rng: random.Random, scale: str = "", shot: str = "") -> list[str]:
     theme_package = _choice(THEME_SCENE_PACKAGES, rng)
     if not isinstance(theme_package, dict):
         theme_package = {}
-    scale_pack = SCALE_VARIATION_PACKS.get(_scale_key(scale), SCALE_VARIATION_PACKS["bold"])
+    scale_key = _scale_key(scale)
+    pool_key = _keyword_pool_scale(scale)
+    scale_pack = SCALE_VARIATION_PACKS.get(pool_key, SCALE_VARIATION_PACKS["bold"])
     shot_key = _shot_key(shot)
     pose_hints = scale_pack.get("pose_hints", {})
     shot_pose_hint = _choice(pose_hints.get(shot_key) or pose_hints.get("full_body") or [], rng)
@@ -684,15 +705,15 @@ def build_auto_keyword_parts(rng: random.Random, scale: str = "", shot: str = ""
         _choice(scale_pack.get("style", []), rng),
         shot_pose_hint,
     ]
-    if _scale_key(scale) != "nsfw":
+    if not _skip_outfit_scale(scale):
         parts.append(_choice(scale_pack.get("outfit", []), rng))
     parts.extend(
         [
             theme_package.get("theme") or _choice(THEME_KEYWORDS, rng),
             _shot_hint(shot) or _choice(SHOT_KEYWORDS, rng),
             _theme_pose_for_shot(theme_package, shot_key, rng),
-            _choice(EXPRESSION_KEYWORDS_BY_SCALE.get(_scale_key(scale), EXPRESSION_KEYWORDS_BY_SCALE["normal"]), rng),
-            "" if _is_nsfw_scale(scale) else _choice(OUTFIT_KEYWORDS, rng),
+            _choice(EXPRESSION_KEYWORDS_BY_SCALE.get(pool_key, EXPRESSION_KEYWORDS_BY_SCALE["normal"]), rng),
+            "" if _skip_outfit_scale(scale) else _choice(OUTFIT_KEYWORDS, rng),
             _choice(theme_package.get("scenes") or [], rng),
             _choice(LIGHT_COLOR_KEYWORDS, rng),
         ]
@@ -704,7 +725,9 @@ def build_auto_keyword_sections(rng: random.Random, scale: str = "", shot: str =
     theme_package = _choice(THEME_SCENE_PACKAGES, rng)
     if not isinstance(theme_package, dict):
         theme_package = {}
-    scale_pack = SCALE_VARIATION_PACKS.get(_scale_key(scale), SCALE_VARIATION_PACKS["bold"])
+    scale_key = _scale_key(scale)
+    pool_key = _keyword_pool_scale(scale)
+    scale_pack = SCALE_VARIATION_PACKS.get(pool_key, SCALE_VARIATION_PACKS["bold"])
     shot_key = _shot_key(shot)
     pose_hints = scale_pack.get("pose_hints", {})
     shot_pose_hint = _choice(pose_hints.get(shot_key) or pose_hints.get("full_body") or [], rng)
@@ -723,7 +746,7 @@ def build_auto_keyword_sections(rng: random.Random, scale: str = "", shot: str =
         ],
         [
             _theme_pose_for_shot(theme_package, shot_key, rng),
-            _choice(EXPRESSION_KEYWORDS_BY_SCALE.get(_scale_key(scale), EXPRESSION_KEYWORDS_BY_SCALE["normal"]), rng),
+            _choice(EXPRESSION_KEYWORDS_BY_SCALE.get(pool_key, EXPRESSION_KEYWORDS_BY_SCALE["normal"]), rng),
         ],
         [
             theme_package.get("theme") or _choice(THEME_KEYWORDS, rng),
@@ -731,7 +754,7 @@ def build_auto_keyword_sections(rng: random.Random, scale: str = "", shot: str =
             _choice(LIGHT_COLOR_KEYWORDS, rng),
         ],
         [
-            _choice_for_shot(FINISH_OPTIONS_BY_SCALE.get(_scale_key(scale), FINISH_OPTIONS_BY_SCALE["normal"]), rng, shot_key),
+            _choice_for_shot(FINISH_OPTIONS_BY_SCALE.get(pool_key, FINISH_OPTIONS_BY_SCALE["normal"]), rng, shot_key),
         ],
     ]
 
@@ -742,7 +765,8 @@ def generate_keyword_expansion_prompt(seed_text: str = "", scale: str = "", shot
     sections = build_auto_keyword_sections(rng, scale=scale, shot=shot)
     clean_parts = [part for section in sections for part in section if part]
     clean = "，".join(clean_parts)
-    prompt = _concretize_prompt(_trim_prompt_sections(sections))
+    prompt = _strip_outfit_language_for_no_outfit_scale(_concretize_prompt(_trim_prompt_sections(sections)), scale)
+    clean = _strip_outfit_language_for_no_outfit_scale(clean, scale)
     return {
         "prompt": prompt,
         "keywords": clean,
@@ -752,7 +776,6 @@ def generate_keyword_expansion_prompt(seed_text: str = "", scale: str = "", shot
         "scale": scale,
         "shot": shot,
     }
-
 
 
 

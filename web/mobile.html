@@ -7,15 +7,21 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #101114;
-      --panel: #191b20;
-      --panel-2: #22252b;
-      --text: #f3f0ea;
-      --muted: #aaa69d;
-      --line: #343740;
-      --accent: #e7b85f;
-      --accent-2: #74c7b8;
-      --danger: #ff8b8b;
+      --bg: #0B0E14;
+      --panel: #15181E;
+      --panel-2: #1F2430;
+      --field: #0B0E14;
+      --text: #BFBDB6;
+      --muted: #777B85;
+      --line: rgba(191, 189, 182, .18);
+      --soft-line: rgba(191, 189, 182, .10);
+      --accent: #E6B450;
+      --accent-strong: #E6B450;
+      --on-accent: #0B0E14;
+      --accent-2: #AAD94C;
+      --danger: #F07178;
+      --nav: rgba(11, 14, 20, .82);
+      --shadow: 0 18px 42px rgba(0, 0, 0, .48);
     }
 
     * {
@@ -28,6 +34,7 @@
       background: var(--bg);
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
     main {
@@ -45,10 +52,11 @@
       gap: 8px;
       align-items: center;
       margin: 0 -14px 14px;
-      padding: 4px 16px 10px;
-      background: rgba(16, 17, 20, .96);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid rgba(52, 55, 64, .7);
+      padding: max(6px, env(safe-area-inset-top)) 16px 10px;
+      background: var(--nav);
+      backdrop-filter: saturate(180%) blur(18px);
+      -webkit-backdrop-filter: saturate(180%) blur(18px);
+      border-bottom: 1px solid var(--soft-line);
     }
 
     .tabs {
@@ -56,21 +64,24 @@
       grid-template-columns: 1fr 1fr;
       gap: 8px;
       min-width: 0;
+      padding: 3px;
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      background: rgba(191, 189, 182, .06);
     }
 
     .tab {
-      min-height: 44px;
-      border-color: var(--line);
-      background: var(--panel);
+      min-height: 38px;
+      border: 0;
+      background: transparent;
       color: var(--muted);
-      font-size: 16px;
-      font-weight: 700;
+      font-size: 15px;
+      font-weight: 600;
     }
 
     .tab.active {
-      border-color: var(--accent);
-      background: #3a3020;
-      color: #ffe2a3;
+      background: rgba(191, 189, 182, .18);
+      color: var(--text);
     }
 
     .panel[hidden] {
@@ -85,15 +96,18 @@
 
     .section {
       padding: 14px;
-      border: 1px solid var(--line);
+      border: 1px solid var(--soft-line);
       border-radius: 8px;
       background: var(--panel);
+      box-shadow: 0 1px 0 rgba(191, 189, 182, .05) inset;
     }
 
     .label {
       margin-bottom: 8px;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0;
     }
 
     .label-row {
@@ -116,10 +130,25 @@
       color: var(--text);
       font: inherit;
       font-size: 15px;
+      transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 140ms ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:active {
+      transform: scale(.985);
     }
 
     button:disabled {
       opacity: .55;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    .custom-select-trigger:focus-visible {
+      outline: 2px solid rgba(230, 180, 80, .88);
+      outline-offset: 2px;
     }
 
     .row {
@@ -153,7 +182,7 @@
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #111317;
+      background: var(--field);
       color: var(--text);
       font: inherit;
     }
@@ -169,21 +198,33 @@
       padding: 10px 12px;
       resize: vertical;
       line-height: 1.45;
+      caret-color: var(--accent);
     }
 
     .custom-prompt-button {
       width: 100%;
       min-height: 42px;
       margin-top: 10px;
-      border-color: rgba(231, 184, 95, .34);
-      background: #111317;
+      border-color: var(--soft-line);
+      background: rgba(191, 189, 182, .06);
       color: var(--text);
     }
 
     .custom-prompt-button.active {
-      border-color: rgba(231, 184, 95, .78);
-      color: #ffe2a3;
-      box-shadow: 0 0 0 2px rgba(231, 184, 95, .12);
+      border-color: rgba(230, 180, 80, .78);
+      color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(230, 180, 80, .16);
+    }
+
+    .prompt-action-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(76px, .55fr) minmax(0, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .prompt-action-row .custom-prompt-button {
+      margin-top: 0;
     }
 
     select {
@@ -216,8 +257,8 @@
       height: 42px;
       min-height: 42px;
       padding: 0 10px 0 12px;
-      border-color: rgba(231, 184, 95, .24);
-      background: #111317;
+      border-color: var(--line);
+      background: var(--field);
       color: var(--text);
       text-align: left;
       touch-action: manipulation;
@@ -235,8 +276,8 @@
     }
 
     .custom-select.open .custom-select-trigger {
-      border-color: rgba(231, 184, 95, .75);
-      box-shadow: 0 0 0 2px rgba(231, 184, 95, .12);
+      border-color: rgba(230, 180, 80, .75);
+      box-shadow: 0 0 0 2px rgba(230, 180, 80, .12);
     }
 
     .custom-select.open .custom-select-trigger::after {
@@ -258,10 +299,10 @@
       display: none;
       max-height: min(46vh, 320px);
       padding: 6px;
-      border: 1px solid rgba(231, 184, 95, .34);
+      border: 1px solid var(--line);
       border-radius: 8px;
-      background: #14161b;
-      box-shadow: 0 18px 42px rgba(0, 0, 0, .46);
+      background: #15181E;
+      box-shadow: var(--shadow);
       overflow-y: auto;
       overscroll-behavior: contain;
     }
@@ -289,8 +330,8 @@
     }
 
     .custom-select-option.selected {
-      background: rgba(231, 184, 95, .16);
-      color: #ffe2a3;
+      background: rgba(230, 180, 80, .16);
+      color: var(--text);
     }
 
     .custom-select-option.selected::after {
@@ -318,7 +359,7 @@
       border: 1px solid var(--line);
       border-radius: 8px;
       overflow: hidden;
-      background: #111317;
+      background: var(--field);
     }
 
     .count-value {
@@ -326,7 +367,7 @@
       place-items: center;
       color: var(--text);
       font-size: 17px;
-      font-weight: 800;
+      font-weight: 700;
     }
 
     .count-arrows {
@@ -339,7 +380,7 @@
       height: 21px;
       border: 0;
       border-radius: 0;
-      background: #22252b;
+      background: #1F2430;
       color: var(--accent);
       font-size: 13px;
       line-height: 1;
@@ -358,7 +399,7 @@
       padding: 4px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #101216;
+      background: var(--field);
     }
 
     .mode-tab {
@@ -367,12 +408,12 @@
       border-radius: 6px;
       background: transparent;
       color: var(--muted);
-      font-weight: 800;
+      font-weight: 600;
     }
 
     .mode-tab.active {
-      background: rgba(231, 184, 95, .18);
-      color: #ffe2a3;
+      background: rgba(230, 180, 80, .18);
+      color: var(--text);
     }
 
     .mode-panel[hidden] {
@@ -396,8 +437,8 @@
 
     .source-picker-button.has-source {
       grid-template-columns: 46px minmax(0, 1fr);
-      border-color: rgba(231, 184, 95, .48);
-      background: rgba(231, 184, 95, .1);
+      border-color: rgba(230, 180, 80, .48);
+      background: rgba(230, 180, 80, .1);
     }
 
     .source-picker-thumb {
@@ -406,7 +447,7 @@
       height: 44px;
       border-radius: 7px;
       object-fit: cover;
-      background: #08090b;
+      background: #0B0E14;
     }
 
     .source-picker-thumb[hidden] {
@@ -423,8 +464,8 @@
     }
 
     .source-picker-button.has-source .source-picker-text {
-      color: #ffe2a3;
-      font-weight: 800;
+      color: var(--accent);
+      font-weight: 600;
     }
 
     .source-row {
@@ -436,8 +477,8 @@
 
     .source-clear {
       min-height: 54px;
-      border-color: rgba(255, 139, 139, .42);
-      color: #ffd0d0;
+      border-color: rgba(240, 113, 120, .42);
+      color: #ffd6d6;
     }
 
     .source-clear[hidden] {
@@ -448,20 +489,21 @@
       width: 100%;
       min-height: 44px;
       margin-top: 8px;
-      border-color: rgba(231, 184, 95, .48);
-      background: rgba(231, 184, 95, .12);
-      color: #ffe2a3;
-      font-weight: 800;
+      border-color: rgba(230, 180, 80, .48);
+      background: rgba(230, 180, 80, .12);
+      color: var(--accent);
+      font-weight: 700;
     }
 
     .primary {
       width: 100%;
       min-height: 52px;
       margin-top: 12px;
-      border-color: #d6aa58;
-      background: var(--accent);
-      color: #191208;
+      border-color: var(--accent-strong);
+      background: var(--accent-strong);
+      color: var(--on-accent);
       font-weight: 700;
+      box-shadow: 0 8px 24px rgba(230, 180, 80, .26);
     }
 
     .connection {
@@ -472,6 +514,7 @@
       color: var(--muted);
       font-size: 13px;
       white-space: nowrap;
+      min-width: 0;
     }
 
     .dot {
@@ -479,12 +522,36 @@
       height: 9px;
       border-radius: 50%;
       background: var(--danger);
-      box-shadow: 0 0 0 3px rgba(255, 139, 139, .12);
+      box-shadow: 0 0 0 3px rgba(240, 113, 120, .12);
     }
 
     .connection.connected .dot {
       background: var(--accent-2);
-      box-shadow: 0 0 0 3px rgba(116, 199, 184, .12);
+      box-shadow: 0 0 0 3px rgba(170, 217, 76, .14);
+    }
+
+    .connection.warning .dot {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(240, 113, 120, .12);
+    }
+
+    .health-link {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-height: 20px;
+      padding-left: 2px;
+      border: 0;
+      color: var(--accent);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .health-link.visible {
+      display: inline-flex;
     }
 
     .status {
@@ -497,6 +564,18 @@
 
     .status.error {
       color: var(--danger);
+    }
+
+    .entry-detail {
+      margin: -4px 2px 10px;
+      color: #777B85;
+      font-size: 12px;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+
+    .entry-detail:empty {
+      display: none;
     }
 
     .job {
@@ -536,8 +615,9 @@
       margin: -12px -12px 10px;
       padding: 10px 12px;
       border-bottom: 1px solid var(--line);
-      background: rgba(18, 20, 25, .96);
-      backdrop-filter: blur(12px);
+      background: var(--nav);
+      backdrop-filter: saturate(180%) blur(18px);
+      -webkit-backdrop-filter: saturate(180%) blur(18px);
     }
 
     .gallery-media-tabs {
@@ -546,9 +626,9 @@
       gap: 4px;
       width: 168px;
       padding: 3px;
-      border: 1px solid rgba(52, 55, 64, .9);
+      border: 1px solid var(--soft-line);
       border-radius: 8px;
-      background: #101216;
+      background: rgba(191, 189, 182, .06);
     }
 
     .gallery-media-tab {
@@ -559,12 +639,12 @@
       background: transparent;
       color: var(--muted);
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 600;
     }
 
     .gallery-media-tab.active {
-      background: rgba(231, 184, 95, .18);
-      color: #ffe2a3;
+      background: rgba(230, 180, 80, .18);
+      color: var(--text);
     }
 
     #waterfallPanel {
@@ -585,19 +665,25 @@
       min-height: 36px;
       padding: 0 12px;
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 600;
+    }
+
+    .gallery-action.active {
+      border-color: rgba(230, 180, 80, .62);
+      color: var(--accent);
+      background: rgba(230, 180, 80, .16);
     }
 
     .gallery-action.danger,
     .viewer-action.danger {
-      border-color: rgba(255, 139, 139, .55);
+      border-color: rgba(240, 113, 120, .55);
       color: var(--danger);
     }
 
     .viewer-action.active {
-      border-color: rgba(231, 184, 95, .62);
-      color: #ffe2a3;
-      background: rgba(231, 184, 95, .16);
+      border-color: rgba(230, 180, 80, .62);
+      color: var(--accent);
+      background: rgba(230, 180, 80, .16);
     }
 
     .photo-item,
@@ -607,16 +693,16 @@
       display: block;
       width: 100%;
       padding: 0;
-      border: 1px solid var(--line);
+      border: 1px solid var(--soft-line);
       border-radius: 7px;
       overflow: hidden;
-      background: #08090b;
+      background: #0B0E14;
     }
 
     .photo-item.selected,
     .video-item.selected {
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(231, 184, 95, .55);
+      box-shadow: 0 0 0 2px rgba(230, 180, 80, .55);
     }
 
     .photo-item.selected::after,
@@ -631,7 +717,7 @@
       height: 20px;
       border-radius: 50%;
       background: var(--accent);
-      color: #191208;
+      color: var(--on-accent);
       font-size: 14px;
       font-weight: 900;
     }
@@ -651,7 +737,7 @@
     .video-item video {
       height: 100%;
       object-fit: cover;
-      background: #08090b;
+      background: #0B0E14;
       pointer-events: none;
     }
 
@@ -666,8 +752,8 @@
       width: 24px;
       height: 24px;
       border-radius: 50%;
-      background: rgba(8, 9, 11, .68);
-      color: #fff3d5;
+      background: rgba(0, 0, 0, .62);
+      color: var(--text);
       font-size: 12px;
     }
 
@@ -686,7 +772,7 @@
       text-align: center;
       border: 1px dashed var(--line);
       border-radius: 8px;
-      background: var(--panel);
+      background: rgba(191, 189, 182, .05);
     }
 
     .viewer {
@@ -696,7 +782,7 @@
       display: none;
       overflow-x: hidden;
       overflow-y: auto;
-      background: rgba(8, 9, 11, .96);
+      background: rgba(0, 0, 0, .96);
       overscroll-behavior: contain;
     }
 
@@ -710,6 +796,7 @@
       overflow: hidden;
       touch-action: pan-y;
       user-select: none;
+      min-height: 0;
     }
 
     .viewer-image img {
@@ -719,6 +806,7 @@
       height: auto;
       margin: 0 auto;
       border-radius: 8px;
+      background: var(--bg);
       pointer-events: none;
       will-change: transform;
     }
@@ -728,7 +816,7 @@
       width: 100%;
       max-height: 72vh;
       border-radius: 8px;
-      background: #08090b;
+      background: #0B0E14;
     }
 
     .viewer.video-mode .viewer-image {
@@ -753,8 +841,8 @@
     }
 
     .viewer-panel {
-      padding: 10px 14px calc(18px + env(safe-area-inset-bottom));
-      background: transparent;
+      padding: 8px 14px calc(18px + env(safe-area-inset-bottom));
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, .9) 26px);
     }
 
     .viewer-actions {
@@ -777,17 +865,22 @@
       margin: 0 0 8px;
       color: var(--accent-2);
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 600;
       text-align: center;
     }
 
     .viewer-prompt {
       margin: 0;
-      color: #e4ded2;
+      color: #BFBDB6;
       font-size: 13px;
       line-height: 1.5;
       white-space: pre-line;
       word-break: break-word;
+    }
+
+    .viewer-prompt:empty::before {
+      content: "暂无提示词";
+      color: rgba(191, 189, 182, .55);
     }
 
     .confirm-dialog {
@@ -798,7 +891,9 @@
       align-items: center;
       justify-content: center;
       padding: 20px;
-      background: rgba(8, 9, 11, .72);
+      background: rgba(0, 0, 0, .72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
     }
 
     .confirm-dialog.open {
@@ -821,7 +916,7 @@
     }
 
     #promptDialog .confirm-box {
-      width: min(420px, 100%);
+      width: min(720px, 100%);
       max-height: calc(100vh - max(16px, env(safe-area-inset-top)));
       overflow-y: auto;
       overscroll-behavior: contain;
@@ -844,7 +939,7 @@
       padding: 0;
       border: 1px solid var(--line);
       overflow: hidden;
-      background: #08090b;
+      background: #0B0E14;
     }
 
     .source-choice img {
@@ -858,8 +953,8 @@
       padding: 18px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #191b20;
-      box-shadow: 0 18px 42px rgba(0, 0, 0, .45);
+      background: #15181E;
+      box-shadow: var(--shadow);
     }
 
     .confirm-message {
@@ -877,30 +972,37 @@
 
     .prompt-dialog-textarea {
       width: 100%;
-      min-height: 140px;
-      max-height: min(34vh, 260px);
+      min-height: min(56vh, 520px);
+      max-height: min(70vh, 680px);
       margin-top: 8px;
     }
 
     .prompt-dialog-actions {
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
     }
 
     .confirm-cancel,
     .confirm-ok {
       min-height: 42px;
       font-size: 15px;
-      font-weight: 700;
+      font-weight: 600;
     }
 
     .confirm-cancel {
-      background: #2a2d34;
+      background: #1F2430;
       color: var(--text);
     }
 
     .confirm-ok {
       background: var(--danger);
       color: white;
+    }
+
+    #customPromptOk {
+      border-color: var(--accent-strong);
+      background: var(--accent-strong);
+      color: var(--on-accent);
+      font-weight: 700;
     }
 
     @media (max-width: 430px) {
@@ -934,6 +1036,27 @@
         height: 40px;
         min-height: 40px;
       }
+
+      #promptDialog.open {
+        padding: max(6px, env(safe-area-inset-top)) 6px max(6px, env(safe-area-inset-bottom));
+      }
+
+      #promptDialog .confirm-box {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        width: 100%;
+        height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)));
+        max-height: none;
+        padding: 14px;
+        overflow: hidden;
+      }
+
+      .prompt-dialog-textarea {
+        min-height: 0;
+        max-height: none;
+        height: 100%;
+        resize: none;
+      }
     }
   </style>
 </head>
@@ -947,6 +1070,7 @@
       <div id="connection" class="connection">
         <span class="dot"></span>
         <span id="connectionText">未连接</span>
+        <a id="healthLink" class="health-link" href="/random_photo_prompt/local/status" target="_blank" rel="noopener">健康</a>
       </div>
     </div>
 
@@ -964,17 +1088,19 @@
                 <select id="scale">
                   <option value="normal">一档</option>
                   <option value="bold" selected>二档</option>
-                  <option value="nsfw">三档</option>
+                  <option value="bold_no_outfit">三档</option>
+                  <option value="nsfw">四档</option>
                 </select>
               </label>
               <label class="shot-field">
                 <div class="label">镜头</div>
                 <select id="shot">
+                  <option value="random" selected>随机</option>
                   <option value="head_shot">头部</option>
                   <option value="upper_body">上半身</option>
                   <option value="half_body">半身</option>
                   <option value="large_half_body">大半身</option>
-                  <option value="full_body" selected>全身</option>
+                  <option value="full_body">全身</option>
                 </select>
               </label>
               <label>
@@ -1004,7 +1130,7 @@
             </label>
             <div id="sharedShotRow" class="shared-shot-row" hidden></div>
             <label>
-              <div class="label">z_image_turbo模型</div>
+              <div class="label">ZIT模型</div>
               <select id="zitModel">
                 <option value="" selected>当前模型</option>
               </select>
@@ -1035,7 +1161,8 @@
                 <select id="videoScale">
                   <option value="normal">一档</option>
                   <option value="bold" selected>二档</option>
-                  <option value="nsfw">三档</option>
+                  <option value="bold_no_outfit">三档</option>
+                  <option value="nsfw">四档</option>
                 </select>
               </label>
               <label>
@@ -1085,12 +1212,17 @@
               <button id="sourceClear" class="source-clear" type="button" hidden>清除</button>
             </div>
           </div>
-          <button id="customPromptButton" class="custom-prompt-button" type="button">填入提示词</button>
+          <div class="prompt-action-row">
+            <button id="customPromptButton" class="custom-prompt-button" type="button">填入提示词</button>
+            <button id="copyCustomPrompt" class="custom-prompt-button" type="button" disabled>复制</button>
+            <button id="pregeneratePrompt" class="custom-prompt-button" type="button">生成提示词</button>
+          </div>
           <button id="generate" class="primary">生成</button>
         </section>
       </div>
 
       <div id="status" class="status"></div>
+      <div id="entryDetail" class="entry-detail"></div>
       <div id="jobs" class="jobs"></div>
     </section>
 
@@ -1102,6 +1234,7 @@
           <button class="gallery-media-tab" type="button" data-gallery-tab="favorites">收藏</button>
         </div>
         <span id="galleryCount" class="gallery-count">0 张</span>
+        <button id="gallerySessionOnly" class="gallery-action" type="button">本次</button>
         <button id="gallerySelectAll" class="gallery-action" type="button" hidden>全选</button>
         <button id="galleryEdit" class="gallery-action" type="button">编辑</button>
         <button id="galleryDelete" class="gallery-action danger" type="button" hidden>删除</button>
@@ -1161,18 +1294,19 @@
         <div class="label">分辨率</div>
         <select id="customPromptResolution">
           <option value="" selected>自动判断</option>
-          <option value="768x1536">768 × 1536</option>
-          <option value="896x1536">896 × 1536</option>
-          <option value="1024x1536">1024 × 1536</option>
-          <option value="1024x1344">1024 × 1344</option>
-          <option value="1344x896">1344 × 896</option>
-          <option value="1536x1024">1536 × 1024</option>
-          <option value="1024x1024">1024 × 1024</option>
+          <option value="896x1920">896 × 1920</option>
+          <option value="1088x1920">1088 × 1920</option>
+          <option value="1280x1920">1280 × 1920</option>
+          <option value="1216x1664">1216 × 1664</option>
+          <option value="1920x1280">1920 × 1280</option>
+          <option value="1920x1088">1920 × 1088</option>
+          <option value="1280x1920_head">1280 × 1920（头部）</option>
         </select>
       </label>
       <div class="confirm-actions prompt-dialog-actions" style="margin-top: 12px;">
         <button id="customPromptCancel" class="confirm-cancel" type="button">取消</button>
         <button id="customPromptClear" class="confirm-cancel" type="button">清除</button>
+        <button id="customPromptCopy" class="confirm-cancel" type="button">复制</button>
         <button id="customPromptOk" class="confirm-ok" type="button">确定</button>
       </div>
     </div>
@@ -1192,6 +1326,7 @@
       tab: "generate",
       mode: "image",
       galleryTab: "images",
+      sessionOnly: false,
       customPrompt: "",
       customResolution: "",
       sourceImage: null,
@@ -1200,6 +1335,8 @@
       nextBatchId: 1,
       maxActiveJobs: 100,
       clientId: "",
+      serialBatch: null,
+      serialSubmitting: false,
       progressSocket: null,
       progressReconnectTimer: null,
       viewerMediaType: "image",
@@ -1212,7 +1349,10 @@
       viewerBaseOffsetY: 0,
       viewerRenderedWidth: 0,
       viewerRenderedHeight: 0,
-      viewerViewportHeight: 0
+      viewerViewportHeight: 0,
+      entryMode: "",
+      entryLabel: "",
+      entryDetail: ""
     };
 
     const tabs = document.querySelectorAll(".tab");
@@ -1220,12 +1360,15 @@
     const waterfallPanel = document.querySelector("#waterfallPanel");
     const connectionEl = document.querySelector("#connection");
     const connectionText = document.querySelector("#connectionText");
+    const healthLink = document.querySelector("#healthLink");
     const statusEl = document.querySelector("#status");
+    const entryDetail = document.querySelector("#entryDetail");
     const jobsEl = document.querySelector("#jobs");
     const waterfallEl = document.querySelector("#waterfall");
     const videoWaterfallEl = document.querySelector("#videoWaterfall");
     const galleryMediaTabs = document.querySelectorAll(".gallery-media-tab");
     const galleryCount = document.querySelector("#galleryCount");
+    const gallerySessionOnly = document.querySelector("#gallerySessionOnly");
     const gallerySelectAll = document.querySelector("#gallerySelectAll");
     const galleryEdit = document.querySelector("#galleryEdit");
     const galleryDelete = document.querySelector("#galleryDelete");
@@ -1268,11 +1411,14 @@
     const videoFpsSelect = document.querySelector("#videoFps");
     const videoSecondsSelect = document.querySelector("#videoSeconds");
     const customPromptButton = document.querySelector("#customPromptButton");
+    const copyCustomPrompt = document.querySelector("#copyCustomPrompt");
+    const pregeneratePrompt = document.querySelector("#pregeneratePrompt");
     const promptDialog = document.querySelector("#promptDialog");
     const customPromptText = document.querySelector("#customPromptText");
     const customPromptResolution = document.querySelector("#customPromptResolution");
     const customPromptCancel = document.querySelector("#customPromptCancel");
     const customPromptClear = document.querySelector("#customPromptClear");
+    const customPromptCopy = document.querySelector("#customPromptCopy");
     const customPromptOk = document.querySelector("#customPromptOk");
     const videoActionInput = document.querySelector("#videoAction");
     const pregenerateAction = document.querySelector("#pregenerateAction");
@@ -1353,6 +1499,15 @@
       if (emitChange) {
         select.dispatchEvent(new Event("change", {bubbles: true}));
       }
+    }
+
+    function ensureSelectOption(select, value, label = "") {
+      const normalized = String(value || "").trim();
+      if (!normalized || optionExists(select, normalized)) return;
+      const option = document.createElement("option");
+      option.value = normalized;
+      option.textContent = label || normalized.replace(/x/i, " × ");
+      select.appendChild(option);
     }
 
     function closeCustomSelect(select) {
@@ -1447,6 +1602,7 @@
       const active = Boolean(state.customPrompt.trim());
       customPromptButton.classList.toggle("active", active);
       customPromptButton.textContent = active ? `已填入提示词${state.customResolution ? ` ${state.customResolution}` : ""}` : "填入提示词";
+      copyCustomPrompt.disabled = !active;
     }
 
     function openPromptDialog() {
@@ -1462,9 +1618,43 @@
       promptDialog.setAttribute("aria-hidden", "true");
     }
 
+    async function pregenerateImagePrompt() {
+      pregeneratePrompt.disabled = true;
+      const previousText = pregeneratePrompt.textContent;
+      pregeneratePrompt.textContent = "生成中...";
+      try {
+        const data = await requestJson("/random_photo_prompt/mobile/prompt", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            scale: scaleSelect.value,
+            shot: shotSelect.value,
+            prompt_rule: promptRuleSelect.value,
+            seed: `${Date.now()}-${Math.random()}`
+          })
+        });
+        const prompt = String(data.prompt || "").trim();
+        if (!prompt) throw new Error("没有生成到提示词。");
+        const resolution = data.resolution || (data.width && data.height ? `${data.width}x${data.height}` : "");
+        state.customPrompt = prompt;
+        state.customResolution = String(resolution || "");
+        customPromptText.value = prompt;
+        ensureSelectOption(customPromptResolution, state.customResolution);
+        setSelectValue(customPromptResolution, state.customResolution);
+        updateCustomPromptButton();
+        saveSettings();
+        setStatus(resolution ? `已生成提示词 ${resolution}` : "已生成提示词");
+      } catch (error) {
+        setStatus(`生成提示词失败：${error.message}`, true);
+      } finally {
+        pregeneratePrompt.disabled = false;
+        pregeneratePrompt.textContent = previousText;
+      }
+    }
+
     function normalizeStoredShot(shot, preset) {
       if (optionExists(shotSelect, shot)) return shot;
-      if (shot === "full_body_portrait_standing" || shot === "full_body_portrait_nonstanding" || shot === "full_body_portrait" || shot === "full_body_landscape" || shot === "full_body" || shot === "random") {
+      if (shot === "full_body_portrait_standing" || shot === "full_body_portrait_nonstanding" || shot === "full_body_portrait" || shot === "full_body_landscape" || shot === "full_body") {
         return "full_body";
       }
       if (shot === "large_half_body" || shot === "大半身") return "large_half_body";
@@ -1479,6 +1669,18 @@
 
     function currentVideoCount() {
       return Math.max(1, Math.min(64, Number(videoCountValue.textContent) || 1));
+    }
+
+    function hasRunningSerialBatch() {
+      return Boolean(state.serialBatch && state.serialBatch.submitted < state.serialBatch.total);
+    }
+
+    function hasActiveJobs() {
+      return [...state.jobs.values()].some(isActiveJob);
+    }
+
+    function updateGenerateButton() {
+      generateBtn.disabled = hasRunningSerialBatch() || hasActiveJobs();
     }
 
     function setCount(value) {
@@ -1516,6 +1718,7 @@
       modeTabs.forEach(tab => tab.classList.toggle("active", tab.dataset.mode === state.mode));
       imageModePanel.hidden = state.mode !== "image";
       videoModePanel.hidden = state.mode !== "video";
+      pregeneratePrompt.hidden = state.mode !== "image";
       sharedShotRow.classList.toggle("video-mode", state.mode === "video");
       if (persist) saveSettings();
       checkStatus();
@@ -1528,35 +1731,122 @@
 
     function setConnection(connected) {
       connectionEl.classList.toggle("connected", connected);
-      connectionText.textContent = connected ? "已连接" : "未连接";
+      connectionEl.classList.toggle("warning", !connected);
+      if (!state.entryLabel) {
+        connectionText.textContent = connected ? "入口已连" : "入口断开";
+      }
+    }
+
+    function compactUrl(value) {
+      const text = String(value || "").trim();
+      if (!text) return "";
+      return text.replace(/^https?:\/\//, "");
+    }
+
+    function updateEntryInfo(data = {}, ready = true) {
+      const mode = data.entry_mode || (location.port === "18199" ? "proxy" : "");
+      const label = data.entry_label || (mode === "proxy" ? "统一入口" : "检测入口");
+      const remote = data.remote || {};
+      const output = data.output || {};
+      const workflowLabel = data.workflow_label || data.workflow || "";
+      const templateName = data.template_name || "";
+      state.entryMode = mode;
+      state.entryLabel = label;
+      connectionText.textContent = label;
+      connectionEl.classList.toggle("warning", !ready);
+      healthLink.classList.toggle("visible", mode === "local");
+      const parts = [];
+      if (mode === "proxy") {
+        parts.push("手机入口：18199");
+      } else if (mode === "remote_direct") {
+        parts.push("内部远端入口");
+      } else if (mode === "local") {
+        parts.push("内部本机入口");
+      }
+      if (mode === "local" && workflowLabel) {
+        parts.push(`工作流：${workflowLabel}${templateName ? ` · ${templateName}` : ""}`);
+      }
+      if (output.dir) {
+        parts.push(`输出：${output.dir}`);
+      }
+      if (mode !== "local" && remote.enabled && remote.delete_output !== undefined) {
+        parts.push(`远端删除：${remote.delete_output ? "开启" : "关闭"}`);
+      }
+      state.entryDetail = "";
+      entryDetail.textContent = "";
     }
 
     async function requestJson(url, options) {
-      const response = await fetch(url, options);
+      let response;
+      try {
+        response = await fetch(url, options);
+      } catch (error) {
+        throw new Error(friendlyNetworkError(url, error));
+      }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const detail = readableError(data) || `请求失败（${response.status}）`;
+        const detail = readableError(data) || friendlyHttpError(url, response.status);
         throw new Error(detail);
       }
       return data;
     }
 
+    function friendlyNetworkError(url, error) {
+      if (url.includes("/random_photo_prompt/mobile/status")) {
+        if (location.port === "18199") {
+          return "统一入口连不上手机端内部服务。请重新启动 Mac 本机服务和 18199 代理。";
+        }
+        return "手机页接口不可用。请从 18199 统一入口打开。";
+      }
+      if (location.port === "18199") {
+        return `代理请求失败：${error.message || "网络断开"}。请检查 18199 统一入口和远端 4090。`;
+      }
+      return error.message || "网络请求失败。";
+    }
+
+    function friendlyHttpError(url, status) {
+      if (url.includes("/random_photo_prompt/mobile/status")) {
+        if (status === 502 || status === 503 || status === 504) {
+          return "入口链路有一段不可用。请检查 18199 统一入口和远端 4090。";
+        }
+        if (status === 404 && location.port !== "8188" && location.port !== "18199") {
+          return "当前地址不像手机版入口。请打开 18199 统一入口。";
+        }
+      }
+      return `请求失败（${status}）`;
+    }
+
     function readableError(data) {
       if (!data || typeof data !== "object") return "";
-      if (typeof data.error === "string" && data.error && data.error !== "0") return data.error;
-      if (typeof data.message === "string" && data.message && data.message !== "0") return data.message;
+      if (typeof data.error === "string" && data.error && data.error !== "0") return compactRemoteError(data.error);
+      if (typeof data.message === "string" && data.message && data.message !== "0") return compactRemoteError(data.message);
       if (Array.isArray(data.errors) && data.errors.length) {
         const first = data.errors[0];
         if (first && typeof first === "object") {
-          return first.error || first.message || JSON.stringify(first);
+          return readableError(first) || JSON.stringify(first);
         }
         if (first) return String(first);
+      }
+      if (data.error && typeof data.error === "object") {
+        return data.error.message || data.error.type || JSON.stringify(data.error);
+      }
+      if (data.detail && typeof data.detail === "object") {
+        return readableError(data.detail) || JSON.stringify(data.detail);
       }
       if (data.node_errors && Object.keys(data.node_errors).length) {
         return `工作流校验失败，涉及 ${Object.keys(data.node_errors).length} 个节点，请检查电脑端工作流模板。`;
       }
-      if (data.detail) return String(data.detail);
+      if (data.detail) return compactRemoteError(String(data.detail));
       return "";
+    }
+
+    function compactRemoteError(message) {
+      const text = String(message || "");
+      if (!text) return "";
+      if (/Traceback|aiohttp|Cannot connect|Connection refused|connect call failed|remote_history|_remote_json|_mobile_image_urls/i.test(text)) {
+        return "远端无法连接。请检查远端 ComfyUI 是否启动、地址端口是否正确。";
+      }
+      return text.length > 180 ? `${text.slice(0, 177)}...` : text;
     }
 
     async function checkStatus() {
@@ -1568,21 +1858,40 @@
         updateLoraOptions(data.loras || []);
         updateWorkflowModelVisibility();
         const ready = state.mode === "video" ? data.video_workflow?.template_ready : data.template_ready;
+        updateEntryInfo(data, ready);
+        const output = data.output || {};
+        if (output.exists === false || output.writable === false) {
+          setConnection(false);
+          setStatus(`输出目录不可用：${output.dir || "未配置"}。请检查路径是否存在且可写。`, true);
+          generateBtn.disabled = true;
+          return;
+        }
         if (ready) {
           setConnection(true);
           setStatus("");
-          generateBtn.disabled = false;
+          updateGenerateButton();
         } else {
           setConnection(false);
-          const templateName = state.mode === "video" ? data.video_workflow?.template_name : data.template_name;
-          setStatus(templateName ? `请先保存 ${templateName} 后再生成。` : (data.message || "请先准备工作流模板。"), true);
+          setStatus(firstUseMessage(data), true);
           generateBtn.disabled = true;
         }
       } catch (error) {
         setConnection(false);
+        connectionText.textContent = state.entryLabel || "入口断开";
         setStatus(error.message, true);
         generateBtn.disabled = true;
       }
+    }
+
+    function firstUseMessage(data = {}) {
+      const video = state.mode === "video";
+      const workflow = video ? data.video_workflow : (data.workflows || []).find(item => item.key === data.workflow);
+      const templateName = video ? data.video_workflow?.template_name : data.template_name;
+      const path = workflow?.path || data.template_path || "";
+      const message = workflow?.message || data.message || (templateName ? `缺少 ${templateName}。` : "请先准备工作流模板。");
+      const guidance = workflow?.guidance || data.guidance || "请在 ComfyUI 设置里打开开发者选项，然后使用“保存(API 格式)”重新导出。";
+      if (!path) return `${message} ${guidance}`;
+      return `${message} ${guidance} 保存路径：${path}`;
     }
 
     function updateSourcePicker() {
@@ -1638,8 +1947,11 @@
     }
 
     function updateWorkflowModelVisibility() {
-      const showZib = workflowSelect.value === "zitb_double" && state.mode === "image";
+      const showZib = ["zit_single", "zitb_double"].includes(workflowSelect.value) && state.mode === "image";
       zibModelField.hidden = !showZib;
+      if (workflowSelect.value === "zit_single" && zitModelSelect.value) {
+        setSelectValue(zibModelSelect, "");
+      }
       closeCustomSelect(zibModelSelect);
     }
 
@@ -1687,8 +1999,9 @@
         }
         if (message?.type !== "progress") return;
         const data = message.data || {};
+        if (data.type !== "node") return;
         const promptId = String(data.prompt_id || "");
-        const job = state.jobs.get(promptId);
+        const job = state.jobs.get(promptId) || [...state.jobs.values()].find(isActiveJob);
         if (!job) return;
         const value = Number(data.value || 0);
         const max = Number(data.max || 0);
@@ -1720,9 +2033,39 @@
       });
     }
 
-    function currentNodeText(progress) {
-      const node = String(progress?.node || "").trim();
-      return node ? `当前节点 ${node}` : "当前节点 等待节点";
+    function currentStepText(progress) {
+      const value = Number(progress?.value || 0);
+      const max = Number(progress?.max || 0);
+      if (max > 0) {
+        const current = Math.max(0, Math.min(max, value));
+        return `步骤：${current}/${max}`;
+      }
+      return "步骤：等待";
+    }
+
+    function jobResultState(job) {
+      if (!job) return "idle";
+      if (job.pollError) return "error";
+      if (job.status === "completed") {
+        if ((job.images || []).length || (job.videos || []).length) return "ready";
+        return "missing";
+      }
+      if (job.progress?.max > 0) return "running";
+      if (job.status === "pending") return "pending";
+      if (job.status === "running") return "running";
+      return job.status || "waiting";
+    }
+
+    function jobDisplayText(job) {
+      const stateName = jobResultState(job);
+      if (stateName === "ready") return "已完成，正在入图库";
+      if (stateName === "missing") return "已完成，但没有找到结果文件";
+      if (stateName === "error") return compactRemoteError(job.pollError || "任务状态读取失败");
+      if (stateName === "stale") return "任务已中断，请查看瀑布流";
+      if (stateName === "unknown") return "任务已中断，请查看瀑布流";
+      if (stateName === "pending") return "排队中";
+      if (stateName === "running") return "生成中";
+      return "等待结果";
     }
 
     function renderJobs() {
@@ -1732,23 +2075,43 @@
       let text = "等待指令中";
       if (active) {
         const firstActiveBatchId = Math.min(...pendingJobs.map(job => Number(job.batchId) || 0));
-        const queueJobs = allJobs.filter(job => (Number(job.batchId) || 0) >= firstActiveBatchId);
-        const completedInQueue = queueJobs.filter(job => job.status === "completed").length;
+        const queueJobs = allJobs.filter(job => (Number(job.batchId) || 0) >= firstActiveBatchId && isCountableQueueJob(job));
+        const completedInQueue = queueJobs.filter(isCompletedResultJob).length;
         const total = queueJobs.length || pendingJobs.length || 1;
         const current = Math.min(total, completedInQueue + 1);
         const progress = active.progress;
-        const progressText = currentNodeText(progress);
+        const progressText = currentStepText(progress);
         const activeVideo = Array.isArray(active.videos) && active.videos.length ? active.videos[0] : null;
         const width = activeVideo?.width || active.width || "";
         const height = activeVideo?.height || active.height || "";
-        text = `${width}x${height}\n生成中（${current}/${total}）\n${progressText}`;
+        if (jobResultState(active) === "error") {
+          text = jobDisplayText(active);
+        } else {
+          text = `${width}x${height}\n${jobDisplayText(active)}（${current}/${total}）\n${progressText}`;
+        }
+      } else if (allJobs.length) {
+        const latest = allJobs[allJobs.length - 1];
+        const width = latest.width || "";
+        const height = latest.height || "";
+        text = jobResultState(latest) === "error" ? jobDisplayText(latest) : `${width}x${height}\n${jobDisplayText(latest)}`;
       }
       jobsEl.innerHTML = `<div class="generation-state">${text.replace(/\n/g, "<br>")}</div>`;
       if (state.tab === "waterfall") loadGallery();
     }
 
     function isActiveJob(job) {
-      return job && job.status !== "completed" && job.status !== "unknown";
+      if (!job || job.status === "unknown") return false;
+      if (job.status === "stale") return false;
+      if (job.status !== "completed") return true;
+      return !((job.images || []).length || (job.videos || []).length || job.pollFinalized);
+    }
+
+    function isCompletedResultJob(job) {
+      return job?.status === "completed" && ((job.images || []).length || (job.videos || []).length);
+    }
+
+    function isCountableQueueJob(job) {
+      return isActiveJob(job) || isCompletedResultJob(job);
     }
 
     function activeQueueJobs() {
@@ -1756,7 +2119,7 @@
       const pendingJobs = allJobs.filter(isActiveJob);
       if (!pendingJobs.length) return [];
       const firstActiveBatchId = Math.min(...pendingJobs.map(job => Number(job.batchId) || 0));
-      return allJobs.filter(job => (Number(job.batchId) || 0) >= firstActiveBatchId);
+      return allJobs.filter(job => (Number(job.batchId) || 0) >= firstActiveBatchId && isCountableQueueJob(job));
     }
 
     function remainingActiveJobSlots() {
@@ -1764,15 +2127,35 @@
     }
 
     function imageRecords() {
-      return state.galleryImages.map(image => ({image, job: {prompt: image.prompt || ""}, index: 0}));
+      const images = state.sessionOnly ? state.galleryImages.filter(isSessionMedia) : state.galleryImages;
+      return images.map(image => ({image, job: {prompt: mediaPrompt(image)}, index: 0}));
     }
 
     function videoRecords() {
-      return state.galleryVideos.map(video => ({video, prompt: video.prompt || ""}));
+      const videos = state.sessionOnly ? state.galleryVideos.filter(isSessionMedia) : state.galleryVideos;
+      return videos.map(video => ({video, prompt: mediaPrompt(video)}));
+    }
+
+    function sessionOutputPrefixes() {
+      return [...state.jobs.values()]
+        .map(job => String(job.output_prefix || "").trim())
+        .filter(Boolean);
+    }
+
+    function isSessionMedia(item) {
+      const filename = String(item?.filename || "").trim();
+      if (!filename) return false;
+      const prefixes = sessionOutputPrefixes();
+      if (!prefixes.length && ![...state.jobs.values()].some(isActiveJob)) return true;
+      return prefixes.some(prefix => filename.startsWith(`${prefix}_`) || filename.startsWith(prefix));
     }
 
     function favoriteRecords() {
-      return state.favoriteImages.map(image => ({image, job: {prompt: image.prompt || ""}, index: 0}));
+      return state.favoriteImages.map(image => ({image, job: {prompt: mediaPrompt(image)}, index: 0}));
+    }
+
+    function mediaPrompt(item) {
+      return String(item?.prompt || item?.display_prompt || item?.generation_prompt || item?.positive_prompt || "").trim();
     }
 
     function prepareVideoThumbnails(root) {
@@ -1803,6 +2186,10 @@
         return subfolder ? `${subfolder}/${image.filename}` : image.filename;
       }
       return image.url || "";
+    }
+
+    function imageByKey(key) {
+      return state.galleryImages.find(image => imageKey(image) === key) || {filename: key};
     }
 
     function videoKey(video) {
@@ -1944,7 +2331,7 @@
       try {
         viewerFavorite.disabled = true;
         viewerFavorite.textContent = shouldFavorite ? "保存中" : "取消中";
-        await setFavoriteImage(record.image, record.job.prompt || "", shouldFavorite);
+        await setFavoriteImage(record.image, record.job.prompt || mediaPrompt(record.image), shouldFavorite);
         const refreshed = activeImageRecords()[state.viewerIndex] || record;
         updateViewerFavoriteButton(refreshed);
         setStatus(shouldFavorite ? "已保存到手机本地收藏" : "已取消收藏");
@@ -1970,7 +2357,7 @@
         galleryDelete.hidden = !state.editMode;
         galleryDelete.disabled = state.selectedVideos.size < 1;
         if (!videos.length) {
-          videoWaterfallEl.innerHTML = '<div class="empty">生成后的视频会出现在这里。</div>';
+          videoWaterfallEl.innerHTML = `<div class="empty">${state.sessionOnly ? "本次生成的视频会出现在这里。" : "生成后的视频会出现在这里。"}</div>`;
           return;
         }
         videoWaterfallEl.innerHTML = `
@@ -1987,7 +2374,7 @@
       }
       const images = state.galleryTab === "favorites" ? favoriteRecords() : imageRecords();
       const selectedImages = state.galleryTab === "favorites" ? state.selectedFavorites : state.selectedImages;
-      const emptyText = state.galleryTab === "favorites" ? "收藏的图片会出现在这里。" : "生成后的图片会出现在这里。";
+      const emptyText = state.galleryTab === "favorites" ? "收藏的图片会出现在这里。" : (state.sessionOnly ? "本次生成的图片会出现在这里。" : "生成后的图片会出现在这里。");
       const colCount = Math.max(1, Math.min(10, Number(state.waterfallCols) || 4));
       waterfallEl.style.setProperty("--photo-cols", String(colCount));
       galleryCount.textContent = state.editMode ? `已选 ${selectedImages.size} / ${images.length}` : `${images.length} 张`;
@@ -2014,9 +2401,12 @@
 
     function renderGalleryShell() {
       const isVideo = state.galleryTab === "videos";
+      const isFavorites = state.galleryTab === "favorites";
       galleryMediaTabs.forEach(tab => tab.classList.toggle("active", tab.dataset.galleryTab === state.galleryTab));
       waterfallEl.hidden = isVideo;
       videoWaterfallEl.hidden = !isVideo;
+      gallerySessionOnly.hidden = isFavorites;
+      gallerySessionOnly.classList.toggle("active", state.sessionOnly && !isFavorites);
       gallerySelectAll.hidden = !state.editMode;
       galleryEdit.hidden = false;
       galleryDelete.hidden = !state.editMode;
@@ -2037,8 +2427,10 @@
         ]);
         state.galleryImages = imageData.images || [];
         state.galleryVideos = videoData.videos || [];
-        state.selectedImages = new Set([...state.selectedImages].filter(filename => state.galleryImages.some(image => imageKey(image) === filename)));
-        state.selectedVideos = new Set([...state.selectedVideos].filter(filename => state.galleryVideos.some(video => video.filename === filename)));
+        const visibleImages = imageRecords().map(record => record.image);
+        const visibleVideos = videoRecords().map(record => record.video);
+        state.selectedImages = new Set([...state.selectedImages].filter(filename => visibleImages.some(image => imageKey(image) === filename)));
+        state.selectedVideos = new Set([...state.selectedVideos].filter(filename => visibleVideos.some(video => video.filename === filename)));
         state.selectedFavorites = new Set([...state.selectedFavorites].filter(filename => state.favoriteImages.some(image => imageKey(image) === filename)));
         if (state.sourceImage?.filename) {
           const sourceKey = imageKey(state.sourceImage);
@@ -2091,13 +2483,14 @@
       resetViewerScroll();
       state.viewerIndex = (index + images.length) % images.length;
       const record = images[state.viewerIndex];
+      const prompt = record.job.prompt || mediaPrompt(record.image);
       viewerVideo.pause();
       viewerVideo.removeAttribute("src");
       viewerImage.src = record.image.url;
-      viewerPrompt.textContent = record.job.prompt || "";
+      viewerPrompt.textContent = prompt;
       viewerCount.textContent = `${state.viewerIndex + 1} / ${images.length}`;
       viewerDelete.dataset.filename = imageKey(record.image);
-      viewerCopyPrompt.dataset.prompt = record.job.prompt || "";
+      viewerCopyPrompt.dataset.prompt = prompt;
       updateViewerFavoriteButton(record);
       state.viewerRotation = 0;
       resetViewerLayout();
@@ -2121,11 +2514,11 @@
       viewerIncomingImage.removeAttribute("src");
       viewerIncomingImage.removeAttribute("data-index");
       viewerVideo.src = record.video.url;
-      viewerPrompt.textContent = record.prompt || "";
+      viewerPrompt.textContent = record.prompt || mediaPrompt(record.video);
       const resolution = record.video.width && record.video.height ? ` · ${record.video.width}x${record.video.height}` : "";
       viewerCount.textContent = `${state.viewerIndex + 1} / ${videos.length}${resolution}`;
       viewerDelete.dataset.filename = videoKey(record.video);
-      viewerCopyPrompt.dataset.prompt = record.prompt || "";
+      viewerCopyPrompt.dataset.prompt = record.prompt || mediaPrompt(record.video);
       state.viewerRotation = 0;
       resetViewerLayout();
       resetViewerScroll();
@@ -2190,12 +2583,12 @@
         );
         const visualHeight = displayWidth * state.viewerLayoutScale;
         state.viewerBaseOffsetY = (visualHeight - renderedHeight) / 2;
-        state.viewerViewportHeight = Math.max(viewportHeight, renderedHeight, visualHeight);
-        viewerImageBox.style.height = `${state.viewerViewportHeight + 10}px`;
+        state.viewerViewportHeight = Math.max(1, renderedHeight, visualHeight);
+        viewerImageBox.style.height = `${state.viewerViewportHeight + 4}px`;
       } else {
         state.viewerScale = 1;
-        state.viewerViewportHeight = Math.max(viewportHeight, renderedHeight);
-        viewerImageBox.style.height = `${state.viewerViewportHeight + 10}px`;
+        state.viewerViewportHeight = Math.max(1, renderedHeight);
+        viewerImageBox.style.height = `${state.viewerViewportHeight + 4}px`;
       }
       viewerImage.style.transform = currentViewerTransform(0);
     }
@@ -2330,25 +2723,26 @@
       });
     }
 
-    async function deleteImages(filenames) {
-      const unique = [...new Set(filenames.filter(Boolean))];
-      if (!unique.length) return;
-      const ok = await askConfirm(`删除 ${unique.length} 张图片？`);
-      if (!ok) return;
+    async function deleteImages(keys) {
+      const uniqueKeys = [...new Set(keys.filter(Boolean))];
+      if (!uniqueKeys.length) return false;
+      const ok = await askConfirm(`删除 ${uniqueKeys.length} 张图片？`);
+      if (!ok) return false;
       await requestJson("/random_photo_prompt/mobile/gallery/delete", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({items: unique.map(filename => ({filename}))})
+        body: JSON.stringify({items: uniqueKeys.map(key => ({...imageByKey(key), key}))})
       });
-      unique.forEach(filename => state.selectedImages.delete(filename));
+      uniqueKeys.forEach(key => state.selectedImages.delete(key));
       await loadGallery();
+      return true;
     }
 
     async function deleteVideos(filenames) {
       const unique = [...new Set(filenames.filter(Boolean))];
-      if (!unique.length) return;
+      if (!unique.length) return false;
       const ok = await askConfirm(`删除 ${unique.length} 个视频？`);
-      if (!ok) return;
+      if (!ok) return false;
       await requestJson("/random_photo_prompt/mobile/videos/delete", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
@@ -2356,19 +2750,21 @@
       });
       unique.forEach(filename => state.selectedVideos.delete(filename));
       await loadGallery();
+      return true;
     }
 
     async function deleteFavorites(filenames) {
       const unique = [...new Set(filenames.filter(Boolean))];
-      if (!unique.length) return;
+      if (!unique.length) return false;
       const ok = await askConfirm(`移除 ${unique.length} 张收藏？`);
-      if (!ok) return;
+      if (!ok) return false;
       await favoriteDbTransaction("readwrite", store => {
         unique.forEach(filename => store.delete(filename));
       });
       unique.forEach(filename => state.selectedFavorites.delete(filename));
       await loadFavorites();
       renderWaterfall();
+      return true;
     }
 
     async function copyPromptText(text) {
@@ -2499,14 +2895,36 @@
 
     viewerDelete.addEventListener("click", async () => {
       const filename = viewerDelete.dataset.filename;
+      const deletedIndex = state.viewerIndex;
+      let deleted = false;
       if (state.viewerMediaType === "video") {
-        await deleteVideos([filename]);
+        deleted = await deleteVideos([filename]);
+        if (!deleted) return;
+        const videos = videoRecords();
+        if (!videos.length) {
+          closeViewer();
+          return;
+        }
+        showViewerVideo(Math.min(deletedIndex, videos.length - 1));
       } else if (state.galleryTab === "favorites") {
-        await deleteFavorites([filename]);
+        deleted = await deleteFavorites([filename]);
+        if (!deleted) return;
+        const images = activeImageRecords();
+        if (!images.length) {
+          closeViewer();
+          return;
+        }
+        showViewerImage(Math.min(deletedIndex, images.length - 1));
       } else {
-        await deleteImages([filename]);
+        deleted = await deleteImages([filename]);
+        if (!deleted) return;
+        const images = activeImageRecords();
+        if (!images.length) {
+          closeViewer();
+          return;
+        }
+        showViewerImage(Math.min(deletedIndex, images.length - 1));
       }
-      closeViewer();
     });
 
     viewerImage.addEventListener("load", () => {
@@ -2519,6 +2937,13 @@
 
     galleryMediaTabs.forEach(tab => {
       tab.addEventListener("click", () => switchGalleryTab(tab.dataset.galleryTab));
+    });
+
+    gallerySessionOnly.addEventListener("click", () => {
+      state.sessionOnly = !state.sessionOnly;
+      state.selectedImages.clear();
+      state.selectedVideos.clear();
+      renderWaterfall();
     });
 
     [scaleSelect, videoScaleSelect, shotSelect, workflowSelect, promptRuleSelect, zitModelSelect, zibModelSelect, loraNameSelect, videoFpsSelect, videoSecondsSelect, customPromptResolution].forEach(enhanceSelect);
@@ -2542,6 +2967,8 @@
       });
     });
     customPromptButton.addEventListener("click", openPromptDialog);
+    copyCustomPrompt.addEventListener("click", () => copyPromptText(state.customPrompt));
+    pregeneratePrompt.addEventListener("click", pregenerateImagePrompt);
     customPromptCancel.addEventListener("click", closePromptDialog);
     promptDialog.addEventListener("click", event => {
       if (event.target === promptDialog) closePromptDialog();
@@ -2555,6 +2982,7 @@
       saveSettings();
       closePromptDialog();
     });
+    customPromptCopy.addEventListener("click", () => copyPromptText(customPromptText.value || state.customPrompt));
     customPromptOk.addEventListener("click", () => {
       state.customPrompt = customPromptText.value.trim();
       state.customResolution = customPromptResolution.value;
@@ -2570,6 +2998,9 @@
     });
     zitModelSelect.addEventListener("change", () => {
       renderCustomSelect(zitModelSelect);
+      if (workflowSelect.value === "zit_single" && zitModelSelect.value) {
+        setSelectValue(zibModelSelect, "");
+      }
       saveSettings();
     });
     zibModelSelect.addEventListener("change", () => {
@@ -2966,8 +3397,29 @@
       element.addEventListener("touchend", handleViewerTouchEnd, {passive: true});
       element.addEventListener("touchcancel", handleViewerTouchCancel, {passive: true});
     });
+    function isTypingTarget(element) {
+      const tag = String(element?.tagName || "").toLowerCase();
+      return tag === "input" || tag === "textarea" || tag === "select" || Boolean(element?.isContentEditable);
+    }
+
+    function switchViewerByKeyboard(direction) {
+      if (!viewer.classList.contains("open")) return false;
+      if (state.viewerMediaType === "video") {
+        const videos = videoRecords();
+        if (videos.length < 2) return false;
+        showViewerVideo(state.viewerIndex + direction);
+        return true;
+      }
+      if (activeImageRecords().length < 2) return false;
+      showViewerImage(state.viewerIndex + direction);
+      return true;
+    }
+
     window.addEventListener("keydown", event => {
+      if (isTypingTarget(event.target)) return;
       if (event.key === "Escape") closeViewer();
+      if (event.key === "ArrowLeft" && switchViewerByKeyboard(-1)) event.preventDefault();
+      if (event.key === "ArrowRight" && switchViewerByKeyboard(1)) event.preventDefault();
     });
     window.addEventListener("resize", () => {
       if (viewer.classList.contains("open")) updateViewerLayout();
@@ -2984,7 +3436,23 @@
       if (status === "completed") return "已完成";
       if (status === "running") return "生成中";
       if (status === "pending") return "排队中";
+      if (status === "stale") return "任务已中断";
       return "等待结果";
+    }
+
+    async function syncServerJobs() {
+      const data = await requestJson("/random_photo_prompt/mobile/jobs");
+      const serverIds = new Set((data.jobs || []).map(job => String(job.prompt_id || "")));
+      let changed = false;
+      for (const job of state.jobs.values()) {
+        if (!job?.prompt_id || !isActiveJob(job) || serverIds.has(String(job.prompt_id))) continue;
+        job.status = "stale";
+        job.statusText = "任务已中断";
+        job.pollFinalized = true;
+        job.progress = null;
+        changed = true;
+      }
+      return changed;
     }
 
     async function pollJobs() {
@@ -2992,18 +3460,48 @@
       if (!active.length) {
         clearInterval(state.timer);
         state.timer = null;
+        updateGenerateButton();
+        return;
+      }
+      let shouldRefreshGallery = false;
+      try {
+        if (await syncServerJobs()) {
+          shouldRefreshGallery = true;
+        }
+      } catch (_error) {
+        // 单个任务查询仍会继续给出更具体状态。
+      }
+      if (!active.some(isActiveJob)) {
+        if (state.serialBatch && state.serialBatch.submitted < state.serialBatch.total) {
+          state.serialBatch = null;
+          setStatus("批量任务已中断，未提交的任务已取消。", true);
+        }
+        renderJobs();
+        clearInterval(state.timer);
+        state.timer = null;
+        updateGenerateButton();
         return;
       }
       for (const job of active) {
+        if (!isActiveJob(job)) continue;
         try {
+          const wasCompleted = job.status === "completed";
+          delete job.pollError;
           const data = await requestJson(`/random_photo_prompt/mobile/job/${job.prompt_id}`);
           job.status = data.status;
           job.statusText = statusText(data.status);
           job.images = data.images || [];
           job.videos = data.videos || [];
+          if (data.progress?.max > 0) {
+            job.progress = data.progress;
+          }
           if (data.status === "completed") {
             const max = job.progress?.max || 1;
             job.progress = {value: max, max, percent: 100, node: job.progress?.node || ""};
+            job.pollFinalized = Boolean(job.images.length || job.videos.length);
+            if (!wasCompleted && (job.images.length || job.videos.length)) {
+              shouldRefreshGallery = true;
+            }
           }
           const video = job.videos[0];
           if (video?.width && video?.height) {
@@ -3011,10 +3509,24 @@
             job.height = video.height;
           }
         } catch (error) {
+          job.pollError = error.message;
           job.statusText = error.message;
         }
       }
       renderJobs();
+      if (shouldRefreshGallery) {
+        await loadGallery();
+        active.forEach(job => {
+          if (job.status === "completed" && ((job.images || []).length || (job.videos || []).length)) {
+            job.pollFinalized = true;
+          }
+        });
+        renderJobs();
+      }
+      if (![...state.jobs.values()].some(isActiveJob)) {
+        await submitNextSerialJobIfReady();
+      }
+      updateGenerateButton();
     }
 
     function startPolling() {
@@ -3022,6 +3534,86 @@
       ensureProgressSocket();
       state.timer = setInterval(pollJobs, 2500);
       pollJobs();
+    }
+
+    function buildGeneratePayload(isVideoMode, count) {
+      return isVideoMode
+        ? {
+            client_id: state.clientId,
+            scale: videoScaleSelect.value,
+            source_filename: imageKey(state.sourceImage),
+            action_text: videoActionInput.value,
+            fps: videoFpsSelect.value,
+            seconds: videoSecondsSelect.value,
+            count
+          }
+        : {
+            client_id: state.clientId,
+            scale: scaleSelect.value,
+            shot: shotSelect.value,
+            workflow: workflowSelect.value,
+            prompt_rule: promptRuleSelect.value,
+            zit_model: zitModelSelect.value,
+            zib_model: workflowSelect.value === "zit_single" && zitModelSelect.value ? "" : zibModelSelect.value,
+            lora_name: loraNameSelect.value,
+            lora_strength: loraStrengthInput.value,
+            custom_prompt: state.customPrompt.trim(),
+            custom_resolution: state.customResolution,
+            count
+          };
+    }
+
+    async function submitNextSerialJobIfReady() {
+      const batch = state.serialBatch;
+      if (!batch || state.serialSubmitting) return;
+      if (batch.submitted >= batch.total) {
+        state.serialBatch = null;
+        updateGenerateButton();
+        return;
+      }
+      if ([...state.jobs.values()].some(isActiveJob)) return;
+      state.serialSubmitting = true;
+      try {
+        ensureProgressSocket();
+        const payload = {...batch.payload, count: 1};
+        const data = await requestJson(batch.url, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const jobs = data.jobs || [];
+        if (!jobs.length) throw new Error(data.errors?.[0]?.error || "任务没有提交成功。");
+        jobs.forEach(job => {
+          const index = batch.submitted + 1;
+          state.jobs.set(job.prompt_id, {
+            ...job,
+            batchId: batch.batchId,
+            batchIndex: index,
+            batchTotal: batch.total,
+            status: "pending",
+            statusText: "排队中",
+            progress: Number(job.node_total || 0) > 0 ? {value: 0, max: Number(job.node_total), percent: 0, node: "", type: "node"} : null,
+            images: [],
+            videos: []
+          });
+          batch.submitted = index;
+        });
+        if (data.errors && data.errors.length) {
+          setStatus("有任务没有排进去，请检查电脑端工作流。", true);
+        } else {
+          setStatus("");
+        }
+        renderJobs();
+        startPolling();
+        if (batch.isVideoMode) switchGalleryTab("videos");
+      } catch (error) {
+        state.serialBatch = null;
+        setStatus(error.message, true);
+        window.alert(error.message);
+      } finally {
+        state.serialSubmitting = false;
+        updateGenerateButton();
+      }
     }
 
     async function restoreSessionJobs() {
@@ -3036,7 +3628,9 @@
             batchIndex: index + 1,
             batchTotal: jobs.length,
             statusText: statusText(job.status),
-            progress: job.status === "completed" ? {value: 1, max: 1, percent: 100, node: ""} : null,
+            progress: job.status === "completed"
+              ? {value: Number(job.node_total || 1), max: Number(job.node_total || 1), percent: 100, node: "", type: "node"}
+              : (Number(job.node_total || 0) > 0 ? {value: 0, max: Number(job.node_total), percent: 0, node: "", type: "node"} : null),
             images: job.images || [],
             videos: job.videos || []
           });
@@ -3070,60 +3664,16 @@
       }
       generateBtn.disabled = true;
       try {
-        ensureProgressSocket();
         const url = isVideoMode ? "/random_photo_prompt/mobile/video/generate" : "/random_photo_prompt/mobile/generate";
-        const payload = isVideoMode
-          ? {
-              client_id: state.clientId,
-              scale: videoScaleSelect.value,
-              source_filename: imageKey(state.sourceImage),
-              action_text: videoActionInput.value,
-              fps: videoFpsSelect.value,
-              seconds: videoSecondsSelect.value,
-              count
-            }
-          : {
-              client_id: state.clientId,
-              scale: scaleSelect.value,
-              shot: shotSelect.value,
-              workflow: workflowSelect.value,
-              prompt_rule: promptRuleSelect.value,
-              zit_model: zitModelSelect.value,
-              zib_model: zibModelSelect.value,
-              lora_name: loraNameSelect.value,
-              lora_strength: loraStrengthInput.value,
-              custom_prompt: state.customPrompt.trim(),
-              custom_resolution: state.customResolution,
-              count
-            };
-        const data = await requestJson(url, {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify(payload)
-        });
-        const batchId = state.nextBatchId++;
-        const jobs = data.jobs || [];
-        jobs.forEach((job, index) => {
-          state.jobs.set(job.prompt_id, {
-            ...job,
-            batchId,
-            batchIndex: index + 1,
-            batchTotal: jobs.length || count,
-            status: "pending",
-            statusText: "排队中",
-            progress: null,
-            images: [],
-            videos: []
-          });
-        });
-        if (data.errors && data.errors.length) {
-          setStatus("有任务没有排进去，请检查电脑端工作流。", true);
-        } else {
-          setStatus("");
-        }
-        renderJobs();
-        startPolling();
-        if (isVideoMode) switchGalleryTab("videos");
+        state.serialBatch = {
+          batchId: state.nextBatchId++,
+          total: count,
+          submitted: 0,
+          url,
+          payload: buildGeneratePayload(isVideoMode, 1),
+          isVideoMode
+        };
+        await submitNextSerialJobIfReady();
       } catch (error) {
         setStatus(error.message, true);
         window.alert(error.message);

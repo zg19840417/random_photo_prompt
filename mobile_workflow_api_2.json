@@ -73,36 +73,6 @@
       "title": "采样算法（AuraFlow）"
     }
   },
-  "64": {
-    "inputs": {
-      "rgthree_comparer": {
-        "images": [
-          {
-            "name": "A",
-            "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_nbacg_00007_.png&type=temp&subfolder=&rand=0.42393340019508097"
-          },
-          {
-            "name": "B",
-            "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_nbacg_00008_.png&type=temp&subfolder=&rand=0.014277686015382263"
-          }
-        ]
-      },
-      "image_a": [
-        "129",
-        0
-      ],
-      "image_b": [
-        "170",
-        0
-      ]
-    },
-    "class_type": "Image Comparer (rgthree)",
-    "_meta": {
-      "title": "SD Upscale Comapre"
-    }
-  },
   "129": {
     "inputs": {
       "samples": [
@@ -199,7 +169,7 @@
   },
   "175": {
     "inputs": {
-      "value": 1.5
+      "value": 2.5
     },
     "class_type": "FloatConstant",
     "_meta": {
@@ -274,7 +244,7 @@
     "inputs": {
       "add_noise": "disable",
       "noise_seed": 490923384931642,
-      "steps": 14,
+      "steps": 12,
       "cfg": 1,
       "sampler_name": "sa_solver",
       "scheduler": "beta",
@@ -405,22 +375,10 @@
       "title": "VAE解码"
     }
   },
-  "579": {
-    "inputs": {
-      "images": [
-        "129",
-        0
-      ]
-    },
-    "class_type": "PreviewImage",
-    "_meta": {
-      "title": "Preview Image 2ND"
-    }
-  },
   "582": {
     "inputs": {
       "unet_name": "z_image\\ZIB-z_image_bf16.safetensors",
-      "weight_dtype": "fp8_e4m3fn"
+      "weight_dtype": "default"
     },
     "class_type": "UNETLoader",
     "_meta": {
@@ -430,7 +388,7 @@
   "584": {
     "inputs": {
       "unet_name": "z_image\\ZiT-超越真实BEYOND REALITY-V30.safetensors",
-      "weight_dtype": "fp8_e4m3fn"
+      "weight_dtype": "default"
     },
     "class_type": "UNETLoader",
     "_meta": {

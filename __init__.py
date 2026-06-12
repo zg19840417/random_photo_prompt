@@ -4,18 +4,25 @@ import traceback
 import json
 import asyncio
 import copy
+import html
+import os
 import platform
 import random
 import re
 import shutil
+import struct
 import subprocess
 import uuid
 import urllib.parse
+import urllib.request
+from io import BytesIO
 from pathlib import Path
 
 import execution
 import folder_paths
-from aiohttp import web
+import numpy as np
+from aiohttp import ClientSession, ClientTimeout, WSMsgType, web
+from PIL import Image
 from server import PromptServer
 
 
@@ -34,6 +41,21 @@ from video_prompt_engine import (
 )
 from keyword_expansion_engine import CHARACTER_BY_SHOT
 from keyword_expansion_engine import generate_keyword_expansion_prompt
+from prompt_postprocess import clean_prompt_text
+from prompt_resolution import (
+    MOBILE_CUSTOM_RESOLUTION_PRESETS,
+    MOBILE_MAX_IMAGE_EDGE,
+    MOBILE_RESOLUTION_DOWNSHIFT,
+    MOBILE_RESOLUTION_MULTIPLE,
+    MOBILE_STANDING_FULL_BODY_RESOLUTION,
+    base_resolution_for_workflow,
+    clamp_mobile_resolution,
+    linked_float_value,
+    mobile_custom_resolution,
+    mobile_resolution_for_custom_prompt,
+    round_to_multiple,
+    workflow_output_scale,
+)
 MOBILE_PAGE_PATH = NODE_DIR / "web" / "mobile.html"
 MOBILE_WORKFLOW_PATH = NODE_DIR / "mobile_workflow_api.json"
 MOBILE_WORKFLOWS = {
@@ -45,70 +67,75 @@ MOBILE_DEFAULT_WORKFLOW_KEY = "zit_single"
 MOBILE_VIDEO_WORKFLOW_KEY = "ltx_video"
 ZIT_MODEL_DIR = Path(folder_paths.models_dir) / "diffusion_models" / "z_image"
 ZIT_MODEL_EXTENSIONS = {".safetensors", ".ckpt", ".gguf"}
+MOBILE_PREFERRED_ZIT_MODELS = (
+    "ZIT-moodyPornMix_zitV10R1DPO_fp16.safetensors",
+    "ZIT-大师pornmasterZImage_turboV35_bf16.safetensors",
+    "ZIT-beyondREALITY_V30.safetensors",
+)
+REMOTE_BLOCKED_ZIT_MODELS = set()
 ZIMAGE_LORA_SUBDIR = "Zimage"
 LORA_MODEL_EXTENSIONS = {".safetensors", ".ckpt", ".pt"}
+REMOTE_LORA_DIR = Path(
+    os.environ.get("RPP_REMOTE_LORA_DIR", "~/Desktop/远程模型/loras")
+).expanduser()
 MOBILE_OUTPUT_SUBFOLDER = "random_photo_prompt_mobile"
 MOBILE_VIDEO_OUTPUT_SUBFOLDER = "random_photo_prompt_mobile_video"
 MOBILE_VIDEO_INPUT_SUBFOLDER = "random_photo_prompt_mobile_video"
+REMOTE_COMFYUI_URL = os.environ.get("RPP_REMOTE_COMFYUI_URL", "").rstrip("/")
+REMOTE_OUTPUT_DIR = Path(os.environ.get("RPP_REMOTE_OUTPUT_DIR", "")).expanduser() if os.environ.get("RPP_REMOTE_OUTPUT_DIR") else None
+REMOTE_HISTORY_TIMEOUT = float(os.environ.get("RPP_REMOTE_HISTORY_TIMEOUT", "600") or 600)
+REMOTE_DELETE_OUTPUT = os.environ.get("RPP_REMOTE_DELETE_OUTPUT", "1").strip().lower() not in {"0", "false", "no", "off"}
+REMOTE_WEBSOCKET_OUTPUT = os.environ.get("RPP_REMOTE_WEBSOCKET_OUTPUT", "1").strip().lower() not in {"0", "false", "no", "off"}
+BLOCK_REMOTE_ASSET_SAVE = os.environ.get("RPP_BLOCK_REMOTE_ASSET_SAVE", "0").strip().lower() in {"1", "true", "yes", "on"}
+REMOTE_MAC_IMAGE_UPLOAD_URL = os.environ.get("RPP_MAC_IMAGE_UPLOAD_URL", "").strip()
 MOBILE_SCOPE_PRESETS = {
-    "head_shot": {"shot": "head_shot", "aspect": "portrait", "width": 1024, "height": 1344},
-    "upper_body": {"shot": "upper_body", "aspect": "portrait", "width": 1024, "height": 1536},
-    "half_body": {"shot": "half_body", "aspect": "portrait", "width": 1024, "height": 1344},
-    "large_half_body": {"shot": "large_half_body", "aspect": "portrait", "width": 1037, "height": 1536},
-    "full_body": {"shot": "full_body", "aspect": "portrait", "width": 864, "height": 1536},
+    "head_shot": {"shot": "head_shot", "aspect": "portrait", "width": 1536, "height": 1536},
+    "upper_body": {"shot": "upper_body", "aspect": "portrait", "width": 1280, "height": 1920},
+    "half_body": {"shot": "half_body", "aspect": "portrait", "width": 1216, "height": 1664},
+    "large_half_body": {"shot": "large_half_body", "aspect": "portrait", "width": 1280, "height": 1920},
+    "full_body": {"shot": "full_body", "aspect": "portrait", "width": 1088, "height": 1920},
 }
 MOBILE_MAX_ACTIVE_JOBS = 100
 MOBILE_SESSION_JOBS = []
+MOBILE_SESSION_JOBS_LOADED = False
 MOBILE_PROMPT_BY_FILENAME = {}
 MOBILE_VIDEO_PROMPT_BY_FILENAME = {}
 MOBILE_VIDEO_DIMENSIONS_BY_FILENAME = {}
+REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID = {}
+REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID = {}
+REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID = {}
+REMOTE_WS_WATCHERS = {}
+REMOTE_PROGRESS_BY_PROMPT_ID = {}
+REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID = {}
+MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID = {}
 MOBILE_PROMPT_INDEX_NAME = ".random_photo_prompt_mobile_prompts.json"
+MOBILE_SESSION_JOBS_NAME = ".random_photo_prompt_mobile_jobs.json"
 MOBILE_GALLERY_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 MOBILE_VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov", ".mkv"}
-MOBILE_MAX_IMAGE_HEIGHT = 1536
-MOBILE_RESOLUTION_MULTIPLE = 8
-MOBILE_RESOLUTION_DOWNSHIFT = 0.875
 MAX_POSITIVE_PROMPT_LENGTH = 800
-MOBILE_STANDING_FULL_BODY_RESOLUTION = {
-    "aspect": "portrait",
-    "width": 864,
-    "height": 1536,
-    "framing": "窄长站姿全身构图",
-}
-MOBILE_CUSTOM_RESOLUTION_PRESETS = {
-    "704x1536": {"aspect": "portrait", "width": 704, "height": 1536, "framing": ""},
-    "768x1536": {"aspect": "portrait", "width": 768, "height": 1536, "framing": ""},
-    "864x1536": {"aspect": "portrait", "width": 864, "height": 1536, "framing": ""},
-    "1037x1536": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": ""},
-    "1024x1536": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""},
-    "1024x1344": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": ""},
-    "1366x1024": {"aspect": "landscape", "width": 1366, "height": 1024, "framing": ""},
-    "1536x1024": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": ""},
-    "1024x1024": {"aspect": "portrait", "width": 1024, "height": 1024, "framing": ""},
-}
 PROMPT_DISPLAY_PART_ORDER = (
     "camera",
     "character",
-    "makeup",
     "outfit",
     "pose_expression",
     "scene_light",
+    "quality",
 )
-PROMPT_LIMIT_PART_ORDER = ("pose_expression", "scene_light", "quality", "camera", "character", "outfit", "makeup", "hair")
+PROMPT_LIMIT_PART_ORDER = ("camera", "character", "outfit", "pose_expression", "scene_light", "quality")
 
 MOBILE_RESOLUTION_RULES = {
     "full_body": (
         (
             ("大字", "四肢展开", "双臂自然向两侧展开", "手脚乱舞", "跳", "跃起", "腾空"),
-            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向全身动态构图"},
+            {"aspect": "landscape", "width": 1920, "height": 1280, "framing": "横向全身动态构图"},
         ),
         (
             ("俯拍", "顶视角", "正上方", "仰躺", "侧躺", "横躺", "平躺", "趴", "横向展开", "沿宽画幅", "床中央", "睡", "睡着"),
-            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向全身构图，身体沿宽画幅展开，从头到脚完整入镜"},
+            {"aspect": "landscape", "width": 1920, "height": 1280, "framing": "横向全身构图，身体沿宽画幅展开，从头到脚完整入镜"},
         ),
         (
             ("近大远小", "强透视", "前景", "靠近镜头", "脚伸到镜头", "手掌和脚尖", "脚尖和脚踝因近大远小"),
-            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身强透视构图"},
+            {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身强透视构图"},
         ),
         (
             ("站立", "站姿", "直立", "倚靠", "靠墙", "迈步", "行走", "走姿"),
@@ -116,43 +143,43 @@ MOBILE_RESOLUTION_RULES = {
         ),
         (
             ("坐", "坐姿", "坐在", "侧坐", "跪", "跪姿", "跪坐", "膝", "蹲", "半蹲", "蜷", "抱膝"),
-            {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "竖向全身坐跪构图"},
+            {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身坐跪构图"},
         ),
         (
             ("扭腰", "回望", "转身", "侧身", "交叉点地", "向后拉长", "双手一上一下"),
-            {"aspect": "portrait", "width": 864, "height": 1536, "framing": "竖向全身动态姿势构图"},
+            {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身动态姿势构图"},
         ),
     ),
     "half_body": (
         (
             ("横躺", "侧躺", "仰躺", "平躺", "俯拍", "顶视角", "床", "横向", "横跨", "横向靠", "横向坐", "横向趴", "沿宽画幅", "斜向铺"),
-            {"aspect": "landscape", "width": 1366, "height": 1024, "framing": "横向半身镜头，腰部及以上入镜，头部、肩颈、胸部和腰部完整"},
+            {"aspect": "landscape", "width": 1920, "height": 1088, "framing": "横向半身镜头，腰部及以上入镜，头部、肩颈、胸部和腰部完整"},
         ),
         (
             ("坐", "坐姿", "跪", "跪坐", "膝", "直立", "站", "站立", "竖向", "纵向"),
-            {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手完整"},
+            {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手入镜"},
         ),
     ),
     "large_half_body": (
         (
             ("横躺", "平躺", "俯拍", "顶视角", "横向", "横跨", "横向靠", "横向坐", "横向趴", "沿宽画幅", "斜向铺"),
-            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "大腿以上镜头，横向构图"},
+            {"aspect": "landscape", "width": 1920, "height": 1280, "framing": "大腿以上镜头，横向构图"},
         ),
         (
             ("坐", "坐姿", "跪", "跪坐", "膝", "直立", "站", "站立", "竖向", "纵向", "仰躺", "侧躺"),
-            {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
+            {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
         ),
     ),
     "upper_body": (
         (
             ("横向", "侧脸", "躺", "侧躺"),
-            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向上半身镜头，胸部及以上入镜，头顶完整"},
+            {"aspect": "landscape", "width": 1920, "height": 1280, "framing": "横向上半身镜头，胸部及以上入镜，头顶完整"},
         ),
     ),
     "head_shot": (
         (
             ("横向", "侧脸", "躺", "侧躺"),
-            {"aspect": "landscape", "width": 1366, "height": 1024, "framing": "横向头部镜头，肩膀及以上入镜，头顶完整"},
+            {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部镜头，肩膀及以上入镜，头顶完整"},
         ),
     ),
 }
@@ -162,7 +189,8 @@ MOBILE_FRAMING_COMPACT_REPLACEMENTS = {
     "竖向全身非站姿构图，头部、手臂、腿部、脚部和姿势外轮廓完整": "竖向全身非站姿构图",
     "窄长全身构图，从头顶到脚掌完整入镜，脚下留地面边距": "窄长全身构图，脚下留地面边距",
     "横向半身镜头，腰部及以上入镜，头部、肩颈、胸部和腰部完整": "横向半身构图，腰部以上完整",
-    "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手完整": "竖向半身构图，胸腰和双手完整",
+    "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手完整": "竖向半身构图，胸腰和双手入镜",
+    "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手入镜": "竖向半身构图，胸腰和双手入镜",
     "横向大半身镜头，小腿及以上入镜，身体沿宽画幅展开到小腿": "大腿以上镜头，横向构图",
     "竖向大半身镜头，小腿及以上入镜，头部到小腿完整": "大腿以上镜头，竖向构图",
     "横向上半身镜头，胸部及以上入镜，头顶完整": "横向上半身构图，头顶完整",
@@ -172,62 +200,62 @@ MOBILE_FRAMING_COMPACT_REPLACEMENTS = {
     "头部镜头，肩膀及以上入镜，头顶完整": "竖向头部构图，头顶完整",
 }
 MOBILE_DEFAULT_RESOLUTIONS = {
-    "full_body": {"aspect": "portrait", "width": 864, "height": 1536, "framing": "竖向全身构图"},
-    "large_half_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
-    "half_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手完整"},
-    "upper_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "上半身镜头，胸部及以上入镜，头顶完整，画面停在上腰"},
-    "head_shot": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "头部镜头，肩膀及以上入镜，头顶完整"},
+    "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身构图"},
+    "large_half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
+    "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身镜头，腰部及以上入镜，头部、胸腰和双手入镜"},
+    "upper_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "上半身镜头，胸部及以上入镜，头顶完整，画面停在上腰"},
+    "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部镜头，肩膀及以上入镜，头顶完整"},
 }
 MOBILE_DIRECTOR_RESOLUTION_RULES = {
     "sunny_multicolor_pool_glamour": {
-        "full_body": {"aspect": "portrait", "width": 864, "height": 1536, "framing": "竖向全身阳光水光构图，从头到脚完整入镜，脚下留地面或池边边距"},
-        "large_half_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向半身多色反光构图，腰部及以上入镜"},
-        "upper_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向上半身水光近景，胸部及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身阳光水光构图，从头到脚完整入镜，脚下留地面或池边边距"},
+        "large_half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
+        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身多色反光构图，腰部及以上入镜"},
+        "upper_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向上半身水光近景，胸部及以上入镜，头顶完整"},
     },
     "beach_vivid_glamour": {
-        "full_body": {"aspect": "portrait", "width": 864, "height": 1536, "framing": "竖向全身海边构图，从头到脚完整入镜，脚下沙面边距清楚"},
-        "large_half_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
-        "half_body": {"aspect": "landscape", "width": 1366, "height": 1024, "framing": "横向半身海边构图，腰部及以上入镜，保留海风空间"},
+        "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身海边构图，从头到脚完整入镜，脚下沙面边距清楚"},
+        "large_half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
+        "half_body": {"aspect": "landscape", "width": 1920, "height": 1088, "framing": "横向半身海边构图，腰部及以上入镜，保留海风空间"},
     },
     "garden_waterlight_seduction": {
-        "full_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "竖向全身花园构图，从头到脚完整入镜，脚下草地或地面边距清楚"},
-        "large_half_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向半身花园水光构图，腰部及以上入镜"},
-        "upper_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向上半身暖阳近景，胸部及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身花园构图，从头到脚完整入镜，脚下草地或地面边距清楚"},
+        "large_half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
+        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身花园水光构图，腰部及以上入镜"},
+        "upper_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向上半身暖阳近景，胸部及以上入镜，头顶完整"},
     },
     "glass_balcony_colorlight": {
-        "full_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "竖向全身玻璃反射构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "large_half_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向半身玻璃彩光构图，腰部及以上入镜"},
-        "upper_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向上半身玻璃反光近景，胸部及以上入镜，头顶完整"},
-        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向头部玻璃反光近景，肩膀及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身玻璃反射构图，从头到脚完整入镜，脚下地面边距清楚"},
+        "large_half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
+        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身玻璃彩光构图，腰部及以上入镜"},
+        "upper_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向上半身玻璃反光近景，胸部及以上入镜，头顶完整"},
+        "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部玻璃反光近景，肩膀及以上入镜，头顶完整"},
     },
     "bright_studio_color_fashion": {
-        "full_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "竖向全身彩色棚拍构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "large_half_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向半身彩色棚拍构图，腰部及以上入镜"},
-        "upper_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向上半身彩色棚拍近景，胸部及以上入镜，头顶完整"},
-        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向头部彩色棚拍近景，肩膀及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身彩色棚拍构图，从头到脚完整入镜，脚下地面边距清楚"},
+        "large_half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
+        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身彩色棚拍构图，腰部及以上入镜"},
+        "upper_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向上半身彩色棚拍近景，胸部及以上入镜，头顶完整"},
+        "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部彩色棚拍近景，肩膀及以上入镜，头顶完整"},
     },
     "tropical_terrace_sensuality": {
-        "full_body": {"aspect": "portrait", "width": 864, "height": 1536, "framing": "竖向全身热带露台构图，从头到脚完整入镜，脚下甲板或地面边距清楚"},
-        "large_half_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
-        "half_body": {"aspect": "landscape", "width": 1366, "height": 1024, "framing": "横向半身热带露台构图，腰部及以上入镜"},
+        "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身热带露台构图，从头到脚完整入镜，脚下甲板或地面边距清楚"},
+        "large_half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
+        "half_body": {"aspect": "landscape", "width": 1920, "height": 1088, "framing": "横向半身热带露台构图，腰部及以上入镜"},
     },
     "sweet_vivid_tease": {
-        "full_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "竖向全身甜艳构图，从头到脚完整入镜，脚下边距清楚"},
-        "large_half_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向半身甜艳构图，腰部及以上入镜"},
-        "upper_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向上半身甜艳近景，胸部及以上入镜，头顶完整"},
-        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向头部甜艳近景，肩膀及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身甜艳构图，从头到脚完整入镜，脚下边距清楚"},
+        "large_half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
+        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身甜艳构图，腰部及以上入镜"},
+        "upper_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向上半身甜艳近景，胸部及以上入镜，头顶完整"},
+        "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部甜艳近景，肩膀及以上入镜，头顶完整"},
     },
     "forced_perspective_focus": {
-        "full_body": {"aspect": "portrait", "width": 1037, "height": 1536, "framing": "竖向全身强透视构图，从头到脚完整入镜，前景肢体和脚下地面边距清楚"},
-        "large_half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "大腿以上镜头，竖向构图"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向半身强透视构图，腰部及以上入镜，前景手部完整"},
-        "upper_body": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向上半身强透视近景，胸部及以上入镜，头顶完整"},
-        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1344, "framing": "竖向头部强透视近景，肩膀及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身强透视构图，从头到脚完整入镜，前景肢体和脚下地面边距清楚"},
+        "large_half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "大腿以上镜头，竖向构图"},
+        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身强透视构图，腰部及以上入镜，前景手部完整"},
+        "upper_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向上半身强透视近景，胸部及以上入镜，头顶完整"},
+        "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部强透视近景，肩膀及以上入镜，头顶完整"},
     },
 }
 
@@ -287,15 +315,21 @@ def _build_prompt_item(scale, shot, seed_text="", aspect="portrait", width=None,
     scale_map = {
         "一档": "normal",
         "二档": "bold",
-        "三档": "nsfw",
+        "三档": "bold_no_outfit",
+        "四档": "nsfw",
         "普通": "normal",
         "大胆": "bold",
         "NSFW": "nsfw",
         "normal": "normal",
         "bold": "bold",
+        "bold_no_outfit": "bold_no_outfit",
+        "no_outfit": "bold_no_outfit",
         "nsfw": "nsfw",
     }
-    normalized_shot = "" if shot == "默认" else shot
+    if str(shot or "").strip().lower() in {"随机", "random"}:
+        normalized_shot = random.Random(str(seed_text or time.time())).choice(["头部", "上半身", "半身", "大半身", "全身"])
+    else:
+        normalized_shot = "" if shot == "默认" else shot
     normalized_aspect = _normalize_aspect(aspect, width, height)
     return generate_prompt_items(
         1,
@@ -333,7 +367,7 @@ def _build_mobile_prompt_item(scale, shot_config, seed_text):
     return _build_prompt_item(scale, shot, seed_text, aspect, width, height)
 
 
-FIXED_CHARACTER_IDENTITY = "22岁冷白皮K-pop韩国夜店女王"
+FIXED_CHARACTER_IDENTITY = "22岁冷白皮K-pop韩国女生"
 
 
 def _ensure_scoped_character_prompt(prompt_item):
@@ -341,6 +375,7 @@ def _ensure_scoped_character_prompt(prompt_item):
     parts = item.get("dimension_parts")
     if isinstance(parts, dict):
         shot_key = item.get("shot_key") or ""
+        parts = _clean_mobile_prompt_parts(parts, shot_key)
         character = str(parts.get("character") or "").strip()
         if not character:
             character = CHARACTER_BY_SHOT.get(shot_key) or CHARACTER_BY_SHOT["full_body"]
@@ -370,16 +405,56 @@ def _mobile_prompt_text_for_resolution(prompt_item):
 
 
 def _prompt_text(prompt_item):
-    return prompt_item.get("compact_prompt") or prompt_item["positive_prompt"]
+    return clean_prompt_text(prompt_item.get("compact_prompt") or prompt_item["positive_prompt"])
 
 
 def _rebuild_prompt_text_from_parts(parts):
     lines = [
-        str(parts.get(name, "")).strip()
+        clean_prompt_text(str(parts.get(name, "")).strip())
         for name in PROMPT_LIMIT_PART_ORDER
         if str(parts.get(name, "")).strip()
     ]
-    return "\n\n".join(f"{line.rstrip('，。')}。" for line in lines)
+    return clean_prompt_text("\n\n".join(f"{line.rstrip('，。')}。" for line in lines))
+
+
+def _clean_mobile_prompt_clause_text(text):
+    return "，".join(part.strip("，。 \n\t") for part in str(text or "").replace("；", "，").split("，") if part.strip("，。 \n\t"))
+
+
+def _remove_mobile_clauses_with_markers(text, markers):
+    clauses = [
+        clause
+        for clause in _prompt_clauses(text)
+        if not any(marker in clause for marker in markers)
+    ]
+    return "，".join(clauses)
+
+
+def _strip_outfit_palette_clause(text):
+    cleaned = re.sub(r"阳光鲜艳配色以[^，。]+为主", "", str(text or ""))
+    cleaned = re.sub(r"，{2,}", "，", cleaned)
+    return cleaned.strip("，、 \n\t")
+
+
+def _clean_mobile_prompt_parts(parts, shot_key):
+    cleaned = dict(parts or {})
+    cleaned["outfit"] = _strip_outfit_palette_clause(cleaned.get("outfit", ""))
+    if shot_key in {"head_shot", "upper_body"}:
+        for name in ("pose_expression", "scene_light", "outfit", "camera"):
+            text = str(cleaned.get(name) or "")
+            text = text.replace("完整胸部和上腰短截", "胸部上缘")
+            text = text.replace("完整胸部与一小段腰部", "胸部线条")
+            text = text.replace("完整胸部和少量上腰", "胸部线条")
+            text = text.replace("和上腰短截", "")
+            text = _remove_mobile_clauses_with_markers(text, ("腰线", "细腰", "腰部", "腰侧", "腰缘", "身体曲线"))
+            cleaned[name] = _clean_mobile_prompt_clause_text(text)
+    if shot_key == "head_shot":
+        for name in ("pose_expression", "scene_light", "outfit", "camera"):
+            cleaned[name] = _remove_mobile_clauses_with_markers(
+                cleaned.get(name, ""),
+                ("胸部", "胸前", "乳沟", "腰", "臀", "腿", "脚"),
+            )
+    return cleaned
 
 
 def _prompt_len_from_parts(parts):
@@ -397,7 +472,7 @@ def _enforce_prompt_length(parts, max_length=MAX_POSITIVE_PROMPT_LENGTH):
     compacted["quality"] = ""
     if _prompt_len_from_parts(compacted) <= max_length:
         return compacted
-    for name in ("scene_light", "outfit", "pose_expression", "makeup", "camera"):
+    for name in ("scene_light", "outfit", "pose_expression", "camera"):
         clauses = _prompt_clauses(compacted.get(name, ""))
         while len(clauses) > 1 and _prompt_len_from_parts(compacted) > max_length:
             clauses.pop()
@@ -410,12 +485,12 @@ def _enforce_prompt_length(parts, max_length=MAX_POSITIVE_PROMPT_LENGTH):
 def _display_prompt_text(prompt_item):
     parts = prompt_item.get("dimension_parts") or {}
     lines = [
-        str(parts.get(name, "")).strip()
+        clean_prompt_text(str(parts.get(name, "")).strip())
         for name in PROMPT_DISPLAY_PART_ORDER
         if str(parts.get(name, "")).strip()
     ]
     if lines:
-        return "\n\n".join(lines)
+        return clean_prompt_text("\n\n".join(lines))
     return _prompt_text(prompt_item)
 
 
@@ -476,30 +551,29 @@ def _assistant_mobile_prompt_item(seed_text="", scale="", shot_config=None):
     }, resolution
 
 
+def _use_chinese_negative_prompt(prompt_item, scale, shot_config, width, height, aspect):
+    try:
+        from negative_prompt_engine import build_chinese_negative_prompt
+        prompt_item["negative_prompt"] = build_chinese_negative_prompt(
+            _prompt_text(prompt_item),
+            prompt_item.get("dimension_parts") or {},
+            scale,
+            (shot_config or {}).get("shot") or prompt_item.get("shot_key") or "full_body",
+            aspect,
+            width,
+            height,
+        )
+    except Exception:
+        pass
+    return prompt_item
+
+
 def _mobile_resolution_for_custom_prompt(prompt_text):
-    text = str(prompt_text or "")
-    if any(marker in text for marker in ("横向", "横屏", "宽画幅", "横躺", "平躺", "大字型", "四肢展开")):
-        return _clamp_mobile_resolution({"aspect": "landscape", "width": 1536, "height": 1024, "framing": ""})
-    if any(marker in text for marker in ("站立", "站姿", "直立", "站在", "迈步", "行走", "走姿", "倚靠", "靠墙")):
-        return _clamp_mobile_resolution(MOBILE_STANDING_FULL_BODY_RESOLUTION)
-    if any(marker in text for marker in ("全身", "从头到脚", "脚部", "脚掌", "脚尖", "站立", "长腿完整")):
-        return _clamp_mobile_resolution({"aspect": "portrait", "width": 864, "height": 1536, "framing": ""})
-    if any(marker in text for marker in ("大半身", "大腿以上", "小腿及以上", "小腿", "膝盖")):
-        return _clamp_mobile_resolution({"aspect": "portrait", "width": 1037, "height": 1536, "framing": ""})
-    if any(marker in text for marker in ("半身", "腰部及以上", "腰部", "腰线")):
-        return _clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1344, "framing": ""})
-    if any(marker in text for marker in ("头部", "肩膀及以上", "肩部以上", "脸部特写", "面部特写")):
-        return _clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1344, "framing": ""})
-    if any(marker in text for marker in ("上半身", "胸部及以上", "胸部以上", "胸部")):
-        return _clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""})
-    return _clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""})
+    return mobile_resolution_for_custom_prompt(prompt_text)
 
 
 def _mobile_custom_resolution(prompt_text, preset=""):
-    key = str(preset or "").strip()
-    if key in MOBILE_CUSTOM_RESOLUTION_PRESETS:
-        return _clamp_mobile_resolution(MOBILE_CUSTOM_RESOLUTION_PRESETS[key])
-    return _mobile_resolution_for_custom_prompt(prompt_text)
+    return mobile_custom_resolution(prompt_text, preset)
 
 
 def _video_motion_text(seed_text="", seconds=10):
@@ -562,18 +636,7 @@ def _mobile_resolution_for_prompt(prompt_item, shot):
 
 
 def _clamp_mobile_resolution(resolution):
-    clamped = dict(resolution)
-    width = int(clamped.get("width") or 0)
-    height = int(clamped.get("height") or 0)
-    if width > 0:
-        clamped["width"] = _round_to_multiple(width * MOBILE_RESOLUTION_DOWNSHIFT)
-    if height > 0:
-        height = _round_to_multiple(height * MOBILE_RESOLUTION_DOWNSHIFT)
-    if height > MOBILE_MAX_IMAGE_HEIGHT:
-        height = MOBILE_MAX_IMAGE_HEIGHT
-    if height > 0:
-        clamped["height"] = height
-    return clamped
+    return clamp_mobile_resolution(resolution)
 
 
 def _mobile_ground_anchor(parts):
@@ -621,14 +684,20 @@ def _apply_mobile_framing(prompt_item, resolution):
     # 去重：如果camera的开头分句与framing的开头分句重复，跳过追加
     camera_first = re.split(r"[，,]", camera)[0].strip() if camera else ""
     framing_first = re.split(r"[，,]", framing)[0].strip()
+    scope_markers = ("胸部及以上入镜", "腰部及以上入镜", "肩膀及以上入镜", "从头到脚完整入镜", "大腿以上镜头", "头顶完整")
+    camera_has_full_body_framing = "全身" in camera and "构图" in camera
+    framing_has_full_body_framing = "全身" in framing and "构图" in framing
     already_covered = (
         framing in camera or
         camera_first == framing_first or
         camera_first in framing or
-        framing_first in camera
+        framing_first in camera or
+        any(marker in camera and marker in framing for marker in scope_markers) or
+        (camera_has_full_body_framing and framing_has_full_body_framing)
     )
     if not already_covered:
         parts["camera"] = f"{camera}，{framing}" if camera else framing
+    parts = _clean_mobile_prompt_parts(parts, item.get("shot_key") or "")
     parts = _enforce_prompt_length(parts)
     item["dimension_parts"] = parts
     prompt = _rebuild_prompt_text_from_parts(parts)
@@ -696,15 +765,77 @@ def _available_zimage_models(prefix):
     )
 
 
+def _sort_zit_models(models):
+    preferred_rank = {name: index for index, name in enumerate(MOBILE_PREFERRED_ZIT_MODELS)}
+    return sorted(models, key=lambda name: (preferred_rank.get(name, len(preferred_rank)), name.lower()))
+
+
 def _available_zit_models():
-    return _available_zimage_models("zit")
+    models = _available_zimage_models("zit")
+    return _sort_zit_models(models)
 
 
 def _available_zib_models():
     return _available_zimage_models("zib")
 
 
+def _normalize_remote_zimage_model_name(value):
+    text = str(value or "").replace("/", "\\").strip().strip("\\")
+    if not text:
+        return ""
+    name = Path(text.replace("\\", "/")).name
+    return name if name.lower().startswith(("zit", "zib")) else ""
+
+
+def _split_remote_zimage_models(values):
+    zit_models = []
+    zib_models = []
+    for value in values or []:
+        name = _normalize_remote_zimage_model_name(value)
+        lower = name.lower()
+        if lower.startswith("zit") and name not in zit_models:
+            zit_models.append(name)
+        elif lower.startswith("zib") and name not in zib_models:
+            zib_models.append(name)
+    return _sort_zit_models(zit_models), sorted(zib_models, key=str.lower)
+
+
+async def _remote_unet_models():
+    if not REMOTE_COMFYUI_URL:
+        return None
+    data, error = await _remote_json("GET", "/object_info/UNETLoader", timeout=10)
+    if error or not isinstance(data, dict):
+        return None
+    try:
+        values = data["UNETLoader"]["input"]["required"]["unet_name"][0]
+    except Exception:
+        return None
+    if not isinstance(values, list):
+        return None
+    zit_models, zib_models = _split_remote_zimage_models(values)
+    return {"source": "remote", "zit_models": zit_models, "zib_models": zib_models}
+
+
+async def _available_mobile_zimage_models():
+    remote_models = await _remote_unet_models()
+    if remote_models is not None:
+        return remote_models
+    return {
+        "source": "local",
+        "zit_models": _available_zit_models(),
+        "zib_models": _available_zib_models(),
+    }
+
+
 def _available_loras():
+    if REMOTE_COMFYUI_URL:
+        if not REMOTE_LORA_DIR.exists():
+            return []
+        return sorted(
+            path.relative_to(REMOTE_LORA_DIR).as_posix()
+            for path in REMOTE_LORA_DIR.rglob("*")
+            if path.is_file() and path.suffix.lower() in LORA_MODEL_EXTENSIONS
+        )
     try:
         return sorted(
             name.replace("\\", "/")
@@ -722,22 +853,35 @@ def _available_loras():
         )
 
 
-def _resolve_zit_model(value=None):
-    model_name = Path(str(value or "").replace("\\", "/")).name
+def _resolve_zit_model(value=None, available_models=None):
+    raw = str(value or "").replace("\\", "/").strip().strip("/")
+    model_name = Path(raw).name
+    available = list(available_models) if available_models is not None else _available_zit_models()
     if not model_name:
-        return ""
-    if model_name not in _available_zit_models():
+        return available[0] if available else ""
+    if model_name not in available:
         raise ValueError(f"没有找到 z_image_turbo 模型：{model_name}")
     return model_name
 
 
-def _resolve_zib_model(value=None):
-    model_name = Path(str(value or "").replace("\\", "/")).name
+def _resolve_zib_model(value=None, available_models=None):
+    raw = str(value or "").replace("\\", "/").strip().strip("/")
+    model_name = Path(raw).name
+    available = list(available_models) if available_models is not None else _available_zib_models()
     if not model_name:
         return ""
-    if model_name not in _available_zib_models():
+    if model_name not in available:
         raise ValueError(f"没有找到 ZIB 模型：{model_name}")
     return model_name
+
+
+def _zimage_unet_value(model_name):
+    model_name = Path(str(model_name or "").replace("\\", "/")).name
+    if not model_name:
+        return ""
+    if REMOTE_COMFYUI_URL:
+        return f"z_image\\{model_name}"
+    return f"z_image/{model_name}"
 
 
 def _resolve_lora_name(value=None):
@@ -752,6 +896,12 @@ def _resolve_lora_name(value=None):
     if len(matches) == 1:
         return matches[0]
     raise ValueError(f"没有找到 LoRA：{raw}")
+
+
+def _lora_dir_display_path():
+    if REMOTE_COMFYUI_URL:
+        return str(REMOTE_LORA_DIR.resolve())
+    return str((Path(folder_paths.models_dir) / "loras" / ZIMAGE_LORA_SUBDIR).resolve())
 
 
 def _resolve_lora_strength(value=None):
@@ -875,6 +1025,53 @@ def _load_mobile_workflow(workflow_key=None):
     return data
 
 
+def _workflow_status_item(key, config):
+    path = config["path"]
+    status = {
+        "key": key,
+        "label": config["label"],
+        "type": config.get("type", "image"),
+        "template_name": path.name,
+        "path": str(path),
+        "template_ready": path.exists(),
+        "format": "missing",
+        "message": "",
+        "guidance": "",
+    }
+    if not path.exists():
+        status["message"] = f"缺少 {path.name}。"
+        status["guidance"] = "在 ComfyUI 电脑端打开对应工作流，开启开发者选项后使用“保存(API 格式)”，保存到本插件目录。"
+        return status
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        status["format"] = "invalid_json"
+        status["message"] = f"{path.name} 读取失败：{exc}"
+        status["guidance"] = "重新从 ComfyUI 导出 API 格式工作流，覆盖这个文件。"
+        return status
+    if isinstance(data, dict) and isinstance(data.get("prompt"), dict):
+        data = data["prompt"]
+    if isinstance(data, dict) and isinstance(data.get("nodes"), list):
+        status["format"] = "ui_workflow"
+        status["template_ready"] = False
+        status["message"] = f"{path.name} 是普通工作流格式，不是 API 格式。"
+        status["guidance"] = "请在 ComfyUI 设置里打开开发者选项，然后使用“保存(API 格式)”重新导出。"
+        return status
+    if not isinstance(data, dict) or not data:
+        status["format"] = "invalid_api"
+        status["template_ready"] = False
+        status["message"] = f"{path.name} 不是有效的 ComfyUI API 工作流。"
+        status["guidance"] = "请确认保存的是 API 格式 JSON。"
+        return status
+    status["format"] = "api"
+    status["message"] = "API 工作流已准备。"
+    return status
+
+
+def _mobile_workflow_statuses():
+    return {key: _workflow_status_item(key, config) for key, config in MOBILE_WORKFLOWS.items()}
+
+
 def _node_title(node):
     meta = node.get("_meta") if isinstance(node, dict) else {}
     return str(meta.get("title") or node.get("class_type") or "").lower()
@@ -893,8 +1090,14 @@ def _mobile_output_dir():
     return output_dir
 
 
+def _mobile_local_output_dir():
+    output_dir = Path(REMOTE_OUTPUT_DIR).resolve() if REMOTE_OUTPUT_DIR else _mobile_output_dir()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
 def _mobile_output_relative_path(path):
-    output_dir = Path(folder_paths.get_output_directory()).resolve()
+    output_dir = _mobile_local_output_dir()
     resolved = Path(path).resolve()
     if resolved == output_dir:
         return ""
@@ -909,6 +1112,31 @@ def _mobile_output_subfolder_for_path(path):
     return "" if parent == "." else parent
 
 
+def _mobile_view_subfolder(subfolder=""):
+    safe_subfolder = str(subfolder or "").replace("\\", "/").strip("/")
+    if not REMOTE_OUTPUT_DIR:
+        return safe_subfolder
+    comfy_output_dir = _mobile_output_dir()
+    remote_output_dir = _mobile_local_output_dir()
+    if remote_output_dir != comfy_output_dir and comfy_output_dir not in remote_output_dir.parents:
+        return safe_subfolder
+    remote_relative = "" if remote_output_dir == comfy_output_dir else remote_output_dir.relative_to(comfy_output_dir).as_posix()
+    parts = [part for part in (remote_relative, safe_subfolder) if part]
+    return "/".join(parts)
+
+
+def _normalize_remote_output_subfolder(subfolder=""):
+    safe_subfolder = str(subfolder or "").replace("\\", "/").strip("/")
+    if not safe_subfolder or not REMOTE_OUTPUT_DIR:
+        return safe_subfolder
+    output_name = _mobile_local_output_dir().name
+    if safe_subfolder == output_name:
+        return ""
+    if safe_subfolder.startswith(f"{output_name}/"):
+        return safe_subfolder[len(output_name) + 1 :]
+    return safe_subfolder
+
+
 def _mobile_output_file_key(filename, subfolder=""):
     safe_name = Path(str(filename or "")).name
     safe_subfolder = str(subfolder or "").replace("\\", "/").strip("/")
@@ -916,7 +1144,75 @@ def _mobile_output_file_key(filename, subfolder=""):
 
 
 def _mobile_prompt_index_path():
-    return _mobile_output_dir() / MOBILE_PROMPT_INDEX_NAME
+    return _mobile_local_output_dir() / MOBILE_PROMPT_INDEX_NAME
+
+
+def _mobile_session_jobs_path():
+    return _mobile_local_output_dir() / MOBILE_SESSION_JOBS_NAME
+
+
+def _load_mobile_session_jobs():
+    path = _mobile_session_jobs_path()
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    jobs = data.get("jobs", data) if isinstance(data, dict) else data
+    if not isinstance(jobs, list):
+        return []
+    return [job for job in jobs if isinstance(job, dict) and job.get("prompt_id")]
+
+
+def _save_mobile_session_jobs():
+    path = _mobile_session_jobs_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    deduped = {}
+    for job in MOBILE_SESSION_JOBS[-MOBILE_MAX_ACTIVE_JOBS:]:
+        prompt_id = str(job.get("prompt_id") or "")
+        if prompt_id:
+            deduped[prompt_id] = job
+    payload = {
+        "version": 1,
+        "updated_at": int(time.time() * 1000),
+        "jobs": list(deduped.values()),
+    }
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp_path.replace(path)
+
+
+def _ensure_mobile_session_jobs_loaded():
+    global MOBILE_SESSION_JOBS_LOADED
+    if MOBILE_SESSION_JOBS_LOADED:
+        return
+    MOBILE_SESSION_JOBS.extend(_load_mobile_session_jobs())
+    MOBILE_SESSION_JOBS_LOADED = True
+
+
+def _clear_remote_mobile_runtime_state():
+    _ensure_mobile_session_jobs_loaded()
+    before_jobs = len(MOBILE_SESSION_JOBS)
+    before_watchers = len(REMOTE_WS_WATCHERS)
+    for watcher in list(REMOTE_WS_WATCHERS.values()):
+        try:
+            watcher.cancel()
+        except Exception:
+            pass
+    MOBILE_SESSION_JOBS[:] = [job for job in MOBILE_SESSION_JOBS if not job.get("remote")]
+    REMOTE_WS_WATCHERS.clear()
+    REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID.clear()
+    REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID.clear()
+    REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID.clear()
+    REMOTE_PROGRESS_BY_PROMPT_ID.clear()
+    REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID.clear()
+    MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID.clear()
+    _save_mobile_session_jobs()
+    return {
+        "jobs_removed": max(0, before_jobs - len(MOBILE_SESSION_JOBS)),
+        "watchers_cancelled": before_watchers,
+    }
 
 
 def _load_mobile_prompt_index():
@@ -1057,10 +1353,10 @@ def _prompt_text_from_png_metadata(path):
 
 
 def _mobile_video_output_dir():
-    output_dir = Path(folder_paths.get_output_directory()).resolve()
+    output_dir = _mobile_local_output_dir()
     target = (output_dir / MOBILE_VIDEO_OUTPUT_SUBFOLDER).resolve()
     if output_dir not in target.parents and target != output_dir:
-        raise ValueError("手机视频输出目录不在 ComfyUI output 目录内。")
+        raise ValueError("手机视频输出目录不在本地输出目录内。")
     target.mkdir(parents=True, exist_ok=True)
     return target
 
@@ -1077,12 +1373,23 @@ def _mobile_video_input_dir():
 def _mobile_output_file(filename):
     if not filename:
         raise ValueError("缺少文件名。")
-    output_dir = Path(folder_paths.get_output_directory()).resolve()
+    output_dir = _mobile_local_output_dir()
     safe_name = str(filename or "").replace("\\", "/").strip("/")
     path = (output_dir / safe_name).resolve()
     if output_dir in path.parents and path.is_file():
         return path
     raise ValueError("文件路径不在手机输出目录内。")
+
+
+def _mobile_output_file_from_item(item):
+    key = str(item.get("key") or "").replace("\\", "/").strip("/")
+    filename = str(item.get("filename") or "").replace("\\", "/").strip("/")
+    subfolder = str(item.get("subfolder") or "").replace("\\", "/").strip("/")
+    if key:
+        return _mobile_output_file(key)
+    if subfolder and filename:
+        return _mobile_output_file(_mobile_output_file_key(filename, subfolder))
+    return _mobile_output_file(filename)
 
 
 def _mobile_video_output_file(filename):
@@ -1098,7 +1405,7 @@ def _mobile_view_url(filename, subfolder=""):
     params = urllib.parse.urlencode(
         {
             "filename": filename,
-            "subfolder": subfolder,
+            "subfolder": _mobile_view_subfolder(subfolder),
             "type": "output",
         }
     )
@@ -1109,7 +1416,7 @@ def _mobile_video_view_url(filename):
     params = urllib.parse.urlencode(
         {
             "filename": filename,
-            "subfolder": MOBILE_VIDEO_OUTPUT_SUBFOLDER,
+            "subfolder": _mobile_view_subfolder(MOBILE_VIDEO_OUTPUT_SUBFOLDER),
             "type": "output",
         }
     )
@@ -1117,17 +1424,19 @@ def _mobile_video_view_url(filename):
 
 
 def _mobile_prompt_for_gallery_file(filename):
+    _ensure_mobile_session_jobs_loaded()
     filename = str(filename or "").replace("\\", "/").strip("/")
-    prompt = MOBILE_PROMPT_BY_FILENAME.get(filename, "")
-    if prompt:
-        return prompt
-    prompt = _load_mobile_prompt_index().get(filename, "")
-    if prompt:
-        MOBILE_PROMPT_BY_FILENAME[filename] = prompt
-        return prompt
+    prompt_index = _load_mobile_prompt_index()
+    candidates = [filename]
     basename = Path(filename).name
     if basename != filename:
-        prompt = MOBILE_PROMPT_BY_FILENAME.get(basename, "") or _load_mobile_prompt_index().get(basename, "")
+        candidates.append(basename)
+    if "/" not in filename:
+        for key in list(MOBILE_PROMPT_BY_FILENAME) + list(prompt_index):
+            if Path(str(key).replace("\\", "/")).name == basename:
+                candidates.append(str(key).replace("\\", "/").strip("/"))
+    for key in dict.fromkeys(candidate for candidate in candidates if candidate):
+        prompt = MOBILE_PROMPT_BY_FILENAME.get(key, "") or prompt_index.get(key, "")
         if prompt:
             MOBILE_PROMPT_BY_FILENAME[filename] = prompt
             return prompt
@@ -1192,14 +1501,8 @@ def _video_dimensions_for_file(path):
 def _mobile_gallery_images():
     prompt_by_filename = _load_mobile_prompt_index()
     prompt_by_filename.update(MOBILE_PROMPT_BY_FILENAME)
-    for job in MOBILE_SESSION_JOBS:
-        for image in _mobile_image_urls(str(job.get("prompt_id", ""))):
-            if image.get("filename"):
-                key = _mobile_output_file_key(image.get("filename", ""), image.get("subfolder", ""))
-                prompt_by_filename[key] = job.get("prompt", "")
-                _remember_mobile_prompt_file(image["filename"], job.get("prompt", ""), image.get("subfolder", ""))
     items = []
-    output_dir = Path(folder_paths.get_output_directory()).resolve()
+    output_dir = _mobile_local_output_dir()
     seen = set()
     for path in output_dir.rglob("*"):
         if not path.is_file() or path.suffix.lower() not in MOBILE_GALLERY_EXTENSIONS:
@@ -1210,6 +1513,11 @@ def _mobile_gallery_images():
             continue
         seen.add(file_key)
         stat = path.stat()
+        duplicate_match = re.match(r"^(.+)_([0-9a-f]{12})$", path.stem)
+        if duplicate_match:
+            original_path = path.with_name(f"{duplicate_match.group(1)}{path.suffix}")
+            if original_path.is_file() and original_path.stat().st_size == stat.st_size:
+                continue
         prompt = prompt_by_filename.get(file_key, "") or _mobile_prompt_for_gallery_file(file_key)
         if not prompt and path.suffix.lower() == ".png":
             prompt = _prompt_text_from_png_metadata(path)
@@ -1228,13 +1536,25 @@ def _mobile_gallery_images():
             }
         )
     items.sort(key=lambda item: (item["mtime"], item["filename"]), reverse=True)
+    for prompt_id, runtime_items in MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID.items():
+        prompt = ""
+        for job in MOBILE_SESSION_JOBS:
+            if str(job.get("prompt_id") or "") == str(prompt_id):
+                prompt = job.get("prompt", "")
+                break
+        for runtime_item in runtime_items:
+            public_item = {key: value for key, value in runtime_item.items() if key != "bytes"}
+            public_item["prompt"] = public_item.get("prompt") or prompt
+            public_item["key"] = public_item.get("filename", "")
+            items.append(public_item)
+    items.sort(key=lambda item: (item.get("mtime", 0), item.get("filename", "")), reverse=True)
     return items
 
 
 def _mobile_gallery_videos():
     prompt_by_filename = dict(MOBILE_VIDEO_PROMPT_BY_FILENAME)
     for job in MOBILE_SESSION_JOBS:
-        for video in _mobile_video_urls(str(job.get("prompt_id", ""))):
+        for video in _mobile_video_urls_sync(str(job.get("prompt_id", ""))):
             if video.get("subfolder") == MOBILE_VIDEO_OUTPUT_SUBFOLDER and video.get("filename"):
                 prompt_by_filename[video["filename"]] = job.get("prompt", "")
                 MOBILE_VIDEO_PROMPT_BY_FILENAME[video["filename"]] = job.get("prompt", "")
@@ -1243,6 +1563,7 @@ def _mobile_gallery_videos():
         if not path.is_file() or path.suffix.lower() not in MOBILE_VIDEO_EXTENSIONS:
             continue
         stat = path.stat()
+        dimensions = _video_dimensions_for_file(path)
         items.append(
             {
                 "filename": path.name,
@@ -1261,40 +1582,22 @@ def _mobile_gallery_videos():
 
 
 def _linked_float_value(workflow, value, default=1.0):
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        try:
-            return float(value)
-        except ValueError:
-            return default
-    if isinstance(value, list) and value:
-        node = workflow.get(str(value[0]))
-        inputs = node.get("inputs") if isinstance(node, dict) else None
-        if isinstance(inputs, dict) and "value" in inputs:
-            return _linked_float_value(workflow, inputs.get("value"), default)
-    return default
+    return linked_float_value(workflow, value, default)
 
 
-def _mobile_workflow_output_scale(workflow):
-    scale = 1.0
-    for node in workflow.values():
-        if not isinstance(node, dict):
-            continue
-        class_type = str(node.get("class_type") or "")
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        if class_type == "LatentUpscaleBy" and "scale_by" in inputs:
-            scale *= _linked_float_value(workflow, inputs.get("scale_by"), 1.0)
-        if class_type == "UltimateSDUpscale" and "upscale_by" in inputs:
-            scale *= _linked_float_value(workflow, inputs.get("upscale_by"), 1.0)
-    return scale if scale > 0 else 1.0
+def _mobile_workflow_output_scale(workflow, include_ultimate=True):
+    return workflow_output_scale(workflow, include_ultimate)
+
+
+def _workflow_has_mobile_upscale(workflow):
+    return any(
+        isinstance(node, dict) and str(node.get("class_type") or "") == "UltimateSDUpscale"
+        for node in workflow.values()
+    )
 
 
 def _mobile_base_resolution_for_workflow(template, width, height):
-    scale = _mobile_workflow_output_scale(template)
-    return _round_to_multiple(width / scale), _round_to_multiple(height / scale), scale
+    return base_resolution_for_workflow(template, width, height)
 
 
 def _remove_mobile_auxiliary_outputs(workflow):
@@ -1343,6 +1646,283 @@ def _remove_unreferenced_mobile_prompt_nodes(workflow):
     return removed
 
 
+def _remove_unreferenced_workflow_nodes(workflow):
+    referenced = set()
+    for node in workflow.values():
+        inputs = node.get("inputs") if isinstance(node, dict) else None
+        if not isinstance(inputs, dict):
+            continue
+        for value in inputs.values():
+            if isinstance(value, list) and value:
+                referenced.add(str(value[0]))
+    removed = 0
+    changed = True
+    while changed:
+        changed = False
+        for node_id, node in list(workflow.items()):
+            if str(node_id) in referenced:
+                continue
+            if not isinstance(node, dict):
+                continue
+            class_type = str(node.get("class_type") or "")
+            inputs = node.get("inputs") if isinstance(node, dict) else None
+            is_output = class_type in {"SaveImage", "PreviewImage", "SaveImageWebsocket"} or "filename_prefix" in (inputs or {})
+            if is_output:
+                continue
+            workflow.pop(str(node_id), None)
+            removed += 1
+            changed = True
+            referenced = set()
+            for other in workflow.values():
+                other_inputs = other.get("inputs") if isinstance(other, dict) else None
+                if not isinstance(other_inputs, dict):
+                    continue
+                for value in other_inputs.values():
+                    if isinstance(value, list) and value:
+                        referenced.add(str(value[0]))
+            break
+    return removed
+
+
+def _bypass_mobile_upscale_outputs(workflow):
+    if not isinstance(workflow, dict):
+        return 0
+    upscale_image_inputs = {}
+    for node_id, node in workflow.items():
+        if not isinstance(node, dict) or str(node.get("class_type") or "") != "UltimateSDUpscale":
+            continue
+        image_input = (node.get("inputs") or {}).get("image")
+        if isinstance(image_input, list) and image_input:
+            upscale_image_inputs[str(node_id)] = [str(image_input[0]), int(image_input[1] if len(image_input) > 1 else 0)]
+    if not upscale_image_inputs:
+        return 0
+    changed = 0
+    for node in workflow.values():
+        inputs = node.get("inputs") if isinstance(node, dict) else None
+        if not isinstance(inputs, dict):
+            continue
+        images = inputs.get("images")
+        if isinstance(images, list) and images and str(images[0]) in upscale_image_inputs:
+            inputs["images"] = upscale_image_inputs[str(images[0])]
+            changed += 1
+    changed += _remove_unreferenced_workflow_nodes(workflow)
+    return changed
+
+
+def _workflow_link_consumers(workflow):
+    consumers = {}
+    if not isinstance(workflow, dict):
+        return consumers
+    for node_id, node in workflow.items():
+        inputs = node.get("inputs") if isinstance(node, dict) else None
+        if not isinstance(inputs, dict):
+            continue
+        for value in inputs.values():
+            if isinstance(value, list) and value:
+                consumers.setdefault(str(value[0]), set()).add(str(node_id))
+    return consumers
+
+
+def _ultimate_sd_upscale_node_ids(workflow):
+    if not isinstance(workflow, dict):
+        return set()
+    return {
+        str(node_id)
+        for node_id, node in workflow.items()
+        if isinstance(node, dict) and str(node.get("class_type") or "") == "UltimateSDUpscale"
+    }
+
+
+def _prune_non_final_image_outputs(workflow):
+    upscale_ids = _ultimate_sd_upscale_node_ids(workflow)
+    if not upscale_ids:
+        return 0
+    removed = 0
+    for node_id, node in list(workflow.items()):
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        images = inputs.get("images")
+        if not isinstance(images, list) or not images:
+            continue
+        class_type = str(node.get("class_type") or "")
+        is_output = (
+            class_type in {"SaveImage", "PreviewImage", "SaveImageWebsocket"}
+            or "filename_prefix" in inputs
+            or class_type.startswith("Save")
+            or "Save" in class_type
+        )
+        if not is_output:
+            continue
+        if str(images[0]) in upscale_ids:
+            continue
+        workflow.pop(str(node_id), None)
+        removed += 1
+    return removed
+
+
+def _patch_remote_websocket_outputs(workflow, output_mode="mac"):
+    if not REMOTE_WEBSOCKET_OUTPUT or not isinstance(workflow, dict):
+        return {"replaced_save_nodes": 0, "output_prefix": "", "websocket_node_ids": []}
+    if REMOTE_MAC_IMAGE_UPLOAD_URL and output_mode != "phone":
+        output_prefix = ""
+        for node in workflow.values():
+            if not isinstance(node, dict):
+                continue
+            inputs = node.get("inputs")
+            if not isinstance(inputs, dict):
+                continue
+            images = inputs.get("images")
+            if not isinstance(images, list) or not images:
+                continue
+            if str(node.get("class_type") or "") in {"SaveImage", "PreviewImage"} or "filename_prefix" in inputs:
+                output_prefix = Path(str(inputs.get("filename_prefix") or "mobile").replace("\\", "/").strip("/")).name or "mobile"
+                break
+        return {"replaced_save_nodes": 0, "output_prefix": output_prefix, "websocket_node_ids": []}
+    replaced = 0
+    output_prefix = ""
+    websocket_node_ids = []
+    for node_id, node in list(workflow.items()):
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        class_type = str(node.get("class_type") or "")
+        images = inputs.get("images")
+        if not isinstance(images, list) or not images:
+            continue
+        if class_type not in {"SaveImage", "PreviewImage"} and "filename_prefix" not in inputs:
+            continue
+        if not output_prefix:
+            output_prefix = Path(str(inputs.get("filename_prefix") or "mobile").replace("\\", "/").strip("/")).name or "mobile"
+        node["class_type"] = "SaveImageWebsocket"
+        node["inputs"] = {"images": list(images)}
+        websocket_node_ids.append(str(node_id))
+        replaced += 1
+    return {"replaced_save_nodes": replaced, "output_prefix": output_prefix, "websocket_node_ids": websocket_node_ids}
+
+
+def _unpatched_remote_save_node_classes(workflow):
+    if not isinstance(workflow, dict):
+        return []
+    classes = []
+    for node in workflow.values():
+        if not isinstance(node, dict):
+            continue
+        class_type = str(node.get("class_type") or "")
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        if class_type == "SaveImageWebsocket":
+            continue
+        if class_type == "PreviewImage" or "filename_prefix" in inputs or class_type.startswith("Save") or "Save" in class_type:
+            classes.append(class_type or "unknown")
+    return classes
+
+
+def _force_websocket_only_image_outputs(workflow):
+    if not isinstance(workflow, dict):
+        return {"replaced": 0, "blocked": []}
+    _prune_non_final_image_outputs(workflow)
+    replaced = 0
+    blocked = []
+    for node in workflow.values():
+        if not isinstance(node, dict):
+            continue
+        class_type = str(node.get("class_type") or "")
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        images = inputs.get("images")
+        if (
+            (class_type in {"SaveImage", "PreviewImage"} or "filename_prefix" in inputs or class_type.startswith("Save") or "Save" in class_type)
+            and isinstance(images, list)
+            and images
+        ):
+            output_prefix = Path(str(inputs.get("filename_prefix") or "remote_web").replace("\\", "/").strip("/")).name or "remote_web"
+            if REMOTE_MAC_IMAGE_UPLOAD_URL:
+                node["class_type"] = "RandomPhotoPromptRemoteUploadImage"
+                node["inputs"] = {"images": list(images), "filename_prefix": output_prefix}
+            else:
+                node["class_type"] = "SaveImageWebsocket"
+                node["inputs"] = {"images": list(images)}
+            replaced += 1
+            continue
+        if class_type == "SaveImageWebsocket":
+            continue
+        if "filename_prefix" in inputs or class_type.startswith("Save") or "Save" in class_type:
+            blocked.append(class_type or "unknown")
+    return {"replaced": replaced, "blocked": blocked}
+
+
+def _block_remote_asset_save_on_prompt(json_data):
+    if not BLOCK_REMOTE_ASSET_SAVE or not isinstance(json_data, dict):
+        return json_data
+    prompt = json_data.get("prompt")
+    result = _force_websocket_only_image_outputs(prompt)
+    if result["blocked"]:
+        detail = ", ".join(sorted(set(result["blocked"]))) or "unknown"
+        json_data["prompt"] = {
+            "random_photo_prompt_remote_asset_save_blocked": {
+                "class_type": f"RPP_RemoteAssetSaveBlocked_{detail}",
+                "inputs": {},
+            }
+        }
+        extra_data = json_data.setdefault("extra_data", {})
+        if isinstance(extra_data, dict):
+            extra_data["random_photo_prompt_blocked_reason"] = f"已阻止远端资产落盘保存节点：{detail}"
+        return json_data
+    if result["replaced"]:
+        extra_data = json_data.setdefault("extra_data", {})
+        if isinstance(extra_data, dict):
+            extra_data["random_photo_prompt_websocket_only"] = True
+    return json_data
+
+
+class RandomPhotoPromptRemoteUploadImage:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"images": ("IMAGE",), "filename_prefix": ("STRING", {"default": "remote_web"})}}
+
+    RETURN_TYPES = ()
+    FUNCTION = "upload_images"
+    OUTPUT_NODE = True
+    CATEGORY = "Random Photo"
+
+    def upload_images(self, images, filename_prefix="remote_web"):
+        if not REMOTE_MAC_IMAGE_UPLOAD_URL:
+            raise RuntimeError("RPP_MAC_IMAGE_UPLOAD_URL is not configured.")
+        results = []
+        for image in images:
+            i = 255.0 * image.cpu().numpy()
+            img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
+            buffer = BytesIO()
+            img.save(buffer, format="PNG", compress_level=4)
+            request = urllib.request.Request(
+                REMOTE_MAC_IMAGE_UPLOAD_URL,
+                data=buffer.getvalue(),
+                headers={
+                    "Content-Type": "image/png",
+                    "X-RPP-Filename-Prefix": str(filename_prefix or "remote_web"),
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=120) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            if isinstance(payload, dict) and payload.get("filename"):
+                results.append(
+                    {
+                        "filename": payload.get("filename"),
+                        "subfolder": payload.get("subfolder", ""),
+                        "type": payload.get("type", "output"),
+                    }
+                )
+        return {"ui": {"images": results}}
+
+
 def _image_longest_side(path):
     try:
         from PIL import Image
@@ -1382,15 +1962,21 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
         "zit_model": 0,
         "zib_model": 0,
         "lora": 0,
+        "purge_models_disabled": 0,
         "base_width": base_width,
         "base_height": base_height,
         "output_scale": output_scale,
         "removed_auxiliary_outputs": removed_auxiliary_outputs,
+        "bypassed_upscale_nodes": 0,
     }
     patched["lora"] = _patch_existing_lora_nodes(workflow, lora_name, lora_strength)
     text_nodes = []
-    resolved_zit_model = _resolve_zit_model(zit_model)
-    resolved_zib_model = _resolve_zib_model(zib_model)
+    resolved_zit_model = Path(str(zit_model or "").replace("\\", "/")).name
+    resolved_zib_model = Path(str(zib_model or "").replace("\\", "/")).name
+    use_zib_single = bool(resolved_zib_model and not resolved_zit_model)
+    sampler_steps = 35 if use_zib_single else 8
+    zit_unet_value = _zimage_unet_value(resolved_zit_model)
+    zib_unet_value = _zimage_unet_value(resolved_zib_model)
     model_consumers = _workflow_model_consumers(workflow)
     for node_id, node in workflow.items():
         if not isinstance(node, dict):
@@ -1399,22 +1985,25 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
         if not isinstance(inputs, dict):
             continue
         class_type = str(node.get("class_type") or "")
+        if class_type == "LayerUtility: PurgeVRAM V2" and inputs.get("purge_models") is True:
+            inputs["purge_models"] = False
+            patched["purge_models_disabled"] += 1
         if "text" in inputs and ("CLIPTextEncode" in class_type or "TextEncode" in class_type or "Conditioning" in class_type):
             text_nodes.append(node)
         if resolved_zit_model and "unet_name" in inputs:
             current_unet = str(inputs.get("unet_name") or "")
             if _is_zit_turbo_model_name(current_unet):
-                inputs["unet_name"] = f"z_image/{resolved_zit_model}"
-                if platform.system() == "Darwin" and inputs.get("weight_dtype") in {"fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"}:
+                inputs["unet_name"] = zit_unet_value
+                if inputs.get("weight_dtype") in {"fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"}:
                     inputs["weight_dtype"] = "default"
                 patched["zit_model"] += 1
         if resolved_zib_model and "unet_name" in inputs:
             current_unet = str(inputs.get("unet_name") or "")
             normalized_unet = current_unet.replace("/", "\\").lower()
             consumers = model_consumers.get(str(node_id), set())
-            is_zib_slot = normalized_unet.startswith("z_image\\zib") or "483" in consumers
+            is_zib_slot = normalized_unet.startswith("z_image\\zib") or "483" in consumers or (use_zib_single and _is_zit_turbo_model_name(current_unet))
             if is_zib_slot:
-                inputs["unet_name"] = f"z_image/{resolved_zib_model}"
+                inputs["unet_name"] = zib_unet_value
                 if platform.system() == "Darwin" and inputs.get("weight_dtype") in {"fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"}:
                     inputs["weight_dtype"] = "default"
                 patched["zib_model"] += 1
@@ -1431,7 +2020,7 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
                 inputs[key] = int(seed)
                 patched["seed"] += 1
         if class_type == "KSampler" and "steps" in inputs and isinstance(inputs.get("steps"), (int, float, str)):
-            inputs["steps"] = 8
+            inputs["steps"] = sampler_steps
             patched["steps"] += 1
         if "filename_prefix" in inputs and isinstance(inputs.get("filename_prefix"), str):
             raw_prefix = str(inputs.get("filename_prefix") or "ComfyUI").replace("\\", "/").strip("/")
@@ -1554,7 +2143,9 @@ def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_
     return workflow, patched, {"scale_to_length": scale_to_length, "seconds": seconds, "fps": fps}
 
 
-async def _queue_mobile_workflow(workflow, client_id=""):
+async def _queue_mobile_workflow(workflow, client_id="", output_mode="mac"):
+    if REMOTE_COMFYUI_URL:
+        return await _queue_remote_mobile_workflow(workflow, client_id, output_mode=output_mode)
     prompt_id = str(uuid.uuid4())
     PromptServer.instance.node_replace_manager.apply_replacements(workflow)
     valid = await execution.validate_prompt(prompt_id, workflow, None)
@@ -1570,13 +2161,416 @@ async def _queue_mobile_workflow(workflow, client_id=""):
     return {"prompt_id": prompt_id, "number": number, "node_errors": valid[3]}, None
 
 
+async def _remote_json(method, path, **kwargs):
+    url = f"{REMOTE_COMFYUI_URL}{path}"
+    timeout = ClientTimeout(total=kwargs.pop("timeout", 30))
+    try:
+        async with ClientSession(timeout=timeout) as session:
+            async with session.request(method, url, **kwargs) as response:
+                body = await response.read()
+                try:
+                    data = json.loads(body.decode("utf-8"))
+                except Exception:
+                    data = body.decode("utf-8", "ignore")
+                if response.status >= 400:
+                    return None, {"error": data.get("error") if isinstance(data, dict) else str(data), "status": response.status, "detail": data}
+                return data, None
+    except Exception as exc:
+        return None, {"error": f"远端 ComfyUI 连接失败：{REMOTE_COMFYUI_URL}。请检查远端是否启动、地址端口是否正确、Mac 是否能访问该地址。", "detail": str(exc)}
+
+
+async def _remote_bytes(path, **kwargs):
+    url = f"{REMOTE_COMFYUI_URL}{path}"
+    timeout = ClientTimeout(total=kwargs.pop("timeout", 120))
+    try:
+        async with ClientSession(timeout=timeout) as session:
+            async with session.get(url, **kwargs) as response:
+                data = await response.read()
+                if response.status >= 400:
+                    return b"", {"error": data.decode("utf-8", "ignore"), "status": response.status}
+                return data, None
+    except Exception as exc:
+        return b"", {"error": f"远端图片下载失败：{REMOTE_COMFYUI_URL}。请检查远端连接和 /view 接口。", "detail": str(exc)}
+
+
+async def _remote_delete_output_file(image):
+    if not REMOTE_COMFYUI_URL or not REMOTE_DELETE_OUTPUT:
+        return None
+    payload = {
+        "filename": image.get("filename", ""),
+        "subfolder": image.get("subfolder", ""),
+        "type": image.get("type", "output"),
+    }
+    data, error = await _remote_json("POST", "/random_photo_prompt/remote/delete_output", json=payload, timeout=30)
+    if error:
+        return error
+    return data
+
+
+async def _queue_remote_mobile_workflow(workflow, client_id="", output_mode="mac"):
+    output_mode = "phone" if str(output_mode or "").strip().lower() == "phone" else "mac"
+    websocket_client_id = f"random_photo_prompt_mac_{uuid.uuid4().hex}"
+    ws_patch = _patch_remote_websocket_outputs(workflow, output_mode=output_mode)
+    unpatched_save_classes = _unpatched_remote_save_node_classes(workflow)
+    if unpatched_save_classes:
+        detail = ", ".join(sorted(set(unpatched_save_classes))) or "unknown"
+        return None, {
+            "error": f"远端工作流仍包含保存节点，已阻止提交，避免资产保存在远端：{detail}",
+            "node_errors": {},
+        }
+    node_total = max(1, len(workflow))
+    watcher = None
+    prompt_ref = {"value": ""}
+    if ws_patch.get("websocket_node_ids"):
+        ready_event = asyncio.Event()
+        watcher = asyncio.create_task(
+            _watch_remote_websocket_outputs(
+                prompt_ref,
+                websocket_client_id,
+                ready_event=ready_event,
+                output_nodes=ws_patch["websocket_node_ids"],
+                output_prefix=ws_patch.get("output_prefix") or "",
+                node_total=node_total,
+                output_mode=output_mode,
+            )
+        )
+        try:
+            await asyncio.wait_for(ready_event.wait(), timeout=10)
+        except Exception as exc:
+            watcher.cancel()
+            return None, {"error": f"远端 WebSocket 回传连接失败：{exc}"}
+    payload = {"prompt": workflow, "client_id": websocket_client_id, "extra_data": {"source": "random_photo_prompt_mac_remote"}}
+    data, error = await _remote_json("POST", "/prompt", json=payload)
+    if error:
+        if watcher:
+            watcher.cancel()
+        return None, error
+    if not isinstance(data, dict):
+        if watcher:
+            watcher.cancel()
+        return None, {"error": "远端 /prompt 返回了非 JSON 对象。", "detail": data}
+    prompt_id = str(data.get("prompt_id") or "")
+    if prompt_id and ws_patch.get("websocket_node_ids"):
+        prompt_ref["value"] = prompt_id
+        REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID[prompt_id] = set(ws_patch["websocket_node_ids"])
+        REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID[prompt_id] = ws_patch.get("output_prefix") or f"mobile_{prompt_id.replace('-', '')[:12]}"
+        REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID[prompt_id] = output_mode
+        old = REMOTE_WS_WATCHERS.pop(prompt_id, None)
+        if old:
+            old.cancel()
+        REMOTE_WS_WATCHERS[prompt_id] = watcher
+    return {
+        "prompt_id": prompt_id,
+        "number": data.get("number"),
+        "node_errors": data.get("node_errors", {}),
+        "remote": True,
+        "output_mode": output_mode,
+        "remote_websocket_output": bool(ws_patch.get("websocket_node_ids")),
+        "node_total": node_total,
+    }, None
+
+
+async def _remote_history(prompt_id):
+    if not REMOTE_COMFYUI_URL or not prompt_id:
+        return None, None
+    data, error = await _remote_json("GET", f"/history/{urllib.parse.quote(str(prompt_id))}", timeout=REMOTE_HISTORY_TIMEOUT)
+    if error or not isinstance(data, dict):
+        return None, error
+    return data.get(prompt_id) if prompt_id in data else data, None
+
+
+async def _remote_queue():
+    if not REMOTE_COMFYUI_URL:
+        return [], []
+    data, error = await _remote_json("GET", "/queue", timeout=15)
+    if error or not isinstance(data, dict):
+        return [], []
+    return data.get("queue_running") or [], data.get("queue_pending") or []
+
+
+def _remote_image_extension_from_bytes(image_bytes, image_type=0):
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n") or image_type == 2:
+        return ".png"
+    if image_bytes.startswith(b"\xff\xd8\xff") or image_type == 1:
+        return ".jpg"
+    return ".png"
+
+
+def _remote_websocket_local_path(prompt_id, image_bytes, image_type=0):
+    prompt_id = str(prompt_id or "").strip()
+    prefix = REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID.get(prompt_id) or f"mobile_{prompt_id.replace('-', '')[:12]}"
+    index = REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID.get(prompt_id, 0) + 1
+    REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID[prompt_id] = index
+    filename = f"{prefix}_{index:05d}{_remote_image_extension_from_bytes(image_bytes, image_type)}"
+    output_dir = _mobile_local_output_dir()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir / filename
+
+
+def _remote_websocket_image_filename(prompt_id, image_bytes, image_type=0):
+    prompt_id = str(prompt_id or "").strip()
+    prefix = REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID.get(prompt_id) or f"mobile_{prompt_id.replace('-', '')[:12]}"
+    index = REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID.get(prompt_id, 0) + 1
+    REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID[prompt_id] = index
+    return f"{prefix}_{index:05d}{_remote_image_extension_from_bytes(image_bytes, image_type)}"
+
+
+def _store_remote_runtime_image(prompt_id, image_bytes, image_type=0):
+    if not prompt_id or not image_bytes:
+        return None
+    filename = _remote_websocket_image_filename(prompt_id, image_bytes, image_type)
+    content_type = "image/jpeg" if filename.lower().endswith((".jpg", ".jpeg")) else "image/png"
+    prompt = ""
+    for job in MOBILE_SESSION_JOBS:
+        if str(job.get("prompt_id") or "") == str(prompt_id):
+            prompt = str(job.get("prompt") or "")
+            break
+    item = {
+        "filename": filename,
+        "subfolder": "",
+        "type": "runtime",
+        "url": f"/random_photo_prompt/mobile/runtime_image/{urllib.parse.quote(str(prompt_id), safe='')}/{urllib.parse.quote(filename)}",
+        "content_type": content_type,
+        "bytes": bytes(image_bytes),
+        "mtime": int(time.time() * 1000),
+        "size": len(image_bytes),
+        "prompt": prompt,
+    }
+    MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID.setdefault(str(prompt_id), []).append(item)
+    print(f"[random_photo_prompt] remote websocket runtime image stored prompt_id={prompt_id} filename={filename} bytes={len(image_bytes)}", flush=True)
+    return item
+
+
+def _mobile_runtime_images_for_prompt(prompt_id):
+    items = MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID.get(str(prompt_id or ""), [])
+    result = []
+    for item in items:
+        result.append({key: value for key, value in item.items() if key != "bytes"})
+    return result
+
+
+def _save_remote_websocket_image(prompt_id, image_bytes, image_type=0):
+    if not prompt_id or not image_bytes:
+        return None
+    if REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID.get(str(prompt_id)) == "phone":
+        return _store_remote_runtime_image(prompt_id, image_bytes, image_type)
+    local_path = _remote_websocket_local_path(prompt_id, image_bytes, image_type)
+    tmp_path = local_path.with_name(f".{local_path.name}.tmp")
+    tmp_path.write_bytes(image_bytes)
+    if not tmp_path.is_file() or tmp_path.stat().st_size <= 0:
+        raise RuntimeError("远端 WebSocket 图片临时文件未写入。")
+    tmp_path.replace(local_path)
+    print(f"[random_photo_prompt] remote websocket image saved prompt_id={prompt_id} path={local_path} bytes={len(image_bytes)}", flush=True)
+    return local_path
+
+
+async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=None, output_nodes=None, output_prefix="", node_total=0, output_mode="mac"):
+    if isinstance(prompt_ref, dict):
+        prompt_id = str(prompt_ref.get("value") or "").strip()
+    else:
+        prompt_id = str(prompt_ref or "").strip()
+    client_id = str(client_id or "").strip()
+    if not REMOTE_COMFYUI_URL or not client_id:
+        return
+    remote_ws_url = REMOTE_COMFYUI_URL.replace("http://", "ws://").replace("https://", "wss://") + f"/ws?clientId={urllib.parse.quote(client_id)}"
+    current_node = ""
+    seen_nodes = []
+    node_total = max(1, int(node_total or 0))
+    try:
+        async with ClientSession(timeout=ClientTimeout(total=None, sock_connect=30, sock_read=None)) as session:
+            async with session.ws_connect(remote_ws_url) as ws:
+                print(f"[random_photo_prompt] remote websocket connected client_id={client_id}", flush=True)
+                if ready_event:
+                    ready_event.set()
+                async for msg in ws:
+                    if msg.type == WSMsgType.TEXT:
+                        try:
+                            message = json.loads(msg.data)
+                        except Exception:
+                            continue
+                        data = message.get("data") or {}
+                        message_prompt_id = str(data.get("prompt_id") or "").strip()
+                        if not prompt_id and message_prompt_id:
+                            prompt_id = message_prompt_id
+                            if isinstance(prompt_ref, dict):
+                                prompt_ref["value"] = prompt_id
+                            if output_nodes:
+                                REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID[prompt_id] = set(output_nodes)
+                            if output_prefix:
+                                REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID[prompt_id] = output_prefix
+                            REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID[prompt_id] = "phone" if str(output_mode or "").strip().lower() == "phone" else "mac"
+                        if message.get("type") != "executing":
+                            continue
+                        if message_prompt_id and prompt_id and message_prompt_id != prompt_id:
+                            continue
+                        current_node = str(data.get("node") or "")
+                        if not current_node:
+                            if prompt_id:
+                                REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id] = {
+                                    "value": node_total,
+                                    "max": node_total,
+                                    "percent": 100,
+                                    "node": "",
+                                    "type": "node",
+                                }
+                            break
+                        if current_node not in seen_nodes:
+                            seen_nodes.append(current_node)
+                        if prompt_id:
+                            value = max(1, min(node_total, len(seen_nodes)))
+                            REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id] = {
+                                "value": value,
+                                "max": node_total,
+                                "percent": max(0, min(100, round((value / node_total) * 100))),
+                                "node": current_node,
+                                "type": "node",
+                            }
+                    elif msg.type == WSMsgType.BINARY:
+                        output_nodes = REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID.get(prompt_id) or set()
+                        raw = bytes(msg.data)
+                        if len(raw) <= 8:
+                            continue
+                        event_type = struct.unpack(">I", raw[:4])[0]
+                        if event_type != 1:
+                            continue
+                        image_type = struct.unpack(">I", raw[4:8])[0]
+                        if output_nodes and current_node not in output_nodes and image_type != 2:
+                            continue
+                        _save_remote_websocket_image(prompt_id, raw[8:], image_type)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        traceback.print_exc()
+
+
+def _remote_local_path_for_image(image):
+    filename = Path(str(image.get("filename") or "")).name
+    if not filename:
+        raise ValueError("远端图片缺少文件名。")
+    subfolder = _normalize_remote_output_subfolder(image.get("subfolder", ""))
+    output_dir = _mobile_local_output_dir()
+    target_dir = (output_dir / subfolder).resolve() if subfolder else output_dir
+    if output_dir != target_dir and output_dir not in target_dir.parents:
+        raise ValueError("远端图片子目录不安全。")
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return target_dir / filename
+
+
+async def _download_remote_image(image):
+    local_path = _remote_local_path_for_image(image)
+    if local_path.is_file() and local_path.stat().st_size > 0:
+        await _remote_delete_output_file(image)
+        return local_path
+    params = urllib.parse.urlencode(
+        {
+            "filename": image.get("filename", ""),
+            "subfolder": image.get("subfolder", ""),
+            "type": image.get("type", "output"),
+        }
+    )
+    data, error = await _remote_bytes(f"/view?{params}")
+    if error:
+        raise RuntimeError(error.get("error") or "下载远端图片失败。")
+    if not data:
+        raise RuntimeError("下载远端图片失败：远端返回空文件。")
+    tmp_path = local_path.with_name(f".{local_path.name}.tmp")
+    tmp_path.write_bytes(data)
+    if not tmp_path.is_file() or tmp_path.stat().st_size <= 0:
+        raise RuntimeError("下载远端图片失败：本地临时文件未写入。")
+    tmp_path.replace(local_path)
+    if local_path.is_file() and local_path.stat().st_size > 0:
+        await _remote_delete_output_file(image)
+    return local_path
+
+
+def _remote_local_path_for_video(video):
+    filename = Path(str(video.get("filename") or "")).name
+    if not filename:
+        raise ValueError("远端视频缺少文件名。")
+    if Path(filename).suffix.lower() not in MOBILE_VIDEO_EXTENSIONS:
+        raise ValueError("远端视频格式不支持。")
+    local_path = (_mobile_video_output_dir() / filename).resolve()
+    if local_path.parent != _mobile_video_output_dir():
+        raise ValueError("远端视频本地路径不安全。")
+    return local_path
+
+
+async def _download_remote_video(video):
+    local_path = _remote_local_path_for_video(video)
+    if local_path.is_file() and local_path.stat().st_size > 0:
+        await _remote_delete_output_file(video)
+        return local_path
+    params = urllib.parse.urlencode(
+        {
+            "filename": video.get("filename", ""),
+            "subfolder": video.get("subfolder", ""),
+            "type": video.get("type", "output"),
+        }
+    )
+    data, error = await _remote_bytes(f"/view?{params}", timeout=300)
+    if error:
+        raise RuntimeError(error.get("error") or "下载远端视频失败。")
+    if not data:
+        raise RuntimeError("下载远端视频失败：远端返回空文件。")
+    tmp_path = local_path.with_name(f".{local_path.name}.tmp")
+    tmp_path.write_bytes(data)
+    if not tmp_path.is_file() or tmp_path.stat().st_size <= 0:
+        raise RuntimeError("下载远端视频失败：本地临时文件未写入。")
+    tmp_path.replace(local_path)
+    if local_path.is_file() and local_path.stat().st_size > 0:
+        await _remote_delete_output_file(video)
+    return local_path
+
+
 def _queue_contains(prompt_id, items):
     return any(len(item) > 1 and item[1] == prompt_id for item in items)
 
 
-def _mobile_image_urls(prompt_id):
-    history = PromptServer.instance.prompt_queue.get_history(prompt_id=prompt_id) or {}
-    entry = history.get(prompt_id) if isinstance(history, dict) else None
+def _mobile_job_output_prefix(prompt_id):
+    prompt_id = str(prompt_id or "")
+    for job in MOBILE_SESSION_JOBS:
+        if str(job.get("prompt_id") or "") == prompt_id:
+            return str(job.get("output_prefix") or "")
+    return REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID.get(prompt_id, "")
+
+
+def _mobile_local_images_for_prompt(prompt_id):
+    prefix = _mobile_job_output_prefix(prompt_id)
+    if not prefix:
+        return []
+    images = []
+    output_dir = _mobile_local_output_dir()
+    if not output_dir.is_dir():
+        return images
+    for path in sorted(output_dir.glob(f"{prefix}_*")):
+        if path.suffix.lower() not in MOBILE_GALLERY_EXTENSIONS or not path.is_file() or path.stat().st_size <= 0:
+            continue
+        subfolder = _mobile_output_subfolder_for_path(path)
+        images.append(
+            {
+                "filename": path.name,
+                "subfolder": subfolder,
+                "type": "output",
+                "url": _mobile_view_url(path.name, subfolder),
+            }
+        )
+    return images
+
+
+async def _mobile_image_urls(prompt_id):
+    runtime_images = _mobile_runtime_images_for_prompt(prompt_id)
+    if runtime_images:
+        return runtime_images
+    local_images = _mobile_local_images_for_prompt(prompt_id)
+    if local_images:
+        return local_images
+    if REMOTE_COMFYUI_URL:
+        entry, error = await _remote_history(prompt_id)
+        if error:
+            raise RuntimeError(error.get("error") or "远端历史记录读取失败。")
+    else:
+        history = PromptServer.instance.prompt_queue.get_history(prompt_id=prompt_id) or {}
+        entry = history.get(prompt_id) if isinstance(history, dict) else None
     images = []
     if isinstance(entry, dict):
         for output in (entry.get("outputs") or {}).values():
@@ -1593,11 +2587,68 @@ def _mobile_image_urls(prompt_id):
                         "type": image.get("type", "output"),
                     }
                 )
-                images.append({"url": f"/view?{params}", **image})
+                item = {"url": f"/view?{params}", **image}
+                if REMOTE_COMFYUI_URL:
+                    try:
+                        local_path = await _download_remote_image(image)
+                        subfolder = _mobile_output_subfolder_for_path(local_path)
+                        item["filename"] = local_path.name
+                        item["subfolder"] = subfolder
+                        item["type"] = "output"
+                        item["url"] = _mobile_view_url(local_path.name, subfolder)
+                    except Exception as exc:
+                        item["download_error"] = str(exc)
+                images.append(item)
     return images
 
 
-def _mobile_video_urls(prompt_id):
+async def _mobile_video_urls(prompt_id):
+    if REMOTE_COMFYUI_URL:
+        entry, error = await _remote_history(prompt_id)
+        if error:
+            raise RuntimeError(error.get("error") or "远端历史记录读取失败。")
+    else:
+        history = PromptServer.instance.prompt_queue.get_history(prompt_id=prompt_id) or {}
+        entry = history.get(prompt_id) if isinstance(history, dict) else None
+    videos = []
+    if isinstance(entry, dict):
+        for output in (entry.get("outputs") or {}).values():
+            if not isinstance(output, dict):
+                continue
+            for key in ("videos", "gifs"):
+                for video in output.get(key) or []:
+                    filename = video.get("filename", "")
+                    if not filename:
+                        continue
+                    params = urllib.parse.urlencode(
+                        {
+                            "filename": filename,
+                            "subfolder": video.get("subfolder", ""),
+                            "type": video.get("type", "output"),
+                        }
+                    )
+                    item = {"url": f"/view?{params}", **video}
+                    if REMOTE_COMFYUI_URL:
+                        try:
+                            local_path = await _download_remote_video(video)
+                            item["filename"] = local_path.name
+                            item["subfolder"] = MOBILE_VIDEO_OUTPUT_SUBFOLDER
+                            item["type"] = "output"
+                            item["url"] = _mobile_video_view_url(local_path.name)
+                            item.update(_video_dimensions_for_file(local_path))
+                        except Exception as exc:
+                            item["download_error"] = str(exc)
+                    elif video.get("subfolder") == MOBILE_VIDEO_OUTPUT_SUBFOLDER and filename:
+                        path = _mobile_video_output_file(filename)
+                        if path.is_file():
+                            item.update(_video_dimensions_for_file(path))
+                    videos.append(item)
+    return videos
+
+
+def _mobile_video_urls_sync(prompt_id):
+    if REMOTE_COMFYUI_URL:
+        return []
     history = PromptServer.instance.prompt_queue.get_history(prompt_id=prompt_id) or {}
     entry = history.get(prompt_id) if isinstance(history, dict) else None
     videos = []
@@ -1636,7 +2687,13 @@ def _remember_mobile_prompt_images(prompt_id, images):
         return
     for image in images:
         filename = image.get("filename")
-        if filename and any(filename.startswith(f"{job.get('output_prefix')}_") for job in MOBILE_SESSION_JOBS if job.get("prompt_id") == prompt_id and job.get("output_prefix")):
+        if image.get("type") == "runtime":
+            image["prompt"] = prompt
+            for item in MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID.get(str(prompt_id), []):
+                if item.get("filename") == filename:
+                    item["prompt"] = prompt
+            continue
+        if filename:
             _remember_mobile_prompt_file(filename, prompt, image.get("subfolder", ""))
             image["prompt"] = prompt
 
@@ -1659,38 +2716,54 @@ def _remember_mobile_prompt_videos(prompt_id, videos):
             video["prompt"] = prompt
 
 
-def _mobile_job_status(prompt_id):
-    running, pending = PromptServer.instance.prompt_queue.get_current_queue_volatile()
-    images = _mobile_image_urls(prompt_id)
-    videos = _mobile_video_urls(prompt_id)
+async def _mobile_job_status(prompt_id):
+    _ensure_mobile_session_jobs_loaded()
+    if REMOTE_COMFYUI_URL:
+        running, pending = await _remote_queue()
+    else:
+        running, pending = PromptServer.instance.prompt_queue.get_current_queue_volatile()
+    images = await _mobile_image_urls(prompt_id)
+    videos = await _mobile_video_urls(prompt_id)
     _remember_mobile_prompt_images(prompt_id, images)
     _remember_mobile_prompt_videos(prompt_id, videos)
     if _queue_contains(prompt_id, running):
         status = "running"
     elif _queue_contains(prompt_id, pending):
         status = "pending"
+    elif REMOTE_COMFYUI_URL and (watcher := REMOTE_WS_WATCHERS.get(str(prompt_id))) and not watcher.done():
+        status = "running"
     elif images or videos:
         status = "completed"
     else:
         status = "unknown"
-    return {"prompt_id": prompt_id, "status": status, "images": images, "videos": videos}
+    if status in {"completed", "unknown"}:
+        before = len(MOBILE_SESSION_JOBS)
+        MOBILE_SESSION_JOBS[:] = [job for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id")) != str(prompt_id)]
+        if len(MOBILE_SESSION_JOBS) != before:
+            _save_mobile_session_jobs()
+    result = {"prompt_id": prompt_id, "status": status, "images": images, "videos": videos}
+    if REMOTE_COMFYUI_URL and prompt_id in REMOTE_PROGRESS_BY_PROMPT_ID:
+        result["progress"] = REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id]
+    return result
 
 
-def _mobile_active_job_count():
-    return sum(
-        1
-        for item in MOBILE_SESSION_JOBS
-        if _mobile_job_status(item.get("prompt_id", "")).get("status") in {"running", "pending"}
-    )
+async def _mobile_active_job_count():
+    count = 0
+    for item in MOBILE_SESSION_JOBS:
+        if (await _mobile_job_status(item.get("prompt_id", ""))).get("status") in {"running", "pending"}:
+            count += 1
+    return count
 
 
-def _mobile_session_job(item):
-    status = _mobile_job_status(item.get("prompt_id", ""))
+async def _mobile_session_job(item):
+    status = await _mobile_job_status(item.get("prompt_id", ""))
     return {
         **item,
         "status": status.get("status", "unknown"),
         "images": status.get("images", []),
         "videos": status.get("videos", []),
+        "node_total": item.get("node_total", 0),
+        "progress": status.get("progress"),
     }
 
 
@@ -1707,16 +2780,17 @@ class RandomPhotoPrompt:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "scale": (["一档", "二档", "三档"], {"default": "二档"}),
+                "scale": (["一档", "二档", "三档", "四档"], {"default": "二档"}),
                 "shot": (
                     [
+                        "随机",
                         "头部",
                         "上半身",
                         "半身",
                         "大半身",
                         "全身",
                     ],
-                    {"default": "全身"},
+                    {"default": "随机"},
                 ),
                 "use_pregenerated_prompt": ("BOOLEAN", {"default": True}),
                 "auto_resolution": ("BOOLEAN", {"default": True}),
@@ -1743,10 +2817,10 @@ class RandomPhotoPrompt:
             aspect = _normalize_aspect(cached_aspect)
             signature = _prompt_signature(scale, shot, aspect)
             if cached_prompt:
-                return (cached_prompt, cached_negative_prompt)
+                return (clean_prompt_text(cached_prompt), cached_negative_prompt)
             if str(prompt_rule or "").strip() in {"规则2", "rule2"}:
                 result = generate_keyword_expansion_prompt(seed_text=str(time.time()), scale=scale, shot=shot)
-                return (result.get("prompt", ""), result.get("negative_prompt", ""))
+                return (clean_prompt_text(result.get("prompt", "")), result.get("negative_prompt", ""))
             item, _resolution = _build_desktop_prompt_with_mobile_logic(scale, shot, str(time.time()))
             return (_prompt_text(item), item.get("negative_prompt", ""))
         except Exception:
@@ -1770,7 +2844,7 @@ class RandomPhotoImageInterrogator:
     CATEGORY = "Random Photo"
 
     def generate(self, cached_prompt="", cached_signature=""):
-        return (cached_prompt or "请在节点上选择图片并点击反推提示词。",)
+        return (clean_prompt_text(cached_prompt) or "请在节点上选择图片并点击反推提示词。",)
 
 
 async def generate_random_photo_prompt(request):
@@ -1812,7 +2886,7 @@ async def expand_keyword_photo_prompt(request):
         )
         return web.json_response(
             {
-                "prompt": result["prompt"],
+                "prompt": clean_prompt_text(result["prompt"]),
                 "negative_prompt": result.get("negative_prompt", ""),
                 "signature": result.get("signature", ""),
                 "aspect": data.get("aspect") or "portrait",
@@ -1873,6 +2947,38 @@ async def interrogate_random_photo_prompt(request):
         )
 
 
+async def pregenerate_mobile_image_prompt(request):
+    try:
+        data = await request.json()
+        scale = data.get("scale", "bold")
+        shot_config = _mobile_shot_config(data.get("shot", "full_body_portrait"))
+        prompt_rule = str(data.get("prompt_rule") or "rule1").strip().lower()
+        seed_text = str(data.get("seed") or f"{time.time()}-{uuid.uuid4()}")
+        if prompt_rule in {"rule2", "assistant", "assistant_rule", "小助手式"}:
+            prompt_item, resolution = _assistant_mobile_prompt_item(seed_text, scale, shot_config)
+        else:
+            prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text)
+        width = int(resolution["width"])
+        height = int(resolution["height"])
+        return web.json_response(
+            {
+                "prompt": _prompt_text(prompt_item),
+                "display_prompt": _display_prompt_text(prompt_item),
+                "negative_prompt": prompt_item.get("negative_prompt", ""),
+                "scale": prompt_item.get("scale", scale),
+                "shot": prompt_item.get("shot_key", shot_config["shot"]),
+                "prompt_rule": "rule2" if prompt_rule in {"rule2", "assistant", "assistant_rule", "小助手式"} else "rule1",
+                "aspect": resolution.get("aspect", "portrait"),
+                "width": width,
+                "height": height,
+                "resolution": f"{width}x{height}",
+                "seed": prompt_item.get("seed", ""),
+            }
+        )
+    except Exception as exc:
+        return web.json_response({"error": str(exc), "detail": traceback.format_exc()}, status=400)
+
+
 async def mobile_generation_page(request):
     try:
         return web.FileResponse(MOBILE_PAGE_PATH)
@@ -1880,14 +2986,153 @@ async def mobile_generation_page(request):
         return web.Response(text=traceback.format_exc(), status=500)
 
 
+async def mobile_root_redirect(request):
+    raise web.HTTPFound("/random_photo_prompt/mobile")
+
+
+async def _mobile_entry_status():
+    output_dir = _mobile_local_output_dir()
+    remote_enabled = bool(REMOTE_COMFYUI_URL)
+    workflow_statuses = _mobile_workflow_statuses()
+    image_workflows_ready = all(item["template_ready"] for item in workflow_statuses.values() if item["type"] == "image")
+    video_workflow_ready = workflow_statuses.get(MOBILE_VIDEO_WORKFLOW_KEY, {}).get("template_ready", False)
+    zimage_models = await _available_mobile_zimage_models()
+    zit_models = zimage_models["zit_models"]
+    zib_models = zimage_models["zib_models"]
+    loras = _available_loras()
+    return {
+        "entry_mode": "remote_direct" if remote_enabled else "local",
+        "entry_label": "内部远端服务" if remote_enabled else "内部本机服务",
+        "remote": {
+            "enabled": remote_enabled,
+            "url": REMOTE_COMFYUI_URL,
+            "history_timeout": REMOTE_HISTORY_TIMEOUT,
+            "delete_output": REMOTE_DELETE_OUTPUT,
+        },
+        "output": {
+            "dir": str(output_dir),
+            "exists": output_dir.exists(),
+            "writable": os.access(output_dir, os.W_OK),
+        },
+        "models": {
+            "source": zimage_models["source"],
+            "zit_dir": str(ZIT_MODEL_DIR),
+            "zit_dir_ready": ZIT_MODEL_DIR.exists(),
+            "zit_count": len(zit_models),
+            "zib_count": len(zib_models),
+            "lora_dir": _lora_dir_display_path(),
+            "lora_count": len(loras),
+        },
+        "workflow_statuses": workflow_statuses,
+        "health": {
+            "local_mobile": {"ok": True, "message": "本机手机页接口正常。"},
+            "remote_comfyui": {
+                "ok": not remote_enabled,
+                "message": f"已配置远端 {REMOTE_COMFYUI_URL}，统一入口会通过 18199 访问。" if remote_enabled else "未设置 RPP_REMOTE_COMFYUI_URL，当前仅作为内部本机服务。",
+            },
+            "output_dir": {
+                "ok": output_dir.exists() and os.access(output_dir, os.W_OK),
+                "message": str(output_dir),
+            },
+            "image_workflows": {
+                "ok": image_workflows_ready,
+                "message": "图片工作流模板已准备。" if image_workflows_ready else "至少一个图片工作流模板缺失或格式不对。",
+            },
+            "video_workflow": {
+                "ok": video_workflow_ready,
+                "message": "视频工作流模板已准备。" if video_workflow_ready else "视频工作流模板缺失或格式不对。",
+            },
+            "zit_models": {
+                "ok": bool(zit_models),
+                "message": f"找到 {len(zit_models)} 个 ZIT 模型（{zimage_models['source']}）。" if zit_models else f"未找到可用 ZIT 模型。",
+            },
+        },
+    }
+
+
+def _local_status_item(ok, label, message):
+    class_name = "ok" if ok else "bad"
+    state = "正常" if ok else "需要处理"
+    return f'<li class="{class_name}"><strong>{html.escape(label)}</strong><span>{state}</span><p>{html.escape(str(message or ""))}</p></li>'
+
+
+def _local_status_html(payload):
+    health = payload["health"]
+    workflows = payload["workflow_statuses"]
+    all_ok = health["output_dir"]["ok"] and health["image_workflows"]["ok"] and health["zit_models"]["ok"]
+    title = "手机端内部服务正常" if all_ok else "手机端内部服务需要处理"
+    workflow_items = "".join(
+        _local_status_item(
+            item["template_ready"],
+            f"{item['label']} · {item['template_name']}",
+            item["message"] if item["template_ready"] else f"{item['message']} {item['guidance']} 路径：{item['path']}",
+        )
+        for item in workflows.values()
+    )
+    items = [
+        _local_status_item(health["local_mobile"]["ok"], "手机端内部服务", health["local_mobile"]["message"]),
+        _local_status_item(health["output_dir"]["ok"], "输出目录", health["output_dir"]["message"]),
+        _local_status_item(health["zit_models"]["ok"], "ZIT 模型", health["zit_models"]["message"]),
+        _local_status_item(True, "ZIB / LoRA", f"ZIB {payload['models']['zib_count']} 个，LoRA {payload['models']['lora_count']} 个。"),
+        _local_status_item(True, "统一入口", "用户入口统一使用 18199；本服务只作为内部接口。"),
+    ]
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html.escape(title)}</title>
+  <style>
+    body {{ margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #101114; color: #f5f5f0; }}
+    main {{ max-width: 820px; margin: 0 auto; padding: 28px 18px 42px; }}
+    h1 {{ font-size: 26px; margin: 0 0 10px; letter-spacing: 0; }}
+    h2 {{ font-size: 17px; margin: 24px 0 10px; }}
+    .lead {{ color: #b9b8ad; margin: 0 0 18px; line-height: 1.6; }}
+    .entry {{ display: block; padding: 14px 16px; border: 1px solid #3f4743; color: #f5f5f0; text-decoration: none; background: #1b1d20; margin: 18px 0; }}
+    ul {{ list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 10px; }}
+    li {{ border: 1px solid #373a3d; background: #17191c; padding: 14px; }}
+    li strong {{ display: block; font-size: 16px; margin-bottom: 6px; }}
+    li span {{ display: inline-block; font-size: 13px; margin-bottom: 8px; }}
+    li.ok span {{ color: #7bd88f; }}
+    li.bad span {{ color: #ff8a7a; }}
+    li p {{ margin: 0; color: #c9c8be; word-break: break-all; line-height: 1.5; }}
+    code {{ color: #f2d179; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{html.escape(title)}</h1>
+    <p class="lead">本页只检查手机端内部服务，不作为用户入口；网页端和手机端统一从 18199 进入。</p>
+    <a class="entry" href="/random_photo_prompt/mobile">打开手机生成页</a>
+    <h2>入口状态</h2>
+    <ul>{''.join(items)}</ul>
+    <h2>工作流模板</h2>
+    <ul>{workflow_items}</ul>
+    <p class="lead">JSON 状态：<code>/random_photo_prompt/local/status?format=json</code></p>
+  </main>
+</body>
+</html>"""
+
+
+async def local_status_page(request):
+    payload = await _mobile_entry_status()
+    if request.query.get("format") == "json" or "application/json" in request.headers.get("Accept", ""):
+        return web.json_response(payload)
+    return web.Response(text=_local_status_html(payload), content_type="text/html")
+
+
 async def mobile_generation_status(request):
     workflow_key, config = _mobile_workflow_config(request.query.get("workflow"))
     workflow_path = config["path"]
-    template_ready = workflow_path.exists()
+    entry_status = await _mobile_entry_status()
+    workflow_statuses = entry_status["workflow_statuses"]
+    selected_workflow_status = workflow_statuses.get(workflow_key) or _workflow_status_item(workflow_key, config)
+    template_ready = selected_workflow_status["template_ready"]
     video_config = MOBILE_WORKFLOWS[MOBILE_VIDEO_WORKFLOW_KEY]
     image_workflows = _mobile_image_workflows()
-    zit_models = _available_zit_models()
-    zib_models = _available_zib_models()
+    zimage_models = await _available_mobile_zimage_models()
+    zit_models = zimage_models["zit_models"]
+    zib_models = zimage_models["zib_models"]
     loras = _available_loras()
     return web.json_response(
         {
@@ -1900,7 +3145,10 @@ async def mobile_generation_status(request):
                     "key": key,
                     "label": item["label"],
                     "template_name": item["path"].name,
-                    "template_ready": item["path"].exists(),
+                    "template_ready": workflow_statuses.get(key, {}).get("template_ready", item["path"].exists()),
+                    "path": str(item["path"]),
+                    "message": workflow_statuses.get(key, {}).get("message", ""),
+                    "guidance": workflow_statuses.get(key, {}).get("guidance", ""),
                 }
                 for key, item in image_workflows.items()
             ],
@@ -1908,24 +3156,32 @@ async def mobile_generation_status(request):
                 "key": MOBILE_VIDEO_WORKFLOW_KEY,
                 "label": video_config["label"],
                 "template_name": video_config["path"].name,
-                "template_ready": video_config["path"].exists(),
+                "template_ready": workflow_statuses.get(MOBILE_VIDEO_WORKFLOW_KEY, {}).get("template_ready", video_config["path"].exists()),
+                "path": str(video_config["path"]),
+                "message": workflow_statuses.get(MOBILE_VIDEO_WORKFLOW_KEY, {}).get("message", ""),
+                "guidance": workflow_statuses.get(MOBILE_VIDEO_WORKFLOW_KEY, {}).get("guidance", ""),
             },
             "zit_models": zit_models,
             "zib_models": zib_models,
+            "model_source": zimage_models["source"],
             "zit_model_dir_ready": ZIT_MODEL_DIR.exists(),
             "loras": loras,
-            "lora_dir": str((Path(folder_paths.models_dir) / "loras" / ZIMAGE_LORA_SUBDIR).resolve()),
+            "lora_dir": _lora_dir_display_path(),
             "connected": True,
-            "message": "" if template_ready else f"请先保存 {workflow_path.name} 后再生成。",
+            "message": "" if template_ready else (selected_workflow_status.get("message") or f"请先保存 {workflow_path.name} 后再生成。"),
+            "guidance": selected_workflow_status.get("guidance", ""),
+            "template_path": str(workflow_path),
+            **entry_status,
         }
     )
 
 
 def _mobile_shot_config(value):
     text = str(value or "").strip()
+    if text in {"random", "随机", "随机镜头"}:
+        key = random.choice(tuple(MOBILE_SCOPE_PRESETS.keys()))
+        return MOBILE_SCOPE_PRESETS[key]
     legacy_map = {
-        "random": "full_body",
-        "随机": "full_body",
         "full_body": "full_body",
         "全身": "full_body",
         "全身像": "full_body",
@@ -1987,8 +3243,11 @@ async def generate_mobile_image(request):
         if workflow_config.get("type", "image") != "image":
             workflow_key, workflow_config = _mobile_workflow_config(MOBILE_DEFAULT_WORKFLOW_KEY)
         template = _load_mobile_workflow(workflow_key)
-        zit_model = _resolve_zit_model(data.get("zit_model"))
-        zib_model = _resolve_zib_model(data.get("zib_model")) if workflow_key == "zitb_double" else ""
+        zimage_models = await _available_mobile_zimage_models()
+        requested_zit_model = str(data.get("zit_model") or "").strip()
+        requested_zib_model = str(data.get("zib_model") or "").strip()
+        zib_model = _resolve_zib_model(requested_zib_model, zimage_models["zib_models"]) if workflow_key in {"zit_single", "zitb_double"} and not (workflow_key == "zit_single" and requested_zit_model) else ""
+        zit_model = "" if workflow_key == "zit_single" and zib_model else _resolve_zit_model(requested_zit_model, zimage_models["zit_models"])
         lora_name = _resolve_lora_name(data.get("lora_name"))
         lora_strength = _resolve_lora_strength(data.get("lora_strength"))
         scale = data.get("scale", "bold")
@@ -1996,8 +3255,9 @@ async def generate_mobile_image(request):
         custom_prompt = str(data.get("custom_prompt") or "").strip()
         prompt_rule = str(data.get("prompt_rule") or "rule1").strip().lower()
         client_id = str(data.get("client_id") or "").strip()
+        output_mode = "phone" if str(request.headers.get("X-RPP-Mobile-Origin") or "").strip().lower() == "phone" else "mac"
         requested_count = max(1, min(int(data.get("count", 1) or 1), 64))
-        remaining_slots = max(0, MOBILE_MAX_ACTIVE_JOBS - _mobile_active_job_count())
+        remaining_slots = max(0, MOBILE_MAX_ACTIVE_JOBS - await _mobile_active_job_count())
         if remaining_slots <= 0:
             return web.json_response({"error": f"当前任务数已达到 {MOBILE_MAX_ACTIVE_JOBS}，请等待完成后再添加。"}, status=429)
         count = min(requested_count, remaining_slots)
@@ -2015,12 +3275,14 @@ async def generate_mobile_image(request):
             width = int(resolution["width"])
             height = int(resolution["height"])
             aspect = resolution["aspect"]
+            if workflow_key == "zitb_double":
+                _use_chinese_negative_prompt(prompt_item, scale, shot_config, width, height, aspect)
             seed = int(data.get("seed") or prompt_item.get("seed") or int(time.time() * 1000))
             if count > 1 and not data.get("seed"):
                 seed = int(prompt_item.get("seed") or seed)
             output_prefix = f"mobile_{uuid.uuid4().hex[:12]}"
             workflow, patched = _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model, output_prefix, lora_name, lora_strength, zib_model)
-            queued, error = await _queue_mobile_workflow(workflow, client_id)
+            queued, error = await _queue_mobile_workflow(workflow, client_id, output_mode=output_mode)
             if error:
                 errors.append(error)
                 continue
@@ -2044,11 +3306,14 @@ async def generate_mobile_image(request):
                 "height": height,
                 "seed": seed,
                 "output_prefix": output_prefix,
+                "output_mode": output_mode,
                 "patched": patched,
+                "remote_websocket_output": queued.get("remote_websocket_output", False),
                 "created_at": int(time.time() * 1000),
             }
             jobs.append(job)
             MOBILE_SESSION_JOBS.append(job)
+            _save_mobile_session_jobs()
         status = 200 if jobs else 400
         return web.json_response({"jobs": jobs, "errors": errors}, status=status)
     except Exception as exc:
@@ -2064,7 +3329,7 @@ async def generate_mobile_video(request):
         client_id = str(data.get("client_id") or "").strip()
         shot_config = _mobile_shot_config(data.get("shot", "full_body"))
         requested_count = max(1, min(int(data.get("count", 1) or 1), 64))
-        remaining_slots = max(0, MOBILE_MAX_ACTIVE_JOBS - _mobile_active_job_count())
+        remaining_slots = max(0, MOBILE_MAX_ACTIVE_JOBS - await _mobile_active_job_count())
         if remaining_slots <= 0:
             return web.json_response({"error": f"当前任务数已达到 {MOBILE_MAX_ACTIVE_JOBS}，请等待完成后再添加。"}, status=429)
         count = min(requested_count, remaining_slots)
@@ -2125,6 +3390,7 @@ async def generate_mobile_video(request):
             }
             jobs.append(job)
             MOBILE_SESSION_JOBS.append(job)
+            _save_mobile_session_jobs()
         status = 200 if jobs else 400
         return web.json_response({"jobs": jobs, "errors": errors}, status=status)
     except Exception as exc:
@@ -2165,16 +3431,34 @@ async def mobile_job_detail(request):
         prompt_id = request.match_info.get("prompt_id", "")
         if not prompt_id:
             return web.json_response({"error": "缺少任务编号。"}, status=400)
-        return web.json_response(_mobile_job_status(prompt_id))
+        return web.json_response(await _mobile_job_status(prompt_id))
     except Exception:
         return web.json_response({"error": traceback.format_exc()}, status=500)
 
 
 async def mobile_session_jobs(request):
     try:
-        return web.json_response({"jobs": [_mobile_session_job(item) for item in MOBILE_SESSION_JOBS]})
+        _ensure_mobile_session_jobs_loaded()
+        return web.json_response({"jobs": [await _mobile_session_job(item) for item in MOBILE_SESSION_JOBS]})
     except Exception:
         return web.json_response({"error": traceback.format_exc()}, status=500)
+
+
+async def clear_remote_mobile_runtime_state(request):
+    try:
+        result = _clear_remote_mobile_runtime_state()
+        return web.json_response({"ok": True, **result})
+    except Exception:
+        return web.json_response({"error": traceback.format_exc()}, status=500)
+
+
+async def mobile_runtime_image(request):
+    prompt_id = str(request.match_info.get("prompt_id") or "")
+    filename = Path(str(request.match_info.get("filename") or "")).name
+    for item in MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID.get(prompt_id, []):
+        if item.get("filename") == filename:
+            return web.Response(body=item.get("bytes") or b"", content_type=item.get("content_type") or "image/png")
+    return web.json_response({"error": "临时图片不存在或已清理。"}, status=404)
 
 
 async def mobile_gallery_images(request):
@@ -2196,16 +3480,35 @@ async def delete_mobile_gallery_images(request):
         data = await request.json()
         raw_items = data.get("items") or []
         deleted = 0
+        missing = 0
+        errors = []
+        prompt_index = _load_mobile_prompt_index()
+        prompt_index_changed = False
         for raw in raw_items:
-            filename = str(raw.get("filename") or "")
-            if not filename:
+            if not isinstance(raw, dict):
+                raw = {"filename": raw}
+            try:
+                path = _mobile_output_file_from_item(raw)
+            except Exception as exc:
+                missing += 1
+                errors.append({"item": raw, "error": str(exc)})
                 continue
-            path = _mobile_output_file(filename)
             if not path.is_file() or path.suffix.lower() not in MOBILE_GALLERY_EXTENSIONS:
+                missing += 1
                 continue
+            subfolder = _mobile_output_subfolder_for_path(path)
+            file_key = _mobile_output_file_key(path.name, subfolder)
             path.unlink()
+            for key in {file_key, path.name}:
+                if key in MOBILE_PROMPT_BY_FILENAME:
+                    MOBILE_PROMPT_BY_FILENAME.pop(key, None)
+                if key in prompt_index:
+                    prompt_index.pop(key, None)
+                    prompt_index_changed = True
             deleted += 1
-        return web.json_response({"deleted": deleted, "images": _mobile_gallery_images()})
+        if prompt_index_changed:
+            _save_mobile_prompt_index(prompt_index)
+        return web.json_response({"deleted": deleted, "missing": missing, "errors": errors, "images": _mobile_gallery_images()})
     except Exception:
         return web.json_response({"error": traceback.format_exc()}, status=500)
 
@@ -2229,6 +3532,43 @@ async def delete_mobile_gallery_videos(request):
         return web.json_response({"error": traceback.format_exc()}, status=500)
 
 
+async def delete_remote_output_file(request):
+    try:
+        data = await request.json()
+        filename = Path(str(data.get("filename") or "")).name
+        subfolder = str(data.get("subfolder") or "").replace("\\", "/").strip("/")
+        file_type = str(data.get("type") or "output").strip() or "output"
+        if not filename:
+            return web.json_response({"error": "缺少文件名。"}, status=400)
+        if filename.startswith(".") or "/" in filename or "\\" in filename:
+            return web.json_response({"error": "文件名不安全。"}, status=400)
+        if subfolder and any(part in {"", ".", ".."} for part in subfolder.split("/")):
+            return web.json_response({"error": "子目录不安全。"}, status=400)
+        base_dir = folder_paths.get_directory_by_type(file_type)
+        if not base_dir:
+            return web.json_response({"error": "不支持的目录类型。"}, status=400)
+        base_dir = Path(base_dir).resolve()
+        target_dir = (base_dir / subfolder).resolve() if subfolder else base_dir
+        if target_dir != base_dir and base_dir not in target_dir.parents:
+            return web.json_response({"error": "路径越界。"}, status=403)
+        path = (target_dir / filename).resolve()
+        if path.parent != target_dir:
+            return web.json_response({"error": "路径越界。"}, status=403)
+        if not path.is_file():
+            return web.json_response({"deleted": 0, "missing": True})
+        last_error = ""
+        for attempt in range(1, 7):
+            try:
+                path.unlink()
+                return web.json_response({"deleted": 1, "filename": filename, "subfolder": subfolder, "type": file_type, "attempt": attempt})
+            except PermissionError as exc:
+                last_error = str(exc)
+                await asyncio.sleep(min(10, attempt * 2))
+        return web.json_response({"error": "远端文件被占用，删除失败。", "detail": last_error}, status=409)
+    except Exception:
+        return web.json_response({"error": traceback.format_exc()}, status=500)
+
+
 if not _route_exists("POST", "/random_photo_prompt/generate"):
     PromptServer.instance.routes.post("/random_photo_prompt/generate")(generate_random_photo_prompt)
 if not _route_exists("POST", "/random_photo_prompt/keyword_expand"):
@@ -2237,10 +3577,16 @@ if not _route_exists("POST", "/random_photo_prompt/resolve_resolution"):
     PromptServer.instance.routes.post("/random_photo_prompt/resolve_resolution")(resolve_random_photo_prompt_resolution)
 if not _route_exists("POST", "/random_photo_prompt/interrogate"):
     PromptServer.instance.routes.post("/random_photo_prompt/interrogate")(interrogate_random_photo_prompt)
+if not _route_exists("GET", "/"):
+    PromptServer.instance.routes.get("/")(mobile_root_redirect)
 if not _route_exists("GET", "/random_photo_prompt/mobile"):
     PromptServer.instance.routes.get("/random_photo_prompt/mobile")(mobile_generation_page)
 if not _route_exists("GET", "/random_photo_prompt/mobile/status"):
     PromptServer.instance.routes.get("/random_photo_prompt/mobile/status")(mobile_generation_status)
+if not _route_exists("GET", "/random_photo_prompt/local/status"):
+    PromptServer.instance.routes.get("/random_photo_prompt/local/status")(local_status_page)
+if not _route_exists("POST", "/random_photo_prompt/mobile/prompt"):
+    PromptServer.instance.routes.post("/random_photo_prompt/mobile/prompt")(pregenerate_mobile_image_prompt)
 if not _route_exists("POST", "/random_photo_prompt/mobile/generate"):
     PromptServer.instance.routes.post("/random_photo_prompt/mobile/generate")(generate_mobile_image)
 if not _route_exists("POST", "/random_photo_prompt/mobile/video/generate"):
@@ -2253,6 +3599,10 @@ if not _route_exists("GET", "/random_photo_prompt/mobile/job/{prompt_id}"):
     PromptServer.instance.routes.get("/random_photo_prompt/mobile/job/{prompt_id}")(mobile_job_detail)
 if not _route_exists("GET", "/random_photo_prompt/mobile/jobs"):
     PromptServer.instance.routes.get("/random_photo_prompt/mobile/jobs")(mobile_session_jobs)
+if not _route_exists("POST", "/random_photo_prompt/mobile/remote_runtime/clear"):
+    PromptServer.instance.routes.post("/random_photo_prompt/mobile/remote_runtime/clear")(clear_remote_mobile_runtime_state)
+if not _route_exists("GET", "/random_photo_prompt/mobile/runtime_image/{prompt_id}/{filename}"):
+    PromptServer.instance.routes.get("/random_photo_prompt/mobile/runtime_image/{prompt_id}/{filename}")(mobile_runtime_image)
 if not _route_exists("GET", "/random_photo_prompt/mobile/gallery"):
     PromptServer.instance.routes.get("/random_photo_prompt/mobile/gallery")(mobile_gallery_images)
 if not _route_exists("GET", "/random_photo_prompt/mobile/videos"):
@@ -2261,16 +3611,21 @@ if not _route_exists("POST", "/random_photo_prompt/mobile/gallery/delete"):
     PromptServer.instance.routes.post("/random_photo_prompt/mobile/gallery/delete")(delete_mobile_gallery_images)
 if not _route_exists("POST", "/random_photo_prompt/mobile/videos/delete"):
     PromptServer.instance.routes.post("/random_photo_prompt/mobile/videos/delete")(delete_mobile_gallery_videos)
-
-
+if not _route_exists("POST", "/random_photo_prompt/remote/delete_output"):
+    PromptServer.instance.routes.post("/random_photo_prompt/remote/delete_output")(delete_remote_output_file)
+PromptServer.instance.add_on_prompt_handler(_block_remote_asset_save_on_prompt)
+	
+	
 NODE_CLASS_MAPPINGS = {
     "RandomPhotoPrompt": RandomPhotoPrompt,
     "RandomPhotoImageInterrogator": RandomPhotoImageInterrogator,
+    "RandomPhotoPromptRemoteUploadImage": RandomPhotoPromptRemoteUploadImage,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "RandomPhotoPrompt": "随机写真提示词",
     "RandomPhotoImageInterrogator": "图片反推提示词",
+    "RandomPhotoPromptRemoteUploadImage": "远端图片回传到 Mac",
 }
 
 WEB_DIRECTORY = "./web"

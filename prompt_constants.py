@@ -2,26 +2,24 @@ from __future__ import annotations
 
 
 RESOLUTIONS = {
-    "head_shot": (1024, 1344),
-    "upper_body": (1024, 1536),
-    "half_body": (1024, 1344),
-    "large_half_body": (896, 1536),
-    "full_body": (768, 1536),
+    "head_shot": (1408, 1856),
+    "upper_body": (1280, 1920),
+    "half_body": (1472, 1920),
+    "large_half_body": (1280, 1920),
+    "full_body": (1088, 1920),
 }
 
 MAX_POSITIVE_PROMPT_LENGTH = 800
 PROMPT_PART_ORDER = (
-    "pose_expression",
-    "scene_light",
-    "quality",
     "camera",
     "character",
     "outfit",
-    "makeup",
-    "hair",
+    "pose_expression",
+    "scene_light",
+    "quality",
 )
 VISIBLE_PROMPT_PARTS = set(PROMPT_PART_ORDER)
-TRIMMABLE_PARTS = ("quality", "scene_light", "outfit", "camera", "hair", "makeup", "pose_expression")
+TRIMMABLE_PARTS = ("quality", "scene_light", "outfit", "camera", "pose_expression")
 WHITE_EDGE_REPLACEMENTS = (
     ("纯白背景", "浅彩背景"),
     ("纯白侧边", "彩色环境侧边"),
@@ -52,9 +50,10 @@ FEEDBACK_TAG_RULES = {
 }
 
 QUALITY_BY_SCALE = {
-    "normal": "真实写真质感，主体清晰面部锐利，时尚大片级光影，高级商业摄影调色，best quality, ultra detailed",
-    "bold": "高级私房写真质感，主体清晰肤质细腻，杂志封面级光影与氛围，best quality, ultra detailed",
-    "nsfw": "私房情欲摄影质感，暧昧光影投射在肌肤上，皮肤泛着温润光泽，氛围充满张力，best quality, ultra detailed",
+    "normal": "商业写真级自然光影，肤色真实不过曝，清晰镜头景深，暗部有层次",
+    "bold": "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝",
+    "bold_no_outfit": "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝",
+    "nsfw": "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝",
 }
 QUALITY_SUFFIX = QUALITY_BY_SCALE["bold"]  # fallback
 
@@ -207,8 +206,7 @@ PART_LENGTH_BUDGETS = {
     "camera": 74,
     "character": 200,
     "makeup": 74,
-    "hair": 84,
-    "outfit": 84,
+    "outfit": 130,
     "pose_expression": 155,
     "scene_light": 170,
     "quality": 120,
@@ -283,11 +281,19 @@ SHOT_ALIASES = {
 }
 
 SCALE_ALIASES = {
+    "一档": "normal",
+    "二档": "bold",
+    "三档": "bold_no_outfit",
+    "四档": "nsfw",
     "普通": "normal",
     "大胆": "bold",
     "NSFW": "nsfw",
     "normal": "normal",
     "bold": "bold",
+    "bold_no_outfit": "bold_no_outfit",
+    "no_outfit": "bold_no_outfit",
+    "d": "bold_no_outfit",
+    "D": "bold_no_outfit",
     "nsfw": "nsfw",
 }
 

@@ -8,6 +8,15 @@ def normalize_scale(value: str) -> str:
     return SCALE_ALIASES.get(value or "", "bold")
 
 
+def prompt_pool_scale(scale: str) -> str:
+    scale = normalize_scale(scale)
+    return "bold" if scale in {"bold_no_outfit", "nsfw"} else scale
+
+
+def skips_outfit(scale: str) -> bool:
+    return normalize_scale(scale) in {"bold_no_outfit", "nsfw"}
+
+
 def normalize_shot(value: str) -> str:
     value = value or ""
     if value in SHOT_ALIASES:

@@ -9,11 +9,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from prompt_data import *  # noqa: F403
 from negative_prompt_engine import build_negative_prompt
 from prompt_constants import (
-    LIP_COLOR_CONSTRAINT,
     PROMPT_PART_ORDER,
     RESOLUTIONS,
 )
-from prompt_normalize import normalize_aspect, normalize_scale, normalize_shot, shot_label
+from prompt_normalize import normalize_aspect, normalize_scale, normalize_shot, prompt_pool_scale, shot_label, skips_outfit
 from prompt_planner import (
     choose,
     choose_color_palette,
@@ -31,41 +30,46 @@ from prompt_planner import (
 )
 from prompt_postprocess import (
     apply_conflict_cleaner,
+    clean_global_prompt_text,
+    clean_prompt_text,
     clean_sentence,
     enforce_prompt_length,
     enrich_visual_finish,
     ensure_sentence,
     feedback_tags,
     order_pose_before_expression,
+    polish_photographic_naturalness,
     score_prompt_parts,
     simplify_pose_language,
     strengthen_expression,
+    strengthen_seductive_scene_and_pose,
 )
 
 
 def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portrait") -> dict[str, str]:
-    director = choose_director(scale, shot, aspect, rng)
-    palette = choose_color_palette(director, scale, shot, aspect, rng)
-    emotion_intent = choose_emotion_intent(scale, director, rng)
+    scale = normalize_scale(scale)
+    pool_scale = prompt_pool_scale(scale)
+    director = choose_director(pool_scale, shot, aspect, rng)
+    palette = choose_color_palette(director, pool_scale, shot, aspect, rng)
+    emotion_intent = choose_emotion_intent(pool_scale, director, rng)
     visual_focus, focus_keywords = choose_visual_focus(shot, director, rng)
     pose_family = choose_pose_family(shot, aspect, visual_focus, rng)
     visual_keywords = palette_keywords(palette)
     coordination_keywords = intent_keywords(visual_keywords, emotion_intent, focus_keywords)
     camera = choose_directed(camera_options_by_aspect(shot, aspect), rng, director, coordination_keywords)
     character = choose(character_identity_options_by_aspect(shot, aspect), rng)
-    makeup = choose_directed(makeup_options_by_aspect(scale, aspect), rng, director, coordination_keywords)
     scene_light = choose_scene_light(
-        scene_light_options_by_aspect(scale, shot, aspect),
+        scene_light_options_by_aspect(pool_scale, shot, aspect),
         rng,
         {**director, "keywords": intent_keywords(tuple(director.get("keywords", ())), visual_keywords, focus_keywords)},
         palette,
     )
-    filter_grade = choose_filter_grade(scale, director, palette, scene_light, rng)
+    filter_grade = choose_filter_grade(pool_scale, director, palette, scene_light, rng)
     context_keywords = intent_keywords(scene_context_keywords(scene_light), visual_keywords, emotion_intent, focus_keywords)
-    hair = choose_directed(hair_options_by_aspect(scale, shot, aspect), rng, director, context_keywords)
-    outfit = "" if scale == "nsfw" else choose_directed(outfit_options_by_aspect(scale, shot, aspect), rng, director, context_keywords)
+    outfit = "" if skips_outfit(scale) else choose_directed(outfit_options_by_aspect(pool_scale, shot, aspect), rng, director, context_keywords)
+    pose_pool_scale = "nsfw" if scale == "nsfw" else pool_scale
     pose_expression = choose_directed(
-        pose_expression_options_by_aspect(scale, shot, aspect),
+        pose_expression_options_by_aspect(pose_pool_scale, shot, aspect),
         rng,
         director,
         context_keywords,
@@ -74,8 +78,7 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     parts = {
         "camera": camera,
         "character": character,
-        "makeup": makeup,
-        "hair": hair,
+        "makeup": "",
         "outfit": outfit,
         "pose_expression": pose_expression,
         "scene_light": scene_light,
@@ -94,16 +97,17 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     cleaned["emotion_intent"] = emotion_intent["name"]
     cleaned["visual_focus"] = visual_focus
     cleaned["pose_family"] = classify_pose_family(cleaned.get("pose_expression", ""))
+    cleaned = clean_global_prompt_text(cleaned, shot, scale)
     # Camera pool entries and mobile framing already carry the crop boundary.
     # Avoid appending a second full framing sentence here; it bloats prompts and
     # repeats body-part constraints across dimensions.
-    makeup_has_lip_detail = any(marker in cleaned["makeup"] for marker in ("唇", "嘴唇", "薄唇", "唇形", "唇色", "唇彩", "唇釉", "润唇"))
-    if not makeup_has_lip_detail:
-        cleaned["makeup"] = clean_sentence(f"{cleaned['makeup']}，{LIP_COLOR_CONSTRAINT}", shot, scale)
     cleaned = apply_conflict_cleaner(cleaned, scale, shot, aspect)
     cleaned = simplify_pose_language(cleaned)
     cleaned = strengthen_expression(cleaned, scale, rng)
+    cleaned = strengthen_seductive_scene_and_pose(cleaned, scale, shot, aspect)
+    cleaned = simplify_pose_language(cleaned)
     cleaned = order_pose_before_expression(cleaned)
+    cleaned = polish_photographic_naturalness(cleaned, scale, shot)
     cleaned = enforce_prompt_length(cleaned)
     cleaned["feedback_tags"] = ",".join(feedback_tags(cleaned, scale, shot, aspect))
     cleaned["prompt_score"] = str(score_prompt_parts(cleaned, scale, shot, aspect))
@@ -112,11 +116,13 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
 
 def build_prompt(parts: dict[str, str], enforce_limit: bool = True) -> str:
     source = enforce_prompt_length(parts) if enforce_limit else parts
-    ordered = [source.get(name, "") for name in PROMPT_PART_ORDER]
+    ordered = [clean_prompt_text(source.get(name, "")) for name in PROMPT_PART_ORDER]
     return "\n\n".join(ensure_sentence(part) for part in ordered if part)
 
 
 def generate_candidate_parts(scale: str, shot: str, rng: random.Random, aspect: str, attempts: int = 6) -> dict[str, str]:
+    if normalize_scale(scale) == "bold_no_outfit" and normalize_shot(shot) == "full_body":
+        attempts = 1
     best_parts = None
     best_score = -10_000
     for _attempt in range(max(1, attempts)):
@@ -146,6 +152,7 @@ def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str
     for index in range(count):
         parts = generate_candidate_parts(scale, shot, rng, aspect)
         parts = enforce_prompt_length(parts)
+        parts = {name: (clean_prompt_text(value) if isinstance(value, str) else value) for name, value in parts.items()}
         prompt = build_prompt(parts)
         negative_prompt = build_negative_prompt(prompt, parts, scale, shot, aspect, width, height)
         item = {

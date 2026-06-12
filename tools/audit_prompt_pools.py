@@ -14,14 +14,13 @@ ROOT = Path(__file__).resolve().parents[1]
 PROMPT_DATA_PATH = ROOT / "prompt_data.py"
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "prompt_pool_audit.md"
 DEFAULT_DISTRIBUTION_SAMPLES = 20
-ACTIVE_SCALES = ("normal", "bold", "nsfw")
+ACTIVE_SCALES = ("normal", "bold", "bold_no_outfit", "nsfw")
 ACTIVE_SHOTS = ("头部", "上半身", "半身", "大半身", "全身")
 
 ACTIVE_POOLS = (
     "CAMERA_OPTIONS",
     "CHARACTER_IDENTITY_BY_SHOT",
     "MAKEUP_OPTIONS",
-    "HAIR_STATE_OPTIONS",
     "OUTFIT_OPTIONS",
     "POSE_EXPRESSION_OPTIONS",
     "SCENE_LIGHT_OPTIONS",
@@ -34,7 +33,7 @@ ALLOWED_PUBLIC_NAMES = set(ACTIVE_POOLS) | {
     "SCALES",
     "SHOTS",
     "SHOT_LABELS",
-    "HAIR_STATE_OPTIONS",
+    "_POSE_NORMALIZE_REPLACEMENTS",
 }
 
 
@@ -177,7 +176,7 @@ def audit(max_chars: int, distribution_samples: int) -> tuple[str, list[Issue]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Audit six-dimension prompt pools.")
+    parser = argparse.ArgumentParser(description="Audit current prompt pools and generated scale distribution.")
     parser.add_argument("--report", default=str(DEFAULT_REPORT_PATH), help="Markdown report output path.")
     parser.add_argument("--max-chars", type=int, default=220, help="Warn when one pool entry exceeds this length.")
     parser.add_argument("--distribution-samples", type=int, default=DEFAULT_DISTRIBUTION_SAMPLES)

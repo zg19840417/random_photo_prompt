@@ -147,7 +147,7 @@
   "19": {
     "inputs": {
       "unet_name": "z_image\\ZiT-超越真实BEYOND REALITY-V30.safetensors",
-      "weight_dtype": "fp8_e4m3fn"
+      "weight_dtype": "default"
     },
     "class_type": "UNETLoader",
     "_meta": {
