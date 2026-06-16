@@ -6,7 +6,8 @@ from pathlib import Path
 
 
 PROJECT = Path(__file__).resolve().parents[1]
-REMOTE = "administrator@192.168.123.111:'D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/'"
+REMOTE_SSH = "administrator@192.168.123.111"
+REMOTE = f"{REMOTE_SSH}:D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/"
 
 FILES = [
     "__init__.py",
@@ -21,6 +22,9 @@ FILES = [
     "keyword_expansion_engine.py",
     "video_prompt_engine.py",
     "prompt_resolution.py",
+]
+SUBDIR_FILES = [
+    "data/nsfw_pose_expression_options.json",
 ]
 
 
@@ -41,6 +45,13 @@ def main():
     if not existing:
         raise RuntimeError("no prompt runtime files found")
     run(["scp", *existing, REMOTE])
+    for file in SUBDIR_FILES:
+        path = PROJECT / file
+        if not path.is_file():
+            continue
+        remote_dir = f"{REMOTE_SSH}:D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/data/"
+        run(["ssh", REMOTE_SSH, "powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force 'D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/data' | Out-Null"])
+        run(["scp", str(path), remote_dir])
     run(["python3", "tools/restart_windows_remote_comfyui.py"])
     verify_remote_object_info()
     return 0

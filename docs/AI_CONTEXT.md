@@ -82,6 +82,8 @@ Do not revive old fragmented dimension systems, including style packs, scene pac
 
 Prompt option data must be maintained through the Excel-to-generated-runtime-data chain. The editable source file is `data/prompt_pools.xlsx`; after changing prompt options there, run `tools/build_prompt_data_from_excel.py` to regenerate `prompt_data_generated.py`. `prompt_data_generated.py` is a generated runtime artifact, not the source of truth. Runtime generation may still keep the original `prompt_data.py` definitions as a fallback, but when generated data exists it is preferred at runtime.
 
+Exception: 四档/`nsfw` 的 `POSE_EXPRESSION_OPTIONS` 姿势和表情维度不走 Excel 转 runtime 数据链路。它的唯一可编辑源是 `data/nsfw_pose_expression_options.json`，其他 AI 可以直接修改该 JSON。Excel build/export 脚本必须跳过 `POSE_EXPRESSION_OPTIONS/nsfw` 和 `landscape_pose_expression_options/nsfw`，运行转表不能覆盖这个 JSON。运行时先加载 `prompt_data_generated.py`，再用 JSON 覆盖 `POSE_EXPRESSION_OPTIONS["nsfw"]`。
+
 Agents must not directly edit `prompt_data_generated.py` for content changes, and must not add, replace, delete, or rewrite prompt pool option text directly in `prompt_data.py` unless the task is specifically changing fallback/bootstrap code. If the generated runtime artifact later changes from Python to JSON, the source-of-truth rule stays the same: edit Excel first, then generate the runtime artifact through the approved script.
 
 For manual local use after editing the Excel file, `一键转换Excel提示词数据.bat` can be double-clicked from this project directory. It regenerates `prompt_data_generated.py`, runs syntax checks, and runs the required prompt audits.

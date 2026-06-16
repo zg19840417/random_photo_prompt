@@ -92,6 +92,8 @@ python3 tools/build_prompt_data_from_excel.py
 
 生成结果会写入 `prompt_data_generated.py`。不要手改这个生成文件。
 
+例外：四档 `nsfw` 的姿势和表情维度不走 Excel 转表，唯一可编辑源是 `data/nsfw_pose_expression_options.json`。转表脚本会跳过这部分，避免覆盖其他 AI 直接修改的 JSON 内容。
+
 ## 基本使用
 
 ### 桌面 ComfyUI 节点
@@ -219,4 +221,3 @@ python3 tools/restart_windows_remote_comfyui.py
 本项目面向成年人使用。远端和手机访问入口可以控制生成任务并读取输出资产，不应无保护暴露到公网。
 
 跨网络访问优先使用 Tailscale 等私有网络方案；如果使用 FRP、cpolar、Cloudflare Tunnel 等公网隧道，必须添加访问控制。
-

@@ -194,6 +194,12 @@ Rule 1 character/body text must stay camera-scoped. Preserve the fixed identity 
 4. **Documentation**: Update `docs/` for rule changes
 5. **Temporary Scripts**: Any temporary script generated for one-off analysis, conversion, cleanup, or verification must be deleted immediately after execution. Do not leave scratch `.py`, `.js`, `.ps1`, `.bat`, `.json`, `.csv`, or similar helper artifacts in the project.
 
+**NSFW姿势表情保护规则**：
+- 四档/`nsfw` 的 `POSE_EXPRESSION_OPTIONS` 姿势和表情维度不走 Excel 转 runtime 数据链路。
+- 唯一可编辑源是 `data/nsfw_pose_expression_options.json`，允许其他 AI 直接修改这个 JSON。
+- `tools/build_prompt_data_from_excel.py` 和 `tools/export_prompt_data_to_excel.py` 必须跳过 `POSE_EXPRESSION_OPTIONS/nsfw` 和 `landscape_pose_expression_options/nsfw`，转表时不得覆盖或回填该 JSON 内容。
+- 运行时先加载 `prompt_data_generated.py`，再用 `data/nsfw_pose_expression_options.json` 覆盖 `POSE_EXPRESSION_OPTIONS["nsfw"]`。
+
 **远端同步规则**：
 - 只要改动 custom node 代码、提示词规则、模型/LoRA 列表读取逻辑、分辨率逻辑、工作流模板或前端静态页面，并且用户可能通过远端 `192.168.123.111:8188` 网页端使用，就必须把相关文件同步到远端 `D:\ComfyUI\ComfyUI\custom_nodes\random_photo_prompt`。
 - 同步后必须重启远端 ComfyUI；否则远端网页端的节点下拉、预生成提示词、接口和工作流 patch 仍会使用旧代码。

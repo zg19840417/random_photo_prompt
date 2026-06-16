@@ -43,7 +43,7 @@ Use `tools/export_prompt_data_to_excel.py` only when bootstrapping or refreshing
 
 Do not directly edit generated runtime data for content changes. If `prompt_data_generated.py` exists, `prompt_data.py` loads it as the preferred pool source and keeps the original in-file definitions only as fallback data.
 
-For any prompt pool option addition, replacement, deletion, or rewrite:
+For any prompt pool option addition, replacement, deletion, or rewrite, except the protected NSFW pose/expression pool:
 
 1. Edit `data/prompt_pools.xlsx`.
 2. Run `tools/build_prompt_data_from_excel.py`, or double-click `一键转换Excel提示词数据.bat` to build and audit in one step.
@@ -51,6 +51,8 @@ For any prompt pool option addition, replacement, deletion, or rewrite:
 4. Run the required prompt audits.
 
 Do not hand-edit `prompt_data_generated.py`. Do not hand-edit prompt option content in `prompt_data.py` unless changing fallback/bootstrap behavior is the explicit task. If the generated artifact later becomes JSON instead of Python, the workflow remains Excel first, generated artifact second.
+
+Protected exception: 四档/`nsfw` 的 `POSE_EXPRESSION_OPTIONS` 姿势和表情维度不走 Excel 转 runtime 数据链路。它的唯一可编辑源是 `data/nsfw_pose_expression_options.json`，可由其他 AI 直接修改。`tools/build_prompt_data_from_excel.py` 和 `tools/export_prompt_data_to_excel.py` 必须跳过 `POSE_EXPRESSION_OPTIONS/nsfw` 和 `landscape_pose_expression_options/nsfw`，转表时不得覆盖或回填该 JSON 内容。运行时先加载 `prompt_data_generated.py`，再用 `data/nsfw_pose_expression_options.json` 覆盖 `POSE_EXPRESSION_OPTIONS["nsfw"]`。
 
 ## Output Shape
 

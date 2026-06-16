@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 QUALITY_SUFFIX = (
     "真实写真质感，人物主体清晰，面部锐利，肤质细腻真实，电影感光影"
     "high-end editorial portrait, best quality, ultra detailed"
@@ -1979,8 +1982,33 @@ def _load_generated_prompt_data() -> None:
     globals()["PROMPT_DATA_SOURCE"] = "prompt_data_generated.py"
 
 
+def _load_nsfw_pose_expression_json() -> None:
+    path = Path(__file__).resolve().parent / "data" / "nsfw_pose_expression_options.json"
+    if not path.is_file():
+        return
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    if not isinstance(data, dict):
+        return
+    required_shots = {"head_shot", "upper_body", "half_body", "large_half_body", "full_body"}
+    if not required_shots.issubset(data.keys()):
+        return
+    cleaned = {}
+    for shot in required_shots:
+        options = data.get(shot)
+        if not isinstance(options, list):
+            return
+        cleaned[shot] = [str(item).strip() for item in options if str(item).strip()]
+    POSE_EXPRESSION_OPTIONS["nsfw"] = cleaned
+    globals()["NSFW_POSE_EXPRESSION_SOURCE"] = "data/nsfw_pose_expression_options.json"
+
+
 PROMPT_DATA_SOURCE = "prompt_data.py"
+NSFW_POSE_EXPRESSION_SOURCE = "prompt_data.py"
 _load_generated_prompt_data()
+_load_nsfw_pose_expression_json()
 
 _extend_scale_shot_pool(SCENE_LIGHT_OPTIONS, {
     "normal": {

@@ -24,6 +24,10 @@ POOL_NAMES = (
     "landscape_pose_expression_options",
 )
 SCENE_LIGHT_GROUPS = {"室内", "室外", "野外"}
+PROTECTED_SCALE_SHOT_ENTRIES = {
+    ("POSE_EXPRESSION_OPTIONS", "nsfw"),
+    ("landscape_pose_expression_options", "nsfw"),
+}
 
 
 def load_prompt_data():
@@ -55,6 +59,8 @@ def iter_options(pool_name: str, value):
                     yield [pool_name, "", key, aspect, order, 1, text, ""]
             elif isinstance(item, dict):
                 for shot, options in item.items():
+                    if (pool_name, key) in PROTECTED_SCALE_SHOT_ENTRIES:
+                        continue
                     aspect = "landscape" if pool_name.startswith("landscape_") else "portrait"
                     if isinstance(options, list):
                         for order, text in enumerate(options, 1):
