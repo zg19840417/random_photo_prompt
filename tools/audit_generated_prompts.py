@@ -278,7 +278,17 @@ SENSUAL_TENSION_MARKERS = (
 )
 
 SEDUCTIVE_LIGHT_MARKERS = (
+    "清晨",
+    "晨光",
+    "正午",
+    "天光",
+    "下午",
+    "斜光",
+    "黄昏",
+    "落日",
+    "晚霞",
     "夜景",
+    "深夜",
     "夜色",
     "床头",
     "暗光",
@@ -295,23 +305,48 @@ SEDUCTIVE_LIGHT_MARKERS = (
     "窗外城市",
 )
 
+SEDUCTIVE_TIME_MARKERS = (
+    "清晨",
+    "晨光",
+    "正午",
+    "天光",
+    "下午",
+    "黄昏",
+    "落日",
+    "晚霞",
+    "深夜",
+    "夜景",
+    "夜色",
+)
+
 TEASING_POSE_MARKERS = (
     "舌尖",
     "俯视镜头",
     "低机位",
     "贴近镜头",
     "靠近镜头",
-    "近大远小",
     "脚尖",
     "脚掌",
     "裸足",
     "足弓",
-    "手掌",
     "手指",
     "黑色指甲",
     "黑色手指甲",
+    "脸旁",
+    "唇边",
+    "肩膀",
+    "锁骨",
+    "胸前",
+    "腰侧",
+    "大腿",
     "眼神微眯",
     "斜看镜头",
+)
+
+HAND_TO_CAMERA_PATTERNS = (
+    re.compile(r"(?:左手|右手|一只手|手指|手掌)[^，。]{0,14}(?:伸向|贴近|靠近)镜头"),
+    re.compile(r"(?:左手|右手|一只手|手指|手掌)[^，。]{0,14}(?:画面前缘|画面前景)"),
+    re.compile(r"(?:左手|右手|一只手|手指|手掌)[^，。]{0,14}近大远小"),
 )
 
 BOLD_OUTFIT_NUDE_RISK_MARKERS = (
@@ -824,6 +859,11 @@ def contradiction_findings(scale: str, shot: str, aspect: str, sample: int, prom
     if shot in {"half_body", "large_half_body", "full_body"} and aspect == "landscape" and any(term in pose for term in VERTICAL_BODY_TERMS) and not any(term in pose for term in HORIZONTAL_BODY_TERMS):
         detail = "landscape frame combined with vertical body-axis pose"
         findings.append(Finding("warning", scale, shot, aspect, sample, "frame_body_axis_conflict", detail, prompt))
+    if shot in {"large_half_body", "full_body"} and any(term in pose for term in ("舌尖", "舌头", "伸舌", "探出")):
+        findings.append(Finding("error", scale, shot, aspect, sample, "distant_tongue_expression", "大半身/全身镜头不使用舌头动作，画面里看不清", prompt))
+    hand_to_camera_hits = [pattern.pattern for pattern in HAND_TO_CAMERA_PATTERNS if pattern.search(pose)]
+    if scale in {"bold", "bold_no_outfit", "nsfw"} and hand_to_camera_hits:
+        findings.append(Finding("error", scale, shot, aspect, sample, "hand_to_camera_pose", "手部展示应放在脸旁、肩膀、胸前、腰侧或大腿上，不伸向镜头", prompt))
     return findings
 
 
@@ -846,11 +886,12 @@ def quality_findings(scale: str, shot: str, aspect: str, sample: int, prompt: st
         scene = str(parts.get("scene_light") or "")
         pose = str(parts.get("pose_expression") or "")
         seductive_light_hits = [marker for marker in SEDUCTIVE_LIGHT_MARKERS if marker in scene]
+        time_hits = [marker for marker in SEDUCTIVE_TIME_MARKERS if marker in scene]
         teasing_pose_hits = [marker for marker in TEASING_POSE_MARKERS if marker in pose]
-        if len(seductive_light_hits) < 2:
-            findings.append(Finding("warning", scale, shot, aspect, sample, "weak_seductive_light", "二/三档场景光线没有足够夜景/暗光/霓虹/镜面/湿光支撑", prompt))
+        if len(seductive_light_hits) < 2 or not time_hits:
+            findings.append(Finding("warning", scale, shot, aspect, sample, "weak_seductive_light", "二/三档场景光线需要明确时间段，并用日光/黄昏/夜景的光线细节支撑诱惑氛围", prompt))
         if len(teasing_pose_hits) < 2:
-            findings.append(Finding("warning", scale, shot, aspect, sample, "weak_teasing_pose", "二/三档姿势缺少手足前景/俯视/低机位/舌尖等挑逗动作", prompt))
+            findings.append(Finding("warning", scale, shot, aspect, sample, "weak_teasing_pose", "二/三档姿势缺少按镜头范围可见的手足前景/俯视/低机位/表情挑逗动作", prompt))
     return findings
 
 

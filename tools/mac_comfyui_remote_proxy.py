@@ -8,7 +8,6 @@ import struct
 import sys
 import urllib.parse
 import uuid
-from datetime import datetime, timezone
 from copy import deepcopy
 from ipaddress import ip_address, ip_network
 from pathlib import Path
@@ -19,41 +18,28 @@ PROJECT_DIR = Path(__file__).resolve().parents[1]
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from prompt_resolution import base_resolution_for_workflow, mobile_resolution_for_custom_prompt
+from tools import proxy_local_assets as local_assets
+from tools import proxy_config
+from tools import proxy_runtime_state as runtime
+from tools import proxy_workflow_patch as workflow_patch
 
 
-REMOTE_URL = os.environ.get("RPP_PROXY_REMOTE_URL", "http://192.168.123.111:8188").rstrip("/")
-LOCAL_MOBILE_URL = os.environ.get("RPP_PROXY_LOCAL_MOBILE_URL", "http://127.0.0.1:8188").rstrip("/")
-LOCAL_OUTPUT_DIR = Path(
-    os.environ.get(
-        "RPP_PROXY_OUTPUT_DIR",
-        "/Users/zouge/Documents/Codex/2026-06-02/macbook-air-80/work/ComfyUI/output/4090 生成",
-    )
-).expanduser()
-LOCAL_IMAGE_MAP_PATH = LOCAL_OUTPUT_DIR / ".remote_image_map.json"
-POLL_SECONDS = float(os.environ.get("RPP_PROXY_POLL_SECONDS", "1.5") or 1.5)
-HISTORY_TIMEOUT = float(os.environ.get("RPP_PROXY_HISTORY_TIMEOUT", "900") or 900)
-DELETE_REMOTE_OUTPUT = os.environ.get("RPP_PROXY_DELETE_REMOTE_OUTPUT", "1").strip().lower() not in {"0", "false", "no", "off"}
-USE_WEBSOCKET_OUTPUT = os.environ.get("RPP_PROXY_WEBSOCKET_OUTPUT", "1").strip().lower() not in {"0", "false", "no", "off"}
+REMOTE_URL = proxy_config.REMOTE_URL
+LOCAL_MOBILE_URL = proxy_config.LOCAL_MOBILE_URL
+LOCAL_OUTPUT_DIR = local_assets.LOCAL_OUTPUT_DIR
+POLL_SECONDS = float(proxy_config.POLL_SECONDS or 1.5)
+HISTORY_TIMEOUT = float(proxy_config.HISTORY_TIMEOUT or 900)
+DELETE_REMOTE_OUTPUT = str(proxy_config.DELETE_REMOTE_OUTPUT).strip().lower() not in {"0", "false", "no", "off"}
+USE_WEBSOCKET_OUTPUT = str(proxy_config.WEBSOCKET_OUTPUT).strip().lower() not in {"0", "false", "no", "off"}
 
 CLIENT_TIMEOUT = ClientTimeout(total=None, sock_connect=30, sock_read=None)
-CONTENT_TYPES = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".webp": "image/webp",
-    ".gif": "image/gif",
-}
-LOCAL_IMAGE_MAP = {}
-LOCAL_ASSET_ID_MAP = {}
-PROMPT_PROGRESS = {}
-ACTIVE_PROMPT_IDS = []
-PROMPT_OUTPUT_PREFIX = {}
-PROMPT_WS_WATCHERS = {}
-PROMPT_WS_IMAGE_INDEX = {}
-WS_OUTPUT_NODE_IDS = {}
-PROMPT_NODE_TOTAL = {}
-PROMPT_SEEN_NODES = {}
+LOCAL_IMAGE_MAP = local_assets.LOCAL_IMAGE_MAP
+PROMPT_PROGRESS = runtime.PROMPT_PROGRESS
+PROMPT_OUTPUT_PREFIX = runtime.PROMPT_OUTPUT_PREFIX
+PROMPT_WS_WATCHERS = runtime.PROMPT_WS_WATCHERS
+PROMPT_WS_IMAGE_INDEX = runtime.PROMPT_WS_IMAGE_INDEX
+WS_OUTPUT_NODE_IDS = runtime.WS_OUTPUT_NODE_IDS
+PROMPT_NODE_TOTAL = runtime.PROMPT_NODE_TOTAL
 
 
 def _mobile_origin_for_request(request):
@@ -83,126 +69,14 @@ def _mobile_origin_for_request(request):
     return "phone" if any(addr in network for network in private_lans) else "mac"
 
 
-def _map_storage_key(prompt_id, image):
-    filename, subfolder, image_type = _local_image_key(image)
-    return "|".join((str(prompt_id or ""), filename, subfolder, image_type))
-
-
-def _load_local_image_map():
-    if not LOCAL_IMAGE_MAP_PATH.is_file():
-        return
-    try:
-        data = json.loads(LOCAL_IMAGE_MAP_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return
-    if not isinstance(data, dict):
-        return
-    for key, local_filename in data.items():
-        parts = str(key).split("|", 3)
-        if len(parts) == 4 and local_filename:
-            prompt_id, filename, subfolder, image_type = parts
-            LOCAL_IMAGE_MAP[(prompt_id, (filename, subfolder, image_type))] = str(local_filename)
-
-
-def _local_asset_id_for_filename(filename):
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"random-photo-prompt-local-asset:{Path(str(filename or '')).name}"))
-
-
-def _local_asset_files():
-    if not LOCAL_OUTPUT_DIR.is_dir():
-        return []
-    files = []
-    for path in LOCAL_OUTPUT_DIR.iterdir():
-        if path.is_file() and path.suffix.lower() in CONTENT_TYPES:
-            files.append(path)
-    return files
-
-
-def _refresh_local_asset_id_map():
-    LOCAL_ASSET_ID_MAP.clear()
-    for path in _local_asset_files():
-        LOCAL_ASSET_ID_MAP[_local_asset_id_for_filename(path.name)] = path.name
-
-
-def _local_asset_path_for_id(asset_id):
-    asset_id = str(asset_id or "").strip()
-    if not asset_id:
-        return None
-    filename = LOCAL_ASSET_ID_MAP.get(asset_id)
-    if filename:
-        path = LOCAL_OUTPUT_DIR / Path(filename).name
-        if path.is_file():
-            return path
-    _refresh_local_asset_id_map()
-    filename = LOCAL_ASSET_ID_MAP.get(asset_id)
-    if filename:
-        path = LOCAL_OUTPUT_DIR / Path(filename).name
-        if path.is_file():
-            return path
-    return None
-
-
-def _iso_from_timestamp(timestamp):
-    return datetime.fromtimestamp(timestamp, tz=timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def _local_asset_payload(path):
-    stat = path.stat()
-    asset_id = _local_asset_id_for_filename(path.name)
-    created_at = _iso_from_timestamp(stat.st_birthtime if hasattr(stat, "st_birthtime") else stat.st_mtime)
-    updated_at = _iso_from_timestamp(stat.st_mtime)
-    preview_url = f"/view?{urllib.parse.urlencode({'filename': path.name, 'subfolder': _comfy_output_subfolder_for_local_output(), 'type': 'output'})}"
-    return {
-        "id": asset_id,
-        "name": path.name,
-        "hash": None,
-        "asset_hash": None,
-        "size": stat.st_size,
-        "mime_type": CONTENT_TYPES.get(path.suffix.lower(), "application/octet-stream"),
-        "tags": [],
-        "user_metadata": {"filename": path.name, "subfolder": _comfy_output_subfolder_for_local_output(), "type": "output"},
-        "metadata": {},
-        "preview_url": preview_url,
-        "preview_id": None,
-        "prompt_id": None,
-        "job_id": None,
-        "created_at": created_at,
-        "updated_at": updated_at,
-        "last_access_time": updated_at,
-        "is_immutable": False,
-    }
-
-
-def _local_assets_response(request):
-    files = _local_asset_files()
-    name_contains = str(request.query.get("name_contains") or "").strip().lower()
-    if name_contains:
-        files = [path for path in files if name_contains in path.name.lower()]
-    reverse = str(request.query.get("order") or "desc").lower() != "asc"
-    files.sort(key=lambda path: path.stat().st_mtime, reverse=reverse)
-    total = len(files)
-    try:
-        limit = max(1, int(request.query.get("limit", "50")))
-    except ValueError:
-        limit = 50
-    try:
-        offset = max(0, int(request.query.get("offset", "0")))
-    except ValueError:
-        offset = 0
-    page = files[offset : offset + limit]
-    assets = [_local_asset_payload(path) for path in page]
-    return {"assets": assets, "total": total, "has_more": offset + len(page) < total}
-
-
-def _save_local_image_map():
-    LOCAL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    data = {
-        "|".join((prompt_id, filename, subfolder, image_type)): local_filename
-        for (prompt_id, (filename, subfolder, image_type)), local_filename in LOCAL_IMAGE_MAP.items()
-    }
-    tmp_path = LOCAL_IMAGE_MAP_PATH.with_suffix(".tmp")
-    tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp_path.replace(LOCAL_IMAGE_MAP_PATH)
+_load_local_image_map = local_assets.load_local_image_map
+_local_asset_path_for_id = local_assets.local_asset_path_for_id
+_local_asset_payload = local_assets.local_asset_payload
+_local_assets_response = local_assets.local_assets_response
+_save_local_image_map = local_assets.save_local_image_map
+_refresh_local_asset_id_map = local_assets.refresh_local_asset_id_map
+_local_asset_candidates_from_request_payload = local_assets.local_asset_candidates_from_request_payload
+_local_view_response = local_assets.local_view_response
 
 
 def _log(message):
@@ -210,183 +84,35 @@ def _log(message):
 
 
 def _remember_active_prompt(prompt_id):
-    prompt_id = str(prompt_id or "").strip()
-    if not prompt_id:
-        return
-    if prompt_id in ACTIVE_PROMPT_IDS:
-        ACTIVE_PROMPT_IDS.remove(prompt_id)
-    ACTIVE_PROMPT_IDS.append(prompt_id)
-    del ACTIVE_PROMPT_IDS[:-64]
+    runtime.remember_active_prompt(prompt_id)
 
 
 def _forget_active_prompt(prompt_id):
-    prompt_id = str(prompt_id or "").strip()
-    if prompt_id in ACTIVE_PROMPT_IDS:
-        ACTIVE_PROMPT_IDS.remove(prompt_id)
+    runtime.forget_active_prompt(prompt_id)
 
 
 def _clear_runtime_state(reason=""):
-    before_watchers = len(PROMPT_WS_WATCHERS)
-    for watcher in list(PROMPT_WS_WATCHERS.values()):
-        try:
-            watcher.cancel()
-        except Exception:
-            pass
-    cleared_prompts = len(set(ACTIVE_PROMPT_IDS) | set(PROMPT_PROGRESS) | set(PROMPT_OUTPUT_PREFIX))
-    PROMPT_PROGRESS.clear()
-    ACTIVE_PROMPT_IDS.clear()
-    PROMPT_OUTPUT_PREFIX.clear()
-    PROMPT_WS_WATCHERS.clear()
-    PROMPT_WS_IMAGE_INDEX.clear()
-    WS_OUTPUT_NODE_IDS.clear()
-    PROMPT_NODE_TOTAL.clear()
-    PROMPT_SEEN_NODES.clear()
-    _log(f"runtime state cleared reason={reason or 'manual'} watchers={before_watchers} prompts={cleared_prompts}")
-    return {"watchers_cancelled": before_watchers, "prompts_cleared": cleared_prompts}
+    return runtime.clear_runtime_state(reason, logger=_log)
 
 
 def _active_prompt_for_progress(data):
-    prompt_id = str((data or {}).get("prompt_id") or "").strip()
-    if prompt_id:
-        return prompt_id
-    node = str((data or {}).get("node") or "").strip()
-    for candidate in reversed(ACTIVE_PROMPT_IDS):
-        progress = PROMPT_PROGRESS.get(candidate) or {}
-        if not node or not progress.get("node") or progress.get("node") == node:
-            return candidate
-    return ACTIVE_PROMPT_IDS[-1] if ACTIVE_PROMPT_IDS else ""
+    return runtime.active_prompt_for_progress(data)
 
 
 def _remember_progress_message(message):
-    if not isinstance(message, dict) or message.get("type") != "executing":
-        return
-    data = message.get("data") or {}
-    prompt_id = _active_prompt_for_progress(data)
-    if not prompt_id:
-        return
-    node = str(data.get("node") or "").strip()
-    node_total = max(1, int(PROMPT_NODE_TOTAL.get(prompt_id) or 1))
-    if not node:
-        PROMPT_PROGRESS[prompt_id] = {"value": node_total, "max": node_total, "percent": 100, "node": "", "type": "node"}
-        return
-    seen = PROMPT_SEEN_NODES.setdefault(prompt_id, [])
-    if node not in seen:
-        seen.append(node)
-    value = max(1, min(node_total, len(seen)))
-    PROMPT_PROGRESS[prompt_id] = {
-        "value": value,
-        "max": node_total,
-        "percent": max(0, min(100, round((value / node_total) * 100))),
-        "node": node,
-        "type": "node",
-    }
+    runtime.remember_progress_message(message)
 
 
-def _ensure_unique_save_prefix(payload, token=""):
-    if not isinstance(payload, dict):
-        return 0
-    prompt = payload.get("prompt")
-    if not isinstance(prompt, dict):
-        return 0
-    suffix = str(token or uuid.uuid4().hex).replace("-", "")[:12]
-    changed = 0
-    for node in prompt.values():
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict) or "filename_prefix" not in inputs:
-            continue
-        prefix = str(inputs.get("filename_prefix") or "").strip()
-        if prefix != "ComfyUI":
-            continue
-        inputs["filename_prefix"] = f"{prefix}_{suffix}"
-        changed += 1
-    return changed
+_ensure_unique_save_prefix = workflow_patch.ensure_unique_save_prefix
 
 
-def _safe_local_path(image, local_filename=None, create_dirs=True):
-    filename = Path(str(local_filename or image.get("filename") or "")).name
-    if not filename:
-        raise ValueError("missing filename")
-    subfolder = str(image.get("subfolder") or "").replace("\\", "/").strip("/")
-    output_dir = LOCAL_OUTPUT_DIR.resolve()
-    output_name = output_dir.name
-    if subfolder == output_name:
-        subfolder = ""
-    elif subfolder.startswith(f"{output_name}/"):
-        subfolder = subfolder[len(output_name) + 1 :]
-    if subfolder and any(part in {"", ".", ".."} for part in subfolder.split("/")):
-        raise ValueError("unsafe subfolder")
-    target_dir = (output_dir / subfolder).resolve() if subfolder else output_dir
-    if target_dir != output_dir and output_dir not in target_dir.parents:
-        raise ValueError("unsafe target")
-    if create_dirs:
-        target_dir.mkdir(parents=True, exist_ok=True)
-    return target_dir / filename
-
-
-def _local_image_key(image):
-    return (
-        Path(str(image.get("filename") or "")).name,
-        str(image.get("subfolder") or "").replace("\\", "/").strip("/"),
-        str(image.get("type") or "output"),
-    )
-
-
-def _unique_local_filename(image, prompt_id=""):
-    filename = Path(str(image.get("filename") or "")).name
-    if not filename:
-        raise ValueError("missing filename")
-    stem = Path(filename).stem
-    suffix = Path(filename).suffix or ".png"
-    token = str(prompt_id or "").replace("-", "")[:12]
-    if not token:
-        token = "remote"
-    return f"{stem}_{token}{suffix}"
-
-
-def _local_path_candidates(filename, subfolder):
-    image = {"filename": filename, "subfolder": subfolder}
-    try:
-        yield _safe_local_path(image, create_dirs=False)
-    except Exception:
-        pass
-    safe_subfolder = str(subfolder or "").replace("\\", "/").strip("/")
-    output_name = LOCAL_OUTPUT_DIR.name
-    if safe_subfolder == output_name:
-        try:
-            yield _safe_local_path({"filename": filename, "subfolder": ""}, create_dirs=False)
-        except Exception:
-            pass
-    elif safe_subfolder.startswith(f"{output_name}/"):
-        try:
-            yield _safe_local_path({"filename": filename, "subfolder": safe_subfolder[len(output_name) + 1 :]}, create_dirs=False)
-        except Exception:
-            pass
-
-
-def _mapped_local_filename_for_remote(filename, subfolder="", image_type="output"):
-    key = (Path(str(filename or "")).name, str(subfolder or "").replace("\\", "/").strip("/"), str(image_type or "output"))
-    for (_prompt_id, remote_key), local_filename in LOCAL_IMAGE_MAP.items():
-        if remote_key != key:
-            continue
-        if any(path.is_file() for path in _local_path_candidates(local_filename, "")):
-                return local_filename
-    return ""
-
-
-def _forget_local_image_mapping(local_filename):
-    local_filename = Path(str(local_filename or "")).name
-    if not local_filename:
-        return 0
-    removed = 0
-    for key, mapped in list(LOCAL_IMAGE_MAP.items()):
-        if Path(str(mapped or "")).name == local_filename:
-            LOCAL_IMAGE_MAP.pop(key, None)
-            removed += 1
-    if removed:
-        _save_local_image_map()
-    return removed
+_safe_local_path = local_assets.safe_local_path
+_local_image_key = local_assets.local_image_key
+_unique_local_filename = local_assets.unique_local_filename
+_local_subfolder_for_download = local_assets.local_subfolder_for_download
+_history_image_candidates = local_assets.history_image_candidates
+_local_path_candidates = local_assets.local_path_candidates
+_mapped_local_filename_for_remote = local_assets.mapped_local_filename_for_remote
 
 
 async def _local_asset_candidates_for_asset_id(asset_id):
@@ -447,76 +173,25 @@ async def _local_asset_candidates_for_asset_id(asset_id):
     return unique
 
 
-def _local_asset_candidates_from_request_payload(data):
-    names = []
-    if isinstance(data, dict):
-        for key in ("filename", "name", "path", "file_path"):
-            value = data.get(key)
-            if value:
-                names.append(value)
-        preview_url = data.get("preview_url") or data.get("url")
-        if preview_url:
-            parsed = urllib.parse.urlparse(str(preview_url))
-            query = urllib.parse.parse_qs(parsed.query)
-            filename = (query.get("filename") or [""])[0]
-            subfolder = (query.get("subfolder") or [""])[0]
-            if filename:
-                names.append(f"{subfolder}/{filename}" if subfolder else filename)
-    candidates = []
-    for raw_name in names:
-        raw_name = str(raw_name or "").replace("\\", "/").strip("/")
-        if not raw_name:
-            continue
-        if "/" in raw_name:
-            subfolder, filename = raw_name.rsplit("/", 1)
-        else:
-            subfolder, filename = "", raw_name
-        candidates.extend(_local_path_candidates(filename, subfolder))
-    return candidates
-
-
-async def _delete_local_asset_for_asset_id(asset_id):
-    deleted = 0
-    missing = 0
-    for path in await _local_asset_candidates_for_asset_id(asset_id):
-        try:
-            if path.is_file():
-                path.unlink()
-                deleted += 1
-                _forget_local_image_mapping(path.name)
-                _log(f"local asset delete ok id={asset_id} path={path}")
-            else:
-                missing += 1
-        except Exception as exc:
-            _log(f"local asset delete failed id={asset_id} path={path} error={exc}")
-    return {"deleted": deleted, "missing": missing}
-
-
 async def _delete_local_paths(paths, asset_id=""):
-    deleted = 0
-    missing = 0
-    seen = set()
-    for path in paths:
-        key = str(path)
-        if key in seen:
-            continue
-        seen.add(key)
+    return await local_assets.delete_local_paths(paths, asset_id, logger=_log)
+
+
+async def _delete_local_assets_from_request(request, path, body, asset_id=""):
+    candidates = []
+    if asset_id:
+        candidates.extend(await _local_asset_candidates_for_asset_id(asset_id))
+    candidates.extend(local_assets.local_asset_candidates_from_path(path))
+    if body:
         try:
-            if path.is_file():
-                path.unlink()
-                deleted += 1
-                _forget_local_image_mapping(path.name)
-                _log(f"local asset delete ok id={asset_id} path={path}")
-            else:
-                missing += 1
-        except Exception as exc:
-            _log(f"local asset delete failed id={asset_id} path={path} error={exc}")
-    return {"deleted": deleted, "missing": missing}
-
-
-def _local_view_response(path):
-    suffix = path.suffix.lower()
-    return web.FileResponse(path, headers={"Content-Type": CONTENT_TYPES.get(suffix, "application/octet-stream")})
+            data = json.loads(body.decode("utf-8"))
+        except Exception:
+            data = None
+        candidates.extend(local_assets.local_asset_candidates_from_request_payload(data))
+    result = await _delete_local_paths(candidates, asset_id)
+    if result["deleted"]:
+        _refresh_local_asset_id_map()
+    return result
 
 
 async def _remote_request(method, path, **kwargs):
@@ -527,223 +202,15 @@ async def _remote_request(method, path, **kwargs):
             return response, body
 
 
-def _workflow_link_consumers(prompt):
-    consumers = {}
-    if not isinstance(prompt, dict):
-        return consumers
-    for node_id, node in prompt.items():
-        inputs = node.get("inputs") if isinstance(node, dict) else None
-        if not isinstance(inputs, dict):
-            continue
-        for value in inputs.values():
-            if isinstance(value, list) and value:
-                consumers.setdefault(str(value[0]), set()).add(str(node_id))
-    return consumers
-
-
-def _ultimate_sd_upscale_node_ids(prompt):
-    if not isinstance(prompt, dict):
-        return set()
-    return {
-        str(node_id)
-        for node_id, node in prompt.items()
-        if isinstance(node, dict) and str(node.get("class_type") or "") == "UltimateSDUpscale"
-    }
-
-
-def _prune_non_final_image_outputs(prompt):
-    upscale_ids = _ultimate_sd_upscale_node_ids(prompt)
-    if not upscale_ids:
-        return 0
-    removed = 0
-    for node_id, node in list(prompt.items()):
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        images = inputs.get("images")
-        if not isinstance(images, list) or not images:
-            continue
-        class_type = str(node.get("class_type") or "")
-        is_output = (
-            class_type in {"SaveImage", "PreviewImage", "SaveImageWebsocket"}
-            or "filename_prefix" in inputs
-            or class_type.startswith("Save")
-            or "Save" in class_type
-        )
-        if not is_output:
-            continue
-        if str(images[0]) in upscale_ids:
-            continue
-        prompt.pop(str(node_id), None)
-        removed += 1
-    return removed
-
-
 def _replace_save_nodes_with_websocket(payload):
-    if not USE_WEBSOCKET_OUTPUT or not isinstance(payload, dict):
-        return 0, "", []
-    prompt = payload.get("prompt")
-    if not isinstance(prompt, dict):
-        return 0, "", []
-    _prune_non_final_image_outputs(prompt)
-    consumers = _workflow_link_consumers(prompt)
-    next_id = max([int(node_id) for node_id in prompt if str(node_id).isdigit()] or [0]) + 1
-    changed = 0
-    output_prefix = ""
-    websocket_ids = []
-    for node_id, node in list(prompt.items()):
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        images = inputs.get("images")
-        if not isinstance(images, list) or not images:
-            continue
-        class_type = str(node.get("class_type") or "")
-        is_save_node = class_type == "SaveImage" or "filename_prefix" in inputs
-        if not is_save_node:
-            continue
-        if not output_prefix:
-            output_prefix = Path(str(inputs.get("filename_prefix") or "mobile").replace("\\", "/").strip("/")).name or "mobile"
-        node["class_type"] = "SaveImageWebsocket"
-        node["inputs"] = {"images": list(images)}
-        websocket_ids.append(str(node_id))
-        changed += 1
-    return changed, output_prefix, websocket_ids
+    return workflow_patch.replace_save_nodes_with_websocket(payload, use_websocket_output=USE_WEBSOCKET_OUTPUT)
 
 
-def _unpatched_save_node_classes(payload):
-    if not isinstance(payload, dict):
-        return []
-    prompt = payload.get("prompt")
-    if not isinstance(prompt, dict):
-        return []
-    classes = []
-    for node in prompt.values():
-        if not isinstance(node, dict):
-            continue
-        class_type = str(node.get("class_type") or "")
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        if class_type == "SaveImageWebsocket":
-            continue
-        if class_type == "PreviewImage" or "filename_prefix" in inputs or class_type.startswith("Save") or "Save" in class_type:
-            classes.append(class_type or "unknown")
-    return classes
-
-
-def _looks_negative_prompt_node(node):
-    inputs = node.get("inputs") if isinstance(node, dict) else None
-    title = str((node.get("_meta") or {}).get("title") or "").lower() if isinstance(node, dict) else ""
-    text = str((inputs or {}).get("text") or "").lower()
-    return any(marker in title or marker in text for marker in ("negative", "负向", "反向", "bad quality", "worst quality", "watermark"))
-
-
-def _extract_positive_prompt_text(prompt):
-    candidates = []
-    for node in prompt.values() if isinstance(prompt, dict) else []:
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        text = inputs.get("text")
-        class_type = str(node.get("class_type") or "")
-        if not isinstance(text, str) or not text.strip():
-            continue
-        if "CLIPTextEncode" not in class_type and "TextEncode" not in class_type and "Conditioning" not in class_type:
-            continue
-        if _looks_negative_prompt_node(node):
-            continue
-        candidates.append(text.strip())
-    if not candidates:
-        for node in prompt.values() if isinstance(prompt, dict) else []:
-            inputs = node.get("inputs") if isinstance(node, dict) else None
-            if isinstance(inputs, dict) and isinstance(inputs.get("cached_prompt"), str) and inputs["cached_prompt"].strip():
-                candidates.append(inputs["cached_prompt"].strip())
-    return max(candidates, key=len) if candidates else ""
-
-
-def _patch_web_prompt_resolution(payload):
-    if not isinstance(payload, dict):
-        return {}
-    prompt = payload.get("prompt")
-    if not isinstance(prompt, dict):
-        return {}
-    positive_text = _extract_positive_prompt_text(prompt)
-    if not positive_text:
-        return {}
-    resolution = mobile_resolution_for_custom_prompt(positive_text)
-    target_width = int(resolution.get("width") or 0)
-    target_height = int(resolution.get("height") or 0)
-    if target_width <= 0 or target_height <= 0:
-        return {}
-    base_width, base_height, output_scale = base_resolution_for_workflow(prompt, target_width, target_height)
-    changed_width = 0
-    changed_height = 0
-    for node in prompt.values():
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        class_type = str(node.get("class_type") or "")
-        title = str((node.get("_meta") or {}).get("title") or "").lower()
-        is_size_node = class_type in {"EmptyLatentImage", "CR SDXL Aspect Ratio"} or "aspect ratio" in title or "resolution" in title
-        if not is_size_node and not any(key in inputs for key in ("width", "height", "W", "H", "image_width", "image_height", "latent_width", "latent_height")):
-            continue
-        for key in ("width", "W", "image_width", "latent_width", "empty_latent_width"):
-            if key in inputs and isinstance(inputs.get(key), (int, float, str)):
-                inputs[key] = int(base_width)
-                changed_width += 1
-        for key in ("height", "H", "image_height", "latent_height", "empty_latent_height"):
-            if key in inputs and isinstance(inputs.get(key), (int, float, str)):
-                inputs[key] = int(base_height)
-                changed_height += 1
-    return {
-        "width": changed_width,
-        "height": changed_height,
-        "target_width": target_width,
-        "target_height": target_height,
-        "base_width": base_width,
-        "base_height": base_height,
-        "output_scale": output_scale,
-    }
-
-
-def _model_value_is_zib(value):
-    text = str(value or "").replace("\\", "/").strip().lower()
-    name = Path(text).name
-    return name.startswith("zib") and Path(name).suffix.lower() in {".safetensors", ".ckpt", ".gguf"}
-
-
-def _patch_web_zib_single_steps(payload):
-    if not isinstance(payload, dict):
-        return {}
-    prompt = payload.get("prompt")
-    if not isinstance(prompt, dict):
-        return {}
-    has_zib_model = False
-    ksamplers = []
-    for node in prompt.values():
-        if not isinstance(node, dict):
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        if any(_model_value_is_zib(value) for value in inputs.values()):
-            has_zib_model = True
-        if str(node.get("class_type") or "") == "KSampler" and isinstance(inputs.get("steps"), (int, float, str)):
-            ksamplers.append(inputs)
-    if not has_zib_model or len(ksamplers) != 1:
-        return {"zib_model": has_zib_model, "ksamplers": len(ksamplers), "steps_changed": 0}
-    old_steps = ksamplers[0].get("steps")
-    ksamplers[0]["steps"] = 35
-    return {"zib_model": True, "ksamplers": 1, "steps_changed": int(old_steps != 35), "old_steps": old_steps, "new_steps": 35}
+_unpatched_save_node_classes = workflow_patch.unpatched_save_node_classes
+_patch_web_prompt_resolution = workflow_patch.patch_web_prompt_resolution
+_patch_web_zib_single_steps = workflow_patch.patch_web_zib_single_steps
+_patch_web_zimage_weight_dtype = workflow_patch.patch_web_zimage_weight_dtype
+_patch_web_disable_model_purge = workflow_patch.patch_web_disable_model_purge
 
 
 def _image_extension_from_bytes(image_bytes, image_type=0):
@@ -854,7 +321,7 @@ async def _watch_prompt_websocket_output(prompt_ref, client_id, ready_event=None
                         if event_type != 1:
                             continue
                         image_type = struct.unpack(">I", raw[4:8])[0]
-                        if ws_nodes and current_node not in ws_nodes and image_type != 2:
+                        if ws_nodes and current_node not in ws_nodes:
                             continue
                         _save_websocket_image(prompt_id, raw[8:], image_type)
                         saved += 1
@@ -908,7 +375,7 @@ async def _download_remote_image(image, prompt_id=""):
         return _safe_local_path({"filename": mapped, "subfolder": ""})
 
     local_filename = _unique_local_filename(image, prompt_id)
-    local_path = _safe_local_path(image, local_filename)
+    local_path = _safe_local_path({**image, "subfolder": _local_subfolder_for_download(image)}, local_filename)
     _log(f"download start filename={image.get('filename')} local={local_filename} subfolder={image.get('subfolder', '')} type={image.get('type', 'output')}")
     tmp_path = local_path.with_name(f".{local_path.name}.tmp")
     params = urllib.parse.urlencode(
@@ -977,22 +444,15 @@ async def _history(prompt_id):
 
 async def _capture_images_from_entry(prompt_id, entry):
     found = 0
-    if not isinstance(entry, dict):
-        return found
-    for output in (entry.get("outputs") or {}).values():
-        if not isinstance(output, dict):
+    for image in _history_image_candidates(entry)[:1]:
+        if _image_has_local_mapping(prompt_id, image):
+            await _delete_remote_image(image)
             continue
-        for image in output.get("images") or []:
-            if not image.get("filename"):
-                continue
-            if _image_has_local_mapping(prompt_id, image):
-                await _delete_remote_image(image)
-                continue
-            try:
-                await _download_remote_image(image, prompt_id)
-            except Exception as exc:
-                _log(f"history download failed prompt_id={prompt_id} filename={image.get('filename')} error={exc}")
-            found += 1
+        try:
+            await _download_remote_image(image, prompt_id)
+        except Exception as exc:
+            _log(f"history download failed prompt_id={prompt_id} filename={image.get('filename')} error={exc}")
+        found += 1
     return found
 
 
@@ -1007,22 +467,19 @@ async def _capture_prompt_outputs(prompt_id):
             _log(f"history fetch failed prompt_id={prompt_id} error={exc}")
             entry = None
         if isinstance(entry, dict):
-            for output in (entry.get("outputs") or {}).values():
-                if not isinstance(output, dict):
+            for image in _history_image_candidates(entry)[:1]:
+                key = (image.get("filename"), image.get("subfolder"), image.get("type", "output"))
+                if key in seen:
                     continue
-                for image in output.get("images") or []:
-                    key = (image.get("filename"), image.get("subfolder"), image.get("type", "output"))
-                    if not image.get("filename") or key in seen:
-                        continue
-                    if _image_has_local_mapping(prompt_id, image):
-                        seen.add(key)
-                        await _delete_remote_image(image)
-                        continue
+                if _image_has_local_mapping(prompt_id, image):
                     seen.add(key)
-                    try:
-                        await _download_remote_image(image, prompt_id)
-                    except Exception as exc:
-                        _log(f"capture download failed prompt_id={prompt_id} filename={image.get('filename')} error={exc}")
+                    await _delete_remote_image(image)
+                    continue
+                seen.add(key)
+                try:
+                    await _download_remote_image(image, prompt_id)
+                except Exception as exc:
+                    _log(f"capture download failed prompt_id={prompt_id} filename={image.get('filename')} error={exc}")
             if seen:
                 _log(f"capture done prompt_id={prompt_id} images={len(seen)}")
                 return
@@ -1131,6 +588,8 @@ async def handle_prompt(request):
         prefix_token = uuid.uuid4().hex
         zib_steps_patch = _patch_web_zib_single_steps(payload)
         resolution_patch = _patch_web_prompt_resolution(payload)
+        weight_dtype_patch = _patch_web_zimage_weight_dtype(payload)
+        purge_patch = _patch_web_disable_model_purge(payload)
         changed = _ensure_unique_save_prefix(payload, prefix_token)
         ws_changed, output_prefix, websocket_node_ids = _replace_save_nodes_with_websocket(payload)
         prompt = payload.get("prompt")
@@ -1146,7 +605,15 @@ async def handle_prompt(request):
                 },
                 status=400,
             )
-        if changed or ws_changed or client_id or resolution_patch or zib_steps_patch.get("steps_changed"):
+        if (
+            changed
+            or ws_changed
+            or client_id
+            or resolution_patch
+            or zib_steps_patch.get("steps_changed")
+            or weight_dtype_patch.get("weight_dtype_changed")
+            or purge_patch.get("purge_models_disabled")
+        ):
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             if zib_steps_patch.get("zib_model"):
                 _log(
@@ -1162,6 +629,15 @@ async def handle_prompt(request):
                     f"target={resolution_patch.get('target_width')}x{resolution_patch.get('target_height')} "
                     f"base={resolution_patch.get('base_width')}x{resolution_patch.get('base_height')} "
                     f"scale={resolution_patch.get('output_scale')}"
+                )
+            if purge_patch.get("purge_models_disabled"):
+                _log(f"prompt disabled PurgeVRAM purge_models nodes={purge_patch.get('purge_models_disabled')}")
+            if weight_dtype_patch.get("weight_dtype_changed"):
+                _log(
+                    "prompt z-image weight_dtype patched "
+                    f"nodes={weight_dtype_patch.get('weight_dtype_changed')} "
+                    f"old={','.join(weight_dtype_patch.get('old_values') or [])} "
+                    "new=default"
                 )
             _log(f"prompt patched save_nodes={changed} websocket_nodes={ws_changed} token={prefix_token[:12]}")
         if USE_WEBSOCKET_OUTPUT and websocket_node_ids and use_internal_watcher:
@@ -1253,26 +729,31 @@ async def handle_delete_asset(request):
     asset_id = request.match_info.get("asset_id", "")
     body = await request.read() if request.can_read_body else b""
     _log(f"delete asset request id={asset_id} path={request.path_qs} bytes={len(body)}")
-    if asset_id:
-        result = await _delete_local_asset_for_asset_id(asset_id)
-        if result["deleted"]:
-            LOCAL_ASSET_ID_MAP.pop(asset_id, None)
-            return web.Response(status=204)
-    if body:
-        try:
-            data = json.loads(body.decode("utf-8"))
-        except Exception:
-            data = None
-        result = await _delete_local_paths(_local_asset_candidates_from_request_payload(data), asset_id)
-        if result["deleted"]:
-            return web.Response(status=204)
-    headers = {
-        key: value
-        for key, value in request.headers.items()
-        if key.lower() not in {"host", "content-length", "transfer-encoding"}
-    }
-    response, remote_body = await _remote_request(request.method, request.path_qs, data=body, headers=headers)
-    return web.Response(body=remote_body, status=response.status, headers=_clone_headers(response))
+    result = await _delete_local_assets_from_request(request, request.path_qs, body, asset_id)
+    if result["deleted"]:
+        return web.Response(status=204)
+    return web.json_response({"ok": False, **result}, status=404)
+
+
+async def handle_delete_asset_tags(request):
+    return web.Response(status=204)
+
+
+async def handle_prune_assets(request):
+    body = await request.read() if request.can_read_body else b""
+    _log(f"asset prune request path={request.path_qs} bytes={len(body)}")
+    return web.json_response({"ok": True, "deleted": 0, "missing": 0})
+
+
+async def handle_delete_local_asset(request):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    result = await _delete_local_paths(_local_asset_candidates_from_request_payload(data), str(data.get("id") or ""))
+    if result["deleted"]:
+        _refresh_local_asset_id_map()
+    return web.json_response(result)
 
 
 async def handle_list_assets(request):
@@ -1364,8 +845,14 @@ async def handle_ws(request):
 async def proxy_request(request):
     path = request.path_qs
     body = await request.read() if request.can_read_body else None
-    if request.method == "DELETE":
+    if request.path.startswith("/api/assets") or request.path.startswith("/assets"):
+        _log(f"asset proxy request method={request.method} path={path} bytes={len(body or b'')}")
+    if request.method == "DELETE" and re.fullmatch(r"/(?:api/)?assets/[^/?#]+", request.path):
         _log(f"delete request path={path} bytes={len(body or b'')}")
+        result = await _delete_local_assets_from_request(request, path, body or b"")
+        if result["deleted"]:
+            return web.Response(status=204)
+        return web.json_response({"ok": False, **result}, status=404)
     headers = {
         key: value
         for key, value in request.headers.items()
@@ -1597,6 +1084,7 @@ def create_app():
     app.router.add_route("GET", "/random_photo_prompt/proxy/status", handle_proxy_status)
     app.router.add_route("POST", "/random_photo_prompt/proxy/runtime/clear", handle_clear_runtime_state)
     app.router.add_route("POST", "/random_photo_prompt/proxy/upload_image", handle_remote_image_upload)
+    app.router.add_route("POST", "/random_photo_prompt/proxy/delete_local_asset", handle_delete_local_asset)
     app.router.add_route("*", "/random_photo_prompt/mobile", proxy_mobile_request)
     app.router.add_route("*", "/random_photo_prompt/mobile/{tail:.*}", proxy_mobile_request)
     app.router.add_route("GET", "/ws", handle_ws)
@@ -1613,13 +1101,15 @@ def create_app():
     app.router.add_route("GET", "/assets/{asset_id}/content", handle_asset_content)
     app.router.add_route("DELETE", "/assets/{asset_id}", handle_delete_asset)
     app.router.add_route("GET", "/api/assets", handle_list_assets)
+    app.router.add_route("POST", "/api/assets/prune", handle_prune_assets)
     app.router.add_route("GET", "/api/assets/{asset_id}", handle_get_asset)
     app.router.add_route("GET", "/api/assets/{asset_id}/content", handle_asset_content)
+    app.router.add_route("DELETE", "/api/assets/{asset_id}/tags", handle_delete_asset_tags)
     app.router.add_route("DELETE", "/api/assets/{asset_id}", handle_delete_asset)
     app.router.add_route("*", "/{tail:.*}", proxy_request)
     return app
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("RPP_PROXY_PORT", "18199") or 18199)
+    port = int(proxy_config.PROXY_PORT or 18199)
     web.run_app(create_app(), host="0.0.0.0", port=port)

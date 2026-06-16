@@ -21,6 +21,7 @@ const IMAGE_PREVIEW_MARGIN = 12;
 const IMAGE_PREVIEW_RADIUS = 6;
 const NODE_STATUS_HEIGHT = 22;
 const RESOLUTION_MULTIPLE = 8;
+const IMAGE_FILENAME_PATTERN = /[\w\u4e00-\u9fff .()[\]{}@+\-=#%]+?\.(?:png|jpe?g|webp|gif|bmp)/gi;
 
 function findWidget(node, names, predicate = null) {
   return node?.widgets?.find((widget) => {
@@ -79,6 +80,44 @@ function setAnyWidgetValue(node, names, value) {
   }
   widget.callback?.(value);
   return true;
+}
+
+function extractAssetDeleteFilenames(dialog) {
+  const text = dialog?.innerText || "";
+  return Array.from(new Set((text.match(IMAGE_FILENAME_PATTERN) || []).map((item) => item.trim())));
+}
+
+async function deleteLocalProxyAsset(filename) {
+  if (!filename) return;
+  try {
+    await api.fetchApi("/random_photo_prompt/proxy/delete_local_asset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename }),
+    });
+  } catch (error) {
+    console.warn("[random_photo_prompt] Failed to delete local proxy asset", filename, error);
+  }
+}
+
+function installLocalAssetDeleteBridge() {
+  document.addEventListener(
+    "click",
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest("button");
+      if (!button || !/删除/.test(button.innerText || "")) return;
+      const dialog = button.closest('[role="dialog"]');
+      if (!dialog || !/删除此资产/.test(dialog.innerText || "")) return;
+      const filenames = extractAssetDeleteFilenames(dialog);
+      if (!filenames.length) return;
+      setTimeout(() => {
+        for (const filename of filenames) deleteLocalProxyAsset(filename);
+      }, 0);
+    },
+    true
+  );
 }
 
 function applyDisplayWidgetLabels(node) {
@@ -614,6 +653,7 @@ async function prepareRandomPhotoPrompts() {
 app.registerExtension({
   name: "random_photo_prompt.queue_sync_clip",
   init() {
+    installLocalAssetDeleteBridge();
     const graphToPrompt = app.graphToPrompt;
     app.graphToPrompt = async function () {
       try {

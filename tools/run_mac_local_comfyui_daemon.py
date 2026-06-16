@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import signal
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -22,15 +23,33 @@ def running(pid):
     return True
 
 
+def process_matches(pid):
+    try:
+        output = subprocess.check_output(["ps", "-p", str(pid), "-o", "command="], text=True).strip()
+    except Exception:
+        return False
+    return str(MAIN) in output and "--port 8188" in output
+
+
+def port_listening():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(0.5)
+    try:
+        return sock.connect_ex(("127.0.0.1", 8188)) == 0
+    finally:
+        sock.close()
+
+
 def main():
     if PID_FILE.exists():
         try:
             pid = int(PID_FILE.read_text().strip())
         except ValueError:
             pid = 0
-        if pid and running(pid):
+        if pid and running(pid) and process_matches(pid) and port_listening():
             print(pid)
             return 0
+        PID_FILE.unlink(missing_ok=True)
 
     env = os.environ.copy()
     env.update(

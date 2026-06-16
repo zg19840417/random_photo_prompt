@@ -46,6 +46,11 @@ from prompt_postprocess import (
 )
 
 
+def _bold_no_outfit_stocking_outfit(shot: str, rng: random.Random) -> str:
+    options = BOLD_NO_OUTFIT_STOCKING_OUTFIT_OPTIONS.get(shot, [])  # noqa: F405
+    return choose(options, rng) if options else ""
+
+
 def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portrait") -> dict[str, str]:
     scale = normalize_scale(scale)
     pool_scale = prompt_pool_scale(scale)
@@ -66,7 +71,12 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     )
     filter_grade = choose_filter_grade(pool_scale, director, palette, scene_light, rng)
     context_keywords = intent_keywords(scene_context_keywords(scene_light), visual_keywords, emotion_intent, focus_keywords)
-    outfit = "" if skips_outfit(scale) else choose_directed(outfit_options_by_aspect(pool_scale, shot, aspect), rng, director, context_keywords)
+    outfit = ""
+    if scale == "bold_no_outfit":
+        if shot in {"large_half_body", "full_body"} and rng.random() < 0.5:
+            outfit = _bold_no_outfit_stocking_outfit(shot, rng)
+    elif not skips_outfit(scale):
+        outfit = choose_directed(outfit_options_by_aspect(pool_scale, shot, aspect), rng, director, context_keywords)
     pose_pool_scale = "nsfw" if scale == "nsfw" else pool_scale
     pose_expression = choose_directed(
         pose_expression_options_by_aspect(pose_pool_scale, shot, aspect),
@@ -108,6 +118,7 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     cleaned = simplify_pose_language(cleaned)
     cleaned = order_pose_before_expression(cleaned)
     cleaned = polish_photographic_naturalness(cleaned, scale, shot)
+    cleaned = clean_global_prompt_text(cleaned, shot, scale)
     cleaned = enforce_prompt_length(cleaned)
     cleaned["feedback_tags"] = ",".join(feedback_tags(cleaned, scale, shot, aspect))
     cleaned["prompt_score"] = str(score_prompt_parts(cleaned, scale, shot, aspect))
@@ -123,10 +134,18 @@ def build_prompt(parts: dict[str, str], enforce_limit: bool = True) -> str:
 def generate_candidate_parts(scale: str, shot: str, rng: random.Random, aspect: str, attempts: int = 6) -> dict[str, str]:
     if normalize_scale(scale) == "bold_no_outfit" and normalize_shot(shot) == "full_body":
         attempts = 1
+    scene_time = ""
+    if normalize_scale(scale) in {"bold", "bold_no_outfit", "nsfw"}:
+        scene_time = rng.choice(("morning", "noon", "afternoon", "sunset", "night"))
     best_parts = None
     best_score = -10_000
     for _attempt in range(max(1, attempts)):
         parts = prompt_parts(scale, shot, rng, aspect)
+        if scene_time:
+            parts = strengthen_seductive_scene_and_pose(parts, scale, shot, aspect, scene_time=scene_time)
+            parts = clean_global_prompt_text(parts, shot, scale)
+            parts = enforce_prompt_length(parts)
+            parts["prompt_score"] = str(score_prompt_parts(parts, scale, shot, aspect))
         score = int(parts.get("prompt_score") or score_prompt_parts(parts, scale, shot, aspect))
         if score > best_score:
             best_parts = parts

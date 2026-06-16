@@ -4,22 +4,9 @@ import signal
 import socket
 import subprocess
 import sys
-from pathlib import Path
 
+from proxy_config import ERR_FILE, LOG_FILE, PID_FILE, PROJECT, PROXY, PROXY_PORT, PYTHON, proxy_env
 
-ROOT = Path("/Users/zouge/Documents/Codex/2026-06-02/macbook-air-80/work/ComfyUI")
-PROJECT = ROOT / "custom_nodes/random_photo_prompt"
-PYTHON = ROOT / ".venv/bin/python"
-PROXY = PROJECT / "tools/mac_comfyui_remote_proxy.py"
-PID_FILE = ROOT / "comfyui-proxy.pid"
-LOG_FILE = ROOT / "comfyui-proxy.log"
-ERR_FILE = ROOT / "comfyui-proxy.err.log"
-REMOTE_URL = os.environ.get("RPP_PROXY_REMOTE_URL", "http://192.168.123.111:8188")
-LOCAL_MOBILE_URL = os.environ.get("RPP_PROXY_LOCAL_MOBILE_URL", "http://127.0.0.1:8188")
-OUTPUT_DIR = os.environ.get("RPP_PROXY_OUTPUT_DIR", str(ROOT / "output/4090 生成"))
-PROXY_PORT = os.environ.get("RPP_PROXY_PORT", "18199")
-DELETE_REMOTE_OUTPUT = os.environ.get("RPP_PROXY_DELETE_REMOTE_OUTPUT", "1")
-WEBSOCKET_OUTPUT = os.environ.get("RPP_PROXY_WEBSOCKET_OUTPUT", "1")
 RESTART_PROXY = os.environ.get("RPP_PROXY_RESTART", "0") == "1"
 
 
@@ -82,17 +69,6 @@ def main():
         else:
             PID_FILE.unlink(missing_ok=True)
 
-    env = os.environ.copy()
-    env.update(
-        {
-            "RPP_PROXY_REMOTE_URL": REMOTE_URL,
-            "RPP_PROXY_LOCAL_MOBILE_URL": LOCAL_MOBILE_URL,
-            "RPP_PROXY_OUTPUT_DIR": OUTPUT_DIR,
-            "RPP_PROXY_PORT": PROXY_PORT,
-            "RPP_PROXY_DELETE_REMOTE_OUTPUT": DELETE_REMOTE_OUTPUT,
-            "RPP_PROXY_WEBSOCKET_OUTPUT": WEBSOCKET_OUTPUT,
-        }
-    )
     with LOG_FILE.open("ab", buffering=0) as stdout, ERR_FILE.open("ab", buffering=0) as stderr:
         process = subprocess.Popen(
             [str(PYTHON), str(PROXY)],
@@ -100,7 +76,7 @@ def main():
             stdin=subprocess.DEVNULL,
             stdout=stdout,
             stderr=stderr,
-            env=env,
+            env=proxy_env(),
             start_new_session=True,
         )
     PID_FILE.write_text(str(process.pid))

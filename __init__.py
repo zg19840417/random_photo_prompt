@@ -2004,7 +2004,7 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
             is_zib_slot = normalized_unet.startswith("z_image\\zib") or "483" in consumers or (use_zib_single and _is_zit_turbo_model_name(current_unet))
             if is_zib_slot:
                 inputs["unet_name"] = zib_unet_value
-                if platform.system() == "Darwin" and inputs.get("weight_dtype") in {"fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2"}:
+                if inputs.get("weight_dtype") in {"fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2", "bf16"}:
                     inputs["weight_dtype"] = "default"
                 patched["zib_model"] += 1
         for key in ("width", "W", "image_width", "latent_width", "empty_latent_width", "瀹藉害"):

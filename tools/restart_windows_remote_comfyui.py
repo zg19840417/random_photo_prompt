@@ -176,9 +176,10 @@ def clear_mac_runtime_state(reason):
 def default_mac_upload_url():
     host = os.environ.get("RPP_MAC_LAN_HOST", "").strip()
     if not host:
+        remote_host = REMOTE_SSH.rsplit("@", 1)[-1].split(":", 1)[0]
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
-            sock.connect(("192.168.123.111", 8188))
+            sock.connect((remote_host, int(PORT)))
             host = sock.getsockname()[0]
         finally:
             sock.close()
