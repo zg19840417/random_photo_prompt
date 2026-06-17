@@ -813,6 +813,13 @@ async def handle_ws(request):
                             elif not ws_prompt_id:
                                 ws_prompt_id = _active_prompt_for_progress(payload)
                             current_node = str(payload.get("node") or "")
+                            progress = PROMPT_PROGRESS.get(ws_prompt_id)
+                            if progress:
+                                progress_payload = dict(progress)
+                                progress_payload["prompt_id"] = ws_prompt_id
+                                await client_ws.send_str(
+                                    json.dumps({"type": "progress", "data": progress_payload}, ensure_ascii=False)
+                                )
                         rewritten = await _rewrite_ws_message_images_to_local(data)
                         await client_ws.send_str(json.dumps(rewritten, ensure_ascii=False))
                     elif msg.type == WSMsgType.BINARY:
@@ -1071,6 +1078,59 @@ async def handle_remote_image_upload(request):
     )
 
 
+async def handle_remote_video_upload(request):
+    video_bytes = await request.read()
+    if not video_bytes:
+        return web.json_response({"ok": False, "error": "empty upload"}, status=400)
+    prefix = request.headers.get("X-RPP-Filename-Prefix", "remote_video")
+    suffix = request.headers.get("X-RPP-Video-Extension", ".mp4")
+    suffix = "." + str(suffix or ".mp4").replace("\\", "/").strip().lstrip(".")
+    if suffix.lower() not in {".mp4", ".webm", ".mov", ".mkv"}:
+        suffix = ".mp4"
+    filename = _unique_uploaded_filename(prefix, suffix)
+    subfolder = "random_photo_prompt_mobile_video"
+    local_dir = (LOCAL_OUTPUT_DIR / subfolder).resolve()
+    if LOCAL_OUTPUT_DIR not in local_dir.parents:
+        return web.json_response({"ok": False, "error": "unsafe output dir"}, status=400)
+    local_dir.mkdir(parents=True, exist_ok=True)
+    local_path = (local_dir / filename).resolve()
+    if local_path.parent != local_dir:
+        return web.json_response({"ok": False, "error": "unsafe filename"}, status=400)
+    tmp_path = local_path.with_name(f".{local_path.name}.tmp")
+    tmp_path.write_bytes(video_bytes)
+    if not tmp_path.is_file() or tmp_path.stat().st_size <= 0:
+        return web.json_response({"ok": False, "error": "upload temp write failed"}, status=500)
+    tmp_path.replace(local_path)
+    _log(f"remote video upload saved path={local_path} bytes={len(video_bytes)}")
+    params = urllib.parse.urlencode({"filename": filename, "subfolder": subfolder, "type": "output"})
+    return web.json_response(
+        {
+            "ok": True,
+            "filename": filename,
+            "subfolder": subfolder,
+            "type": "output",
+            "url": f"/view?{params}",
+            "bytes": len(video_bytes),
+        }
+    )
+
+
+async def handle_source_image(request):
+    raw_name = str(request.query.get("filename") or "").replace("\\", "/").strip("/")
+    if not raw_name:
+        return web.json_response({"ok": False, "error": "missing filename"}, status=400)
+    if "/" in raw_name:
+        subfolder, filename = raw_name.rsplit("/", 1)
+    else:
+        subfolder, filename = "", raw_name
+    filename = Path(filename).name
+    for local_path in _local_path_candidates(filename, subfolder):
+        if local_path.is_file():
+            _log(f"source image local filename={filename} subfolder={subfolder} path={local_path}")
+            return _local_view_response(local_path)
+    return web.json_response({"ok": False, "error": "source image not found"}, status=404)
+
+
 async def handle_root(request):
     return await proxy_request(request)
 
@@ -1084,6 +1144,8 @@ def create_app():
     app.router.add_route("GET", "/random_photo_prompt/proxy/status", handle_proxy_status)
     app.router.add_route("POST", "/random_photo_prompt/proxy/runtime/clear", handle_clear_runtime_state)
     app.router.add_route("POST", "/random_photo_prompt/proxy/upload_image", handle_remote_image_upload)
+    app.router.add_route("POST", "/random_photo_prompt/proxy/upload_video", handle_remote_video_upload)
+    app.router.add_route("GET", "/random_photo_prompt/proxy/source_image", handle_source_image)
     app.router.add_route("POST", "/random_photo_prompt/proxy/delete_local_asset", handle_delete_local_asset)
     app.router.add_route("*", "/random_photo_prompt/mobile", proxy_mobile_request)
     app.router.add_route("*", "/random_photo_prompt/mobile/{tail:.*}", proxy_mobile_request)

@@ -92,7 +92,7 @@ python3 tools/build_prompt_data_from_excel.py
 
 生成结果会写入 `prompt_data_generated.py`。不要手改这个生成文件。
 
-例外：四档 `nsfw` 的姿势和表情维度不走 Excel 转表，唯一可编辑源是 `data/nsfw_pose_expression_options.json`。转表脚本会跳过这部分，避免覆盖其他 AI 直接修改的 JSON 内容。
+例外：四档 `nsfw` 的姿势和表情维度只使用 `data/nsfw_pose_expression_options.json`，不走 Excel 转表，也不读取横图姿势池。转表脚本会跳过这部分，避免覆盖其他 AI 直接修改的 JSON 内容。
 
 ## 基本使用
 

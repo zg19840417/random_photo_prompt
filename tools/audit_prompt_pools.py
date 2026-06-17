@@ -15,7 +15,7 @@ PROMPT_DATA_PATH = ROOT / "prompt_data.py"
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "prompt_pool_audit.md"
 DEFAULT_DISTRIBUTION_SAMPLES = 20
 ACTIVE_SCALES = ("normal", "bold", "bold_no_outfit", "nsfw")
-ACTIVE_SHOTS = ("头部", "上半身", "半身", "大半身", "全身")
+ACTIVE_SHOTS = ("头部", "半身", "全身")
 
 ACTIVE_POOLS = (
     "CAMERA_OPTIONS",

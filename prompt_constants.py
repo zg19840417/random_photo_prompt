@@ -3,9 +3,7 @@ from __future__ import annotations
 
 RESOLUTIONS = {
     "head_shot": (1408, 1856),
-    "upper_body": (1280, 1920),
-    "half_body": (1472, 1920),
-    "large_half_body": (1280, 1920),
+    "half_body": (1280, 1920),
     "full_body": (1088, 1920),
 }
 
@@ -70,6 +68,13 @@ NEGATIVE_PROMPT_RULES = {
         "text",
         "watermark",
         "logo",
+        "latex clothing",
+        "PVC clothing",
+        "rubber clothing",
+        "plastic clothing",
+        "vinyl clothing",
+        "glossy plastic fabric",
+        "shiny latex",
     ),
     "lips_makeup": (
         "red lipstick",
@@ -214,6 +219,9 @@ PART_LENGTH_BUDGETS = {
 
 SHOT_ALIASES = {
     "": "full_body",
+    "random": "random",
+    "随机": "random",
+    "随机镜头": "random",
     "full": "full_body",
     "full_body": "full_body",
     "全身": "full_body",
@@ -224,22 +232,8 @@ SHOT_ALIASES = {
     "半身": "half_body",
     "半身像": "half_body",
     "半身镜头": "half_body",
-    "腰部及以上": "half_body",
-    "腰部及以上镜头": "half_body",
-    "large_half_body": "large_half_body",
-    "大半身": "large_half_body",
-    "大半身镜头": "large_half_body",
-    "大腿以上": "large_half_body",
-    "大腿以上镜头": "large_half_body",
-    "小腿及以上": "large_half_body",
-    "小腿及以上镜头": "large_half_body",
-    "upper_body": "upper_body",
-    "上半身": "upper_body",
-    "上半身镜头": "upper_body",
-    "胸部以上": "upper_body",
-    "胸部以上镜头": "upper_body",
-    "胸部及以上": "upper_body",
-    "胸部及以上镜头": "upper_body",
+    "大腿以上": "half_body",
+    "大腿以上镜头": "half_body",
     "head": "head_shot",
     "head_shot": "head_shot",
     "头部": "head_shot",
@@ -248,34 +242,18 @@ SHOT_ALIASES = {
     "肩膀及以上镜头": "head_shot",
     "肩部以上": "head_shot",
     "肩部以上镜头": "head_shot",
-    "face": "upper_body",
-    "face_closeup": "upper_body",
-    "默认": "full_body",
-    "全身": "full_body",
-    "全身像": "full_body",
+    "face": "head_shot",
+    "face_closeup": "head_shot",
     "全身构图": "full_body",
     "全身构图镜头": "full_body",
     "全身像镜头": "full_body",
-    "半身": "half_body",
-    "半身像": "half_body",
     "半身像镜头": "half_body",
     "大腿及以上": "half_body",
     "大腿及以上半身": "half_body",
     "大腿及以上半身像": "half_body",
-    "腰部以上": "half_body",
-    "腰部以上半身": "half_body",
-    "腰部以上半身镜头": "half_body",
     "脸部特写": "head_shot",
     "面部特写": "head_shot",
-    "肩部以上": "upper_body",
-    "肩部以上镜头": "upper_body",
-    "肩部以上特写": "upper_body",
-    "胸部以上": "upper_body",
-    "胸部以上镜头": "upper_body",
-    "胸部以上特写": "upper_body",
-    "上半身": "upper_body",
-    "上半身镜头": "upper_body",
-    "上半身中近景": "upper_body",
+    "肩部以上特写": "head_shot",
     "脸部特写镜头": "head_shot",
     "面部特写镜头": "head_shot",
 }
@@ -297,17 +275,76 @@ SCALE_ALIASES = {
     "nsfw": "nsfw",
 }
 
+ERA_ALIASES = {
+    "": "modern",
+    "modern": "modern",
+    "现代": "modern",
+    "現代": "modern",
+    "古装": "ancient",
+    "古代": "ancient",
+    "ancient": "ancient",
+    "costume": "ancient",
+}
+
+ANCIENT_OUTFIT_MARKERS = (
+    "古装",
+    "古典",
+    "汉服",
+    "中式",
+    "盘扣",
+    "斜襟",
+    "唐制",
+    "宋制",
+    "明制",
+    "敦煌",
+    "胡姬",
+    "侠女",
+    "宫廷",
+    "旗装",
+    "马面裙",
+    "襦裙",
+    "褙子",
+    "披帛",
+)
+ANCIENT_SCENE_MARKERS = (
+    "古代",
+    "中式",
+    "宫苑",
+    "宫廷",
+    "屏风",
+    "花窗",
+    "竹帘",
+    "木格窗",
+    "青瓦",
+    "寝殿",
+    "廊下",
+    "书房",
+    "卷轴",
+    "香炉",
+    "烛台",
+    "木案",
+    "铜镜",
+    "宫灯",
+    "纱帐",
+    "敦煌",
+    "宫墙",
+    "琉璃瓦",
+    "水榭",
+    "茶楼",
+    "山寺",
+    "回廊",
+    "朱栏",
+    "船舫",
+    "雕花窗",
+    "温泉",
+    "石池",
+)
+
 FORBIDDEN_BY_SHOT = {
     "head_shot": (
         "胸", "乳", "完整腰", "腰", "肚脐", "腹", "臀", "胯", "大腿", "小腿", "膝", "腿", "脚", "高跟", "鞋", "丝袜", "裸足", "裙", "全身", "半身", "站立", "坐姿", "跪", "躺",
     ),
-    "upper_body": (
-        "完整腰", "腰线以下", "肚脐", "腹", "臀", "胯", "大腿", "小腿", "膝", "腿", "脚", "高跟", "鞋", "丝袜", "裸足", "裙", "全身", "半身像", "站立",
-    ),
     "half_body": (
-        "全身", "完整身形", "臀部", "臀", "胯", "大腿", "小腿", "膝", "腿部", "长腿", "双腿", "脚", "脚趾", "脚部", "裸足", "高跟", "鞋", "丝袜覆盖双腿", "下半身", "底装", "短裙", "长裙",
-    ),
-    "large_half_body": (
         "全身", "完整身形", "脚", "脚趾", "脚部", "裸足", "高跟", "鞋", "从头到脚", "头顶到脚",
     ),
     "full_body": (),
@@ -315,7 +352,5 @@ FORBIDDEN_BY_SHOT = {
 
 LIP_COLOR_CONSTRAINT = "纤薄原生唇形，透明无色水光，浅粉自然唇色"
 HEAD_SHOT_FRAMING_CONSTRAINT = "头部镜头，肩膀及以上入镜，头顶完整，脸部、发丝、颈部和双肩线条清楚，画面下缘停在肩膀下缘"
-UPPER_BODY_FRAMING_CONSTRAINT = "上半身镜头，胸部及以上入镜，头顶完整，脸部、肩颈、锁骨和完整胸部清楚，画面下缘停在胸部下方到上腰之间"
-HALF_BODY_FRAMING_CONSTRAINT = "半身镜头，腰部及以上入镜，头部、脸部、肩颈、胸部、腰部和双手清楚，画面下缘停在腰部区域"
-LARGE_HALF_BODY_FRAMING_CONSTRAINT = "大腿以上镜头，竖向构图"
+HALF_BODY_FRAMING_CONSTRAINT = "半身镜头，大腿以上入镜，头部、脸部、肩颈、胸部、腰臀、大腿和手部动作清楚，画面下缘停在大腿到膝部之间"
 FULL_BODY_PORTRAIT_FRAMING_CONSTRAINT = "全身镜头，人物从头顶到脚部完整入镜，手臂、腿部、脚部落点和姿势外轮廓都清楚"

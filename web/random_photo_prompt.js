@@ -6,12 +6,11 @@ const IMAGE_INTERROGATOR_NODE = "RandomPhotoImageInterrogator";
 const CACHE_WIDGET_NAMES = new Set(["cached_prompt", "cached_negative_prompt", "cached_signature", "cached_aspect", "cached_prompt_source"]);
 const USE_PREGENERATED_WIDGET_NAME = "use_pregenerated_prompt";
 const AUTO_RESOLUTION_WIDGET_NAME = "auto_resolution";
-const PROMPT_RULE_WIDGET_NAME = "prompt_rule";
 const DISPLAY_WIDGET_LABELS = {
   shot: "镜头",
   scale: "档位",
+  era: "年代",
   use_pregenerated_prompt: "固定提示词",
-  prompt_rule: "提示词规则",
 };
 const PREGENERATE_WIDGET_NAME = "预生成提示词";
 const SELECT_IMAGE_WIDGET_NAME = "选择反推图片";
@@ -143,7 +142,7 @@ function normalizeAspect(value) {
 }
 
 function promptSignature(node, aspect = currentWorkflowAspect().aspect) {
-  return `${widgetValue(node, "scale", "")}|${widgetValue(node, "shot", "")}|${normalizeAspect(aspect)}`;
+  return `${widgetValue(node, "scale", "")}|${widgetValue(node, "shot", "")}|${normalizeAspect(aspect)}|${widgetValue(node, "era", "现代")}`;
 }
 
 function usePregeneratedPrompt(node) {
@@ -162,10 +161,6 @@ function useAutoResolution(node) {
     return !["false", "0", "off", "no"].includes(value.trim().toLowerCase());
   }
   return true;
-}
-
-function selectedPromptRule(node) {
-  return String(widgetValue(node, PROMPT_RULE_WIDGET_NAME, "规则1") || "规则1").trim();
 }
 
 function setNodeImagePreview(node, file) {
@@ -354,6 +349,7 @@ function allConnectedClipNodes(node) {
 
 async function requestPrompt(node) {
   const scale = widgetValue(node, "scale", "二档");
+  const era = widgetValue(node, "era", "现代");
   const shot = widgetValue(node, "shot", "默认");
   const frame = currentWorkflowAspect();
   const response = await api.fetchApi("/random_photo_prompt/generate", {
@@ -361,6 +357,7 @@ async function requestPrompt(node) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       scale,
+      era,
       shot,
       aspect: frame.aspect,
       width: frame.width,
@@ -373,33 +370,6 @@ async function requestPrompt(node) {
     throw new Error(text || `HTTP ${response.status}`);
   }
   return await response.json();
-}
-
-async function requestKeywordExpansion(node) {
-  const frame = currentWorkflowAspect();
-  const scale = widgetValue(node, "scale", "二档");
-  const shot = widgetValue(node, "shot", "默认");
-  const response = await api.fetchApi("/random_photo_prompt/keyword_expand", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      scale,
-      shot,
-      aspect: frame.aspect,
-      seed: `${Date.now()}_${node.id}_${Math.random()}`,
-    }),
-  });
-  const text = await response.text();
-  let data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch (_error) {
-    data = null;
-  }
-  if (!response.ok) {
-    throw new Error(data?.error || text || `HTTP ${response.status}`);
-  }
-  return data ?? {};
 }
 
 async function requestResolutionForPrompt(node, prompt) {
@@ -588,9 +558,6 @@ async function prepareNodePrompt(node, { force = false } = {}) {
     setNodeStatus(node, "已使用固定提示词");
     return true;
   }
-  if (selectedPromptRule(node) === "规则2") {
-    return await prepareKeywordExpansionPrompt(node);
-  }
   setNodeStatus(node, "正在预生成提示词...");
   const result = await requestPrompt(node);
   if (!result?.prompt) {
@@ -609,31 +576,6 @@ async function prepareNodePrompt(node, { force = false } = {}) {
     result.source || "random_photo_prompt"
   );
   setNodeStatus(node, applied ? "预生成完成，已写入连接的文本节点" : "预生成完成，但未连接 CLIP 文本节点");
-  return true;
-}
-
-async function prepareKeywordExpansionPrompt(node) {
-  const clips = allConnectedClipNodes(node);
-  if (!clips.length) {
-    setNodeStatus(node, "未连接 CLIP 文本节点，无法写入关键词扩写");
-    return false;
-  }
-  setNodeStatus(node, "正在生成小助手式提示词...");
-  const result = await requestKeywordExpansion(node);
-  if (!result?.prompt) {
-    setNodeStatus(node, "关键词扩写失败：没有收到提示词");
-    return false;
-  }
-  const frame = currentWorkflowAspect();
-  const applied = await applyPromptToNodeAndClips(
-    node,
-    result.prompt,
-    result.signature || `assistant_style|${Date.now()}`,
-    result.aspect || frame.aspect,
-    result.negative_prompt || "",
-    "keyword_expansion"
-  );
-  setNodeStatus(node, applied ? "小助手式提示词完成，已写入连接的文本节点" : "小助手式提示词完成，但未连接 CLIP 文本节点");
   return true;
 }
 

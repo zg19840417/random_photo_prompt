@@ -26,6 +26,7 @@ def encoded_powershell(script):
 
 def main():
     mac_upload_url = os.environ.get("RPP_MAC_IMAGE_UPLOAD_URL") or default_mac_upload_url()
+    mac_video_upload_url = os.environ.get("RPP_MAC_VIDEO_UPLOAD_URL") or mac_upload_url.replace("/upload_image", "/upload_video")
     clear_mac_runtime_state("before_remote_restart")
     script = rf'''
 $ErrorActionPreference = 'Continue'
@@ -113,6 +114,7 @@ $starter = @"
 Set-Location '$comfyDir'
 `$env:RPP_BLOCK_REMOTE_ASSET_SAVE = '1'
 `$env:RPP_MAC_IMAGE_UPLOAD_URL = '{mac_upload_url}'
+`$env:RPP_MAC_VIDEO_UPLOAD_URL = '{mac_video_upload_url}'
 `$p = Start-Process -FilePath '$venvPython' -ArgumentList @('-u', 'main.py', '--enable-manager', '--listen', '0.0.0.0', '--port', '$port') -WorkingDirectory '$comfyDir' -WindowStyle Hidden -RedirectStandardOutput '$stdoutLog' -RedirectStandardError '$stderrLog' -PassThru
 Set-Content -Path '$pidFile' -Value `$p.Id -Encoding ASCII -NoNewline
 "@

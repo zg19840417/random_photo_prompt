@@ -139,11 +139,47 @@ def extract_positive_prompt_text(prompt):
     return max(candidates, key=len) if candidates else ""
 
 
+def node_has_consumers(prompt, node_id):
+    if not isinstance(prompt, dict):
+        return False
+    node_id = str(node_id)
+    for consumer_id, node in prompt.items():
+        if str(consumer_id) == node_id or not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        for value in inputs.values():
+            if isinstance(value, list) and value and str(value[0]) == node_id:
+                return True
+    return False
+
+
+def random_photo_auto_resolution_enabled(prompt):
+    if not isinstance(prompt, dict):
+        return False
+    for node_id, node in prompt.items():
+        if not isinstance(node, dict) or str(node.get("class_type") or "") != "RandomPhotoPrompt":
+            continue
+        if not node_has_consumers(prompt, node_id):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+        value = inputs.get("auto_resolution", True)
+        if isinstance(value, str):
+            return value.strip().lower() not in {"0", "false", "no", "off", "disabled"}
+        return bool(value)
+    return False
+
+
 def patch_web_prompt_resolution(payload):
     if not isinstance(payload, dict):
         return {}
     prompt = payload.get("prompt")
     if not isinstance(prompt, dict):
+        return {}
+    if not random_photo_auto_resolution_enabled(prompt):
         return {}
     positive_text = extract_positive_prompt_text(prompt)
     if not positive_text:
@@ -199,6 +235,7 @@ def patch_web_zib_single_steps(payload):
     if not isinstance(prompt, dict):
         return {}
     has_zib_model = False
+    has_zib_native_sampler = False
     ksamplers = []
     for node in prompt.values():
         if not isinstance(node, dict):
@@ -208,10 +245,16 @@ def patch_web_zib_single_steps(payload):
             continue
         if any(model_value_is_zib(value) for value in inputs.values()):
             has_zib_model = True
+        if str(node.get("class_type") or "") == "KSamplerAdvanced":
+            model_input = inputs.get("model")
+            if isinstance(model_input, list) and model_input and str(model_input[0]) == "483":
+                has_zib_native_sampler = True
         if str(node.get("class_type") or "") == "KSampler" and isinstance(inputs.get("steps"), (int, float, str)):
             ksamplers.append(inputs)
+    if has_zib_native_sampler:
+        return {"zib_model": has_zib_model, "zib_native_sampler": True, "ksamplers": len(ksamplers), "steps_changed": 0}
     if not has_zib_model or len(ksamplers) != 1:
-        return {"zib_model": has_zib_model, "ksamplers": len(ksamplers), "steps_changed": 0}
+        return {"zib_model": has_zib_model, "zib_native_sampler": False, "ksamplers": len(ksamplers), "steps_changed": 0}
     old_steps = ksamplers[0].get("steps")
     ksamplers[0]["steps"] = 35
     return {"zib_model": True, "ksamplers": 1, "steps_changed": int(old_steps != 35), "old_steps": old_steps, "new_steps": 35}

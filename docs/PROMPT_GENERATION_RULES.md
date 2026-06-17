@@ -52,7 +52,7 @@ For any prompt pool option addition, replacement, deletion, or rewrite, except t
 
 Do not hand-edit `prompt_data_generated.py`. Do not hand-edit prompt option content in `prompt_data.py` unless changing fallback/bootstrap behavior is the explicit task. If the generated artifact later becomes JSON instead of Python, the workflow remains Excel first, generated artifact second.
 
-Protected exception: 四档/`nsfw` 的 `POSE_EXPRESSION_OPTIONS` 姿势和表情维度不走 Excel 转 runtime 数据链路。它的唯一可编辑源是 `data/nsfw_pose_expression_options.json`，可由其他 AI 直接修改。`tools/build_prompt_data_from_excel.py` 和 `tools/export_prompt_data_to_excel.py` 必须跳过 `POSE_EXPRESSION_OPTIONS/nsfw` 和 `landscape_pose_expression_options/nsfw`，转表时不得覆盖或回填该 JSON 内容。运行时先加载 `prompt_data_generated.py`，再用 `data/nsfw_pose_expression_options.json` 覆盖 `POSE_EXPRESSION_OPTIONS["nsfw"]`。
+Protected exception: 四档/`nsfw` 的 `POSE_EXPRESSION_OPTIONS` 姿势和表情维度只使用 `data/nsfw_pose_expression_options.json`。它不走 Excel 转 runtime 数据链路，不读取 Excel 生成的 `POSE_EXPRESSION_OPTIONS/nsfw`，也不读取 `landscape_pose_expression_options/nsfw`。`tools/build_prompt_data_from_excel.py` 和 `tools/export_prompt_data_to_excel.py` 必须跳过这些条目，转表时不得覆盖或回填该 JSON 内容。运行时先加载 `prompt_data_generated.py`，再用 JSON 覆盖 `POSE_EXPRESSION_OPTIONS["nsfw"]`；`pose_expression_options_by_aspect("nsfw", ...)` 必须直接从该 JSON 覆盖后的池读取。
 
 ## Output Shape
 
@@ -80,9 +80,9 @@ Do not output labels such as `镜头:`, `角色:`, `妆容:`, `穿着:`, `姿势
 Only five camera types exist:
 
 - 头部: shoulder-and-above framing.
-- 上半身: chest-and-above framing.
-- 半身: waist-and-above framing.
-- 大半身: calf-and-above framing.
+- 半身: shoulder-and-above framing.
+- 半身: thigh-and-above framing.
+- 半身: thigh-and-above framing.
 - 全身: full-body framing.
 
 Camera scope is a hard global constraint. Every other dimension must describe only content visible in the selected frame.
@@ -105,26 +105,26 @@ Half-body and full-body camera and pose pools may branch by workflow frame orien
 - Must keep the full top of the head and hair contour inside the frame.
 - Must not reach chest, waist, hips, thighs, legs, feet, shoes, or full-body posture.
 
-上半身:
+半身:
 
 - May describe face, eyes, lips, cheek, jaw, hair around face, neck, shoulders, collarbones, clavicle shadows, complete bust/chest volume, breast lower-edge transition, a small upper-waist segment, and fingers near face, collarbone, chest edge, or upper waist.
 - Must keep the full top of the head and hair contour inside the frame; do not crop off the head top while trying to include the chest.
 - Must include the complete chest/bust shape and stop at the upper waist. It should show only a small part of the waist and must not reach the navel, hips, thighs, legs, feet, shoes, or full-body posture.
-- Must not become a face-only crop, a collarbone-only crop, or a waist-up half body. Use this direct camera boundary instead of softer upper-body wording: `胸部及以上镜头，头顶完整，脸部、肩颈、锁骨、完整胸部入镜，画面下缘停在上腰，只露出一小段腰部`.
-- "A little below the collarbone" is too conservative for this shot. "腰部以上镜头" is too broad and tends to become a standard half body. Prefer the direct `胸部及以上镜头` wording above.
+- Must not become a face-only crop, a collarbone-only crop, or a waist-up half body. Use this direct camera boundary instead of softer upper-body wording: `肩部以上镜头，头顶完整，脸部、肩颈、锁骨、完整胸部入镜，画面下缘停在上腰，只露出一小段腰部`.
+- "A little below the collarbone" is too conservative for this shot. "大腿以上镜头" is too broad and tends to become a standard half body. Prefer the direct `肩部以上镜头` wording above.
 - Runtime prompt wording should treat this as an upper-body medium close portrait, not an extreme face closeup. Camera options own the crop boundary; character, pose, outfit, and lighting options should not repeat the full crop sentence.
 - Upper-body close portrait options should mention chest form only when it is part of that dimension's job, and should keep it short. Do not repeat complete bust, breast lower-edge, upper waist, and crop-line wording in every dimension.
 - Background should not be described. The frame is a tight upper-body close portrait; scene and lighting may only describe close light on the face, neck, shoulders, collarbones, complete chest, breast lower-edge transition, a small upper-waist segment, hair edge, and nearby fingers.
 
 半身:
 
-- Means waist-and-above framing. The visible body range is head, face, shoulders, chest, waist, and hands around the upper body; the lower edge should land around the waist.
+- Means thigh-and-above framing. The visible body range is head, face, shoulders, chest, waist, and hands around the upper body; the lower edge should land around the waist.
 - May describe face, hair, shoulders, neck, collarbones, bust, upper chest, waist, hands, top outfit, waist-edge styling, and pose direction.
 - Must not require hips, thighs, lower legs, feet, toes, shoes, or complete full-body posture. The backend may choose portrait, landscape, square, or moderately wide resolutions to preserve the selected waist-up pose.
 
-大半身:
+半身:
 
-- Means calf-and-above framing. The visible body range is head, face, shoulders, chest, waist, hips, thighs, knees, and calves; feet are not required.
+- Means thigh-and-above framing. The visible body range is head, face, shoulders, chest, waist, hips, thighs, knees, and calves; feet are not required.
 - May describe face, hair, shoulders, neck, collarbones, bust, waist, hips, thighs, knees, calves, hands, outfit coverage down to calves, and pose direction.
 - Must not require feet, toes, shoes, or head-to-toe full-body framing.
 
@@ -384,7 +384,7 @@ Image reverse prompting is a node-local helper, not a new dimension system.
 - If the required local model is missing, return a clear error instead of fabricating a prompt from filename, scale, shot, or random pools.
 - The returned prompt is written to the connected CLIP text encode widget and to the node cache, the same as a pre-generated prompt.
 - Reverse-prompt output should remain one prompt string formatted as six natural lines in the same active order used by generated prompts: camera, character/subject, makeup, outfit, pose/expression, scene/light. It must not include visible labels, old style packs, scene packs, compatibility pools, or hidden fallback dimensions.
-- Reverse-prompt camera wording must use the current shot scopes: 头部 is shoulders and above, 上半身 is chest and above, 半身 is waist and above, 大半身 is calves and above, and 全身 is complete visible body.
+- Reverse-prompt camera wording must use the current shot scopes: 头部 is shoulders and above, 半身 is chest and above, 半身 is waist and above, 半身 is calves and above, and 全身 is complete visible body.
 - Reverse-prompt outfit wording should describe visible clothing, accessories, material, color, transparency/thinness, coverage, and occlusion. When colors are visible, prefer the current sunny vivid color language rather than defaulting to black/white/gray.
 - Reverse-prompt scene/light wording should follow the current sunny warm vivid multicolor high-saturation direction when it matches the image, while keeping props environment-correct: outdoor scenes may use water, sand, sky, umbrellas, flowers, fountains, pool tiles, deck reflections, and outdoor furniture; indoor scenes may use windows, curtains, white walls, glass blocks, mirrors, and prism glass.
 - Reverse-prompt output must still follow project safety boundaries: adult-only glamour is allowed, but explicit sexual acts, exposed intimate anatomy, and simulated sex wording are not allowed.
@@ -395,7 +395,7 @@ The mobile generation page is a queue trigger for the existing prompt generator.
 
 Mobile generation and main-node generation use the same scale, shot, aspect inference, positive prompt, negative prompt, and resolution inference rules. The desktop frontend should apply the inferred width and height to the current graph's image-size or empty-latent widgets before queue serialization when the node's auto-resolution option is enabled; when it is disabled, the desktop graph keeps its manually configured resolution. Mobile generation applies the same inferred width and height while patching `mobile_workflow_api.json`. The backend may patch a user-provided ComfyUI API workflow template for mobile generation, but it must not silently invent a full workflow. The required template file is `mobile_workflow_api.json` in the custom node directory.
 
-The main node and mobile page use the same user-facing scale and shot labels: 一档, 二档, 三档, 四档 and 全身像, 半身像, 上半身. 三档 maps to bold_no_outfit: it follows 二档 logic but skips outfit. 四档 maps to nsfw: only pose/expression uses the dedicated NSFW pool; camera, character, makeup, scene/light, quality, color, and emotion follow 三档/二档 non-outfit logic. The mobile logic is the shared source of truth for both entry points. Shot options are body-coverage scopes only; the backend first generates the prompt, inspects the selected camera and pose text, infers the best aspect and resolution, then appends the corresponding framing sentence. Use multiple aspect families as needed: tall portrait for upright full-body poses, landscape or wide landscape for lying / side-lying / starfish / large horizontal gestures, square or near-square for compact seated, kneeling, curled, or jumping poses, suitable portrait or landscape variants for half-body poses, and upper-body portrait/landscape variants that follow the compact upper-body boundary: head top, shoulders, collarbones, complete chest, and a short upper-waist crop. Standing full-body prompts need an especially tall and narrow portrait ratio; standing, upright, walking, leaning, one-leg-weight, and foot-contact markers should resolve before broader seated/kneeling/vertical full-body markers, currently targeting 896x1920 to preserve a natural high body proportion and using a scene-matched "脚下是..." ground anchor to encourage foot visibility. Upper-body mobile default should use enough vertical room for a pulled-back upper-body medium close portrait. Full body always means all outer body parts fit in frame; half body may preserve the intended pose without requiring lower legs or feet. Mobile image width and height must keep the longest edge at or below 1920 pixels.
+The main node and mobile page use the same user-facing scale and shot labels: 一档, 二档, 三档, 四档 and 全身像, 半身像, 半身. 三档 maps to bold_no_outfit: it follows 二档 logic but skips outfit. 四档 maps to nsfw: only pose/expression uses the dedicated NSFW pool; camera, character, makeup, scene/light, quality, color, and emotion follow 三档/二档 non-outfit logic. The mobile logic is the shared source of truth for both entry points. Shot options are body-coverage scopes only; the backend first generates the prompt, inspects the selected camera and pose text, infers the best aspect and resolution, then appends the corresponding framing sentence. Use multiple aspect families as needed: tall portrait for upright full-body poses, landscape or wide landscape for lying / side-lying / starfish / large horizontal gestures, square or near-square for compact seated, kneeling, curled, or jumping poses, suitable portrait or landscape variants for half-body poses, and upper-body portrait/landscape variants that follow the compact upper-body boundary: head top, shoulders, collarbones, complete chest, and a short upper-waist crop. Standing full-body prompts need an especially tall and narrow portrait ratio; standing, upright, walking, leaning, one-leg-weight, and foot-contact markers should resolve before broader seated/kneeling/vertical full-body markers, currently targeting 896x1920 to preserve a natural high body proportion and using a scene-matched "脚下是..." ground anchor to encourage foot visibility. Upper-body mobile default should use enough vertical room for a pulled-back upper-body medium close portrait. Full body always means all outer body parts fit in frame; half body may preserve the intended pose without requiring lower legs or feet. Mobile image width and height must keep the longest edge at or below 1920 pixels.
 
 The mobile batch count control starts at 1 and changes only by powers of two: 1, 2, 4, 8, 16, 32, and 64. The frontend and backend must both clamp the submitted count to this range, with 64 as the maximum.
 
@@ -417,6 +417,6 @@ After prompt data or generation changes:
 - Generate samples for all three scales and five shots.
 - Check that head shot contains head, face, neck, and shoulders, but no chest, waist, hips, legs, feet, shoes, or scene-heavy text.
 - Check that upper body contains shoulders, collarbones, and complete chest/bust volume, but no navel, hips, legs, feet, shoes, or scene-heavy text.
-- Check that half body contains waist-and-above content, but no hips/thighs/legs/feet/shoes.
-- Check that large half body contains calf-and-above content, but no feet/shoes.
+- Check that half body contains thigh-and-above content, but no hips/thighs/legs/feet/shoes.
+- Check that large half body contains thigh-and-above content, but no feet/shoes.
 - Check that NSFW contains no explicit sexual acts or exposed intimate anatomy.

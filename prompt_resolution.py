@@ -58,13 +58,13 @@ def mobile_resolution_for_custom_prompt(prompt_text):
         return clamp_mobile_resolution(MOBILE_STANDING_FULL_BODY_RESOLUTION)
     if any(marker in text for marker in ("全身", "从头到脚", "脚部", "脚掌", "脚尖", "站立", "长腿完整")):
         return clamp_mobile_resolution({"aspect": "portrait", "width": 1088, "height": 1920, "framing": ""})
-    if any(marker in text for marker in ("大半身", "大腿以上", "小腿及以上", "小腿", "膝盖")):
+    if any(marker in text for marker in ("半身", "大腿以上", "大腿以上", "小腿", "膝盖")):
         return clamp_mobile_resolution({"aspect": "portrait", "width": 1280, "height": 1920, "framing": ""})
-    if any(marker in text for marker in ("半身", "腰部及以上", "腰部", "腰线")):
+    if any(marker in text for marker in ("半身", "大腿以上", "腰部", "腰线")):
         return clamp_mobile_resolution({"aspect": "portrait", "width": 1216, "height": 1664, "framing": ""})
     if any(marker in text for marker in ("头部", "肩膀及以上", "肩部以上", "脸部特写", "面部特写")):
         return clamp_mobile_resolution({"aspect": "portrait", "width": 1280, "height": 1920, "framing": ""})
-    if any(marker in text for marker in ("上半身", "胸部及以上", "胸部以上", "胸部")):
+    if any(marker in text for marker in ("半身", "肩部以上", "肩部以上", "胸部")):
         return clamp_mobile_resolution({"aspect": "portrait", "width": 1280, "height": 1920, "framing": ""})
     return clamp_mobile_resolution({"aspect": "portrait", "width": 1280, "height": 1920, "framing": ""})
 

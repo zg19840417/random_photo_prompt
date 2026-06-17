@@ -23,11 +23,9 @@ def normalize_shot(value: str) -> str:
         return SHOT_ALIASES[value]
     if "头部" in value or "肩膀及以上" in value or "肩部以上" in value or "脸" in value or "面部" in value or "特写" in value:
         return "head_shot"
-    if "上半身" in value or "胸部以上" in value or "胸部及以上" in value:
-        return "upper_body"
-    if "大半身" in value or "大腿以上" in value or "小腿" in value:
-        return "large_half_body"
-    if "半身" in value or "腰" in value:
+    if "全身" in value:
+        return "full_body"
+    if "半身" in value or "大腿以上" in value:
         return "half_body"
     return "full_body"
 

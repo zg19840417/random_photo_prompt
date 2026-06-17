@@ -46,12 +46,46 @@ from prompt_postprocess import (
 )
 
 
-def _bold_no_outfit_stocking_outfit(shot: str, rng: random.Random) -> str:
+def _bold_no_outfit_stocking_outfit(shot: str, rng: random.Random, era: str = "modern") -> str:
+    if str(era or "").strip() in {"ancient", "古装", "古代"}:
+        return ""
     options = BOLD_NO_OUTFIT_STOCKING_OUTFIT_OPTIONS.get(shot, [])  # noqa: F405
     return choose(options, rng) if options else ""
 
 
-def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portrait") -> dict[str, str]:
+def _is_ancient_era(era: str) -> bool:
+    return str(era or "").strip() in {"ancient", "古装", "古代"}
+
+
+def _lock_era_dimensions(
+    parts: dict[str, str],
+    scale: str,
+    shot: str,
+    aspect: str,
+    era: str,
+    rng: random.Random,
+) -> dict[str, str]:
+    locked = dict(parts)
+    pool_scale = prompt_pool_scale(scale)
+    if scale == "bold_no_outfit":
+        if shot in {"half_body", "full_body"} and not _is_ancient_era(era):
+            outfit = locked.get("outfit") or _bold_no_outfit_stocking_outfit(shot, rng, era)
+            if outfit:
+                locked["outfit"] = outfit
+        else:
+            locked["outfit"] = ""
+    elif not skips_outfit(scale):
+        outfit_options = outfit_options_by_aspect(pool_scale, shot, aspect, era)
+        if outfit_options:
+            locked["outfit"] = choose(outfit_options, rng)
+    scene_options = scene_light_options_by_aspect(pool_scale, shot, aspect, era)
+    scene_light = choose_scene_light(scene_options, rng)
+    if scene_light:
+        locked["scene_light"] = scene_light
+    return locked
+
+
+def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portrait", era: str = "modern") -> dict[str, str]:
     scale = normalize_scale(scale)
     pool_scale = prompt_pool_scale(scale)
     director = choose_director(pool_scale, shot, aspect, rng)
@@ -64,7 +98,7 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     camera = choose_directed(camera_options_by_aspect(shot, aspect), rng, director, coordination_keywords)
     character = choose(character_identity_options_by_aspect(shot, aspect), rng)
     scene_light = choose_scene_light(
-        scene_light_options_by_aspect(pool_scale, shot, aspect),
+        scene_light_options_by_aspect(pool_scale, shot, aspect, era),
         rng,
         {**director, "keywords": intent_keywords(tuple(director.get("keywords", ())), visual_keywords, focus_keywords)},
         palette,
@@ -73,10 +107,10 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     context_keywords = intent_keywords(scene_context_keywords(scene_light), visual_keywords, emotion_intent, focus_keywords)
     outfit = ""
     if scale == "bold_no_outfit":
-        if shot in {"large_half_body", "full_body"} and rng.random() < 0.5:
-            outfit = _bold_no_outfit_stocking_outfit(shot, rng)
+        if shot in {"half_body", "full_body"} and rng.random() < 0.5:
+            outfit = _bold_no_outfit_stocking_outfit(shot, rng, era)
     elif not skips_outfit(scale):
-        outfit = choose_directed(outfit_options_by_aspect(pool_scale, shot, aspect), rng, director, context_keywords)
+        outfit = choose_directed(outfit_options_by_aspect(pool_scale, shot, aspect, era), rng, director, context_keywords)
     pose_pool_scale = "nsfw" if scale == "nsfw" else pool_scale
     pose_expression = choose_directed(
         pose_expression_options_by_aspect(pose_pool_scale, shot, aspect),
@@ -118,6 +152,7 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     cleaned = simplify_pose_language(cleaned)
     cleaned = order_pose_before_expression(cleaned)
     cleaned = polish_photographic_naturalness(cleaned, scale, shot)
+    cleaned = _lock_era_dimensions(cleaned, scale, shot, aspect, era, rng)
     cleaned = clean_global_prompt_text(cleaned, shot, scale)
     cleaned = enforce_prompt_length(cleaned)
     cleaned["feedback_tags"] = ",".join(feedback_tags(cleaned, scale, shot, aspect))
@@ -131,32 +166,34 @@ def build_prompt(parts: dict[str, str], enforce_limit: bool = True) -> str:
     return "\n\n".join(ensure_sentence(part) for part in ordered if part)
 
 
-def generate_candidate_parts(scale: str, shot: str, rng: random.Random, aspect: str, attempts: int = 6) -> dict[str, str]:
+def generate_candidate_parts(scale: str, shot: str, rng: random.Random, aspect: str, era: str = "modern", attempts: int = 6) -> dict[str, str]:
     if normalize_scale(scale) == "bold_no_outfit" and normalize_shot(shot) == "full_body":
         attempts = 1
     scene_time = ""
-    if normalize_scale(scale) in {"bold", "bold_no_outfit", "nsfw"}:
+    if normalize_scale(scale) in {"bold", "bold_no_outfit", "nsfw"} and not _is_ancient_era(era):
         scene_time = rng.choice(("morning", "noon", "afternoon", "sunset", "night"))
     best_parts = None
     best_score = -10_000
     for _attempt in range(max(1, attempts)):
-        parts = prompt_parts(scale, shot, rng, aspect)
+        parts = prompt_parts(scale, shot, rng, aspect, era)
         if scene_time:
             parts = strengthen_seductive_scene_and_pose(parts, scale, shot, aspect, scene_time=scene_time)
             parts = clean_global_prompt_text(parts, shot, scale)
             parts = enforce_prompt_length(parts)
+            parts = _lock_era_dimensions(parts, scale, shot, aspect, era, rng)
             parts["prompt_score"] = str(score_prompt_parts(parts, scale, shot, aspect))
         score = int(parts.get("prompt_score") or score_prompt_parts(parts, scale, shot, aspect))
         if score > best_score:
             best_parts = parts
             best_score = score
-    return best_parts or prompt_parts(scale, shot, rng, aspect)
+    return best_parts or prompt_parts(scale, shot, rng, aspect, era)
 
 
 def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str = "") -> list[dict]:
     rng = random.Random(seed_text or int(time.time() * 1000))
     scale = normalize_scale(selections.get("scale", "bold"))
     shot = normalize_shot(selections.get("shot", ""))
+    era = str(selections.get("era", "modern") or "modern")
     raw_width = selections.get("width")
     raw_height = selections.get("height")
     try:
@@ -169,8 +206,9 @@ def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str
     width, height = (detected_width, detected_height) if detected_width and detected_height else RESOLUTIONS[shot]
     items = []
     for index in range(count):
-        parts = generate_candidate_parts(scale, shot, rng, aspect)
+        parts = generate_candidate_parts(scale, shot, rng, aspect, era)
         parts = enforce_prompt_length(parts)
+        parts = _lock_era_dimensions(parts, scale, shot, aspect, era, rng)
         parts = {name: (clean_prompt_text(value) if isinstance(value, str) else value) for name, value in parts.items()}
         prompt = build_prompt(parts)
         negative_prompt = build_negative_prompt(prompt, parts, scale, shot, aspect, width, height)

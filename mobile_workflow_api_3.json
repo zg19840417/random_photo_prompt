@@ -23,7 +23,7 @@
   },
   "7": {
     "inputs": {
-      "unet_name": "LTX2.3\\LTX-2.3-22B-distilled-1.1-Q4_K_M.gguf"
+      "unet_name": "LTX2.3\\LTX-2.3-22B-distilled-1.1-Q5_K_M.gguf"
     },
     "class_type": "UnetLoaderGGUF",
     "_meta": {
@@ -32,7 +32,7 @@
   },
   "8": {
     "inputs": {
-      "clip_name1": "gemma-3-12b-it-heretic-Q4_K_M.gguf",
+      "clip_name1": "gemma-3-12b-it-heretic-Q5_K_M.gguf",
       "clip_name2": "ltx-2.3_text_projection_bf16.safetensors",
       "type": "ltxv"
     },
@@ -43,7 +43,7 @@
   },
   "9": {
     "inputs": {
-      "sage_attention": "auto",
+      "sage_attention": "disabled",
       "allow_compile": false,
       "model": [
         "102",
@@ -216,7 +216,7 @@
   "26": {
     "inputs": {
       "scheduler": "linear_quadratic",
-      "steps": 8,
+      "steps": 10,
       "denoise": 1,
       "model": [
         "9",
@@ -286,7 +286,7 @@
       "method": "lanczos",
       "round_to_multiple": "32",
       "scale_to_side": "longest",
-      "scale_to_length": 384,
+      "scale_to_length": 960,
       "background_color": "#000000",
       "image": [
         "10",
@@ -317,7 +317,7 @@
   },
   "38": {
     "inputs": {
-      "value": 2
+      "value": 8
     },
     "class_type": "INTConstant",
     "_meta": {
@@ -326,7 +326,7 @@
   },
   "39": {
     "inputs": {
-      "value": 12
+      "value": 16
     },
     "class_type": "INTConstant",
     "_meta": {

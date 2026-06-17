@@ -49,8 +49,6 @@ def build_negative_prompt(
         _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["portrait_mismatch"])
     if shot == "head_shot":
         _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["shot_scope_head"])
-    elif shot == "upper_body":
-        _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["shot_scope_upper"])
     elif shot == "half_body":
         _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["shot_scope_half"])
     elif shot == "full_body":
@@ -196,8 +194,6 @@ def build_chinese_negative_prompt(
         _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["portrait_mismatch"])
     if shot == "head_shot":
         _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["shot_scope_head"])
-    elif shot == "upper_body":
-        _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["shot_scope_upper"])
     elif shot == "half_body":
         _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["shot_scope_half"])
     elif shot == "full_body":
