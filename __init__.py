@@ -4,6 +4,7 @@ import traceback
 import json
 import asyncio
 import copy
+import hashlib
 import html
 import os
 import platform
@@ -255,8 +256,16 @@ def _normalize_aspect(value, width=None, height=None):
     return "portrait"
 
 
+def _nsfw_pose_data_hash():
+    path = NODE_DIR / "data" / "nsfw_pose_expression_options.json"
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    except OSError:
+        return "missing"
+
+
 def _prompt_signature(scale, shot, aspect="portrait", era="modern"):
-    return f"mobile-logic-v1|{scale or ''}|{shot or ''}|{era or 'modern'}"
+    return f"mobile-logic-v2|{_nsfw_pose_data_hash()}|{scale or ''}|{shot or ''}|{era or 'modern'}"
 
 
 def _as_bool(value, default=True):
@@ -2985,7 +2994,7 @@ class RandomPhotoPrompt:
         try:
             aspect = _normalize_aspect(cached_aspect)
             signature = _prompt_signature(scale, shot, aspect, era)
-            if cached_prompt:
+            if use_pregenerated_prompt and cached_prompt and str(cached_signature or "") == signature:
                 return (clean_prompt_text(cached_prompt), cached_negative_prompt)
             item, _resolution = _build_desktop_prompt_with_mobile_logic(scale, shot, str(time.time()), era)
             return (_prompt_text(item), item.get("negative_prompt", ""))
