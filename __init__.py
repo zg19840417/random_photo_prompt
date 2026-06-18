@@ -265,7 +265,7 @@ def _nsfw_pose_data_hash():
 
 
 def _prompt_signature(scale, shot, aspect="portrait", era="modern"):
-    return f"mobile-logic-v2|{_nsfw_pose_data_hash()}|{scale or ''}|{shot or ''}|{era or 'modern'}"
+    return f"mobile-logic-v9-subdued-daylight|{_nsfw_pose_data_hash()}|{scale or ''}|{shot or ''}|{era or 'modern'}"
 
 
 def _as_bool(value, default=True):
@@ -594,7 +594,9 @@ def _clamp_mobile_resolution(resolution):
     return clamp_mobile_resolution(resolution)
 
 
-def _mobile_ground_anchor(parts):
+def _mobile_ground_anchor(parts, era="modern"):
+    if str(era or "").strip() in {"ancient", "古装", "古代"}:
+        return "暗色木地板或木质甲板"
     context = "，".join(
         str(parts.get(name, ""))
         for name in ("scene_light", "camera", "pose_expression")
@@ -616,9 +618,9 @@ def _mobile_ground_anchor(parts):
     return "浅暖色地面纹理"
 
 
-def _resolve_mobile_framing(framing, parts):
+def _resolve_mobile_framing(framing, parts, era="modern"):
     if "{ground_anchor}" in framing:
-        return framing.replace("{ground_anchor}", _mobile_ground_anchor(parts))
+        return framing.replace("{ground_anchor}", _mobile_ground_anchor(parts, era))
     return framing
 
 
@@ -626,13 +628,13 @@ def _round_to_multiple(value, multiple=MOBILE_RESOLUTION_MULTIPLE):
     return max(multiple, int(round(float(value) / multiple) * multiple))
 
 
-def _apply_mobile_framing(prompt_item, resolution):
+def _apply_mobile_framing(prompt_item, resolution, era="modern"):
     framing = resolution.get("framing")
     if not framing:
         return prompt_item
     item = copy.deepcopy(prompt_item)
     parts = item.setdefault("dimension_parts", {})
-    framing = _resolve_mobile_framing(framing, parts)
+    framing = _resolve_mobile_framing(framing, parts, era)
     camera = str(parts.get("camera") or "")
     if any(marker in camera for marker in ("入镜", "镜头", "构图", "画面", "头顶", "完整")):
         framing = MOBILE_FRAMING_COMPACT_REPLACEMENTS.get(framing, framing)
@@ -675,7 +677,7 @@ def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern"):
         initial = _build_mobile_prompt_item(scale, resolved_config, f"{seed_text}-{resolution['aspect']}", era)
         initial = _ensure_scoped_character_prompt(initial)
         resolution = _mobile_resolution_for_prompt(initial, shot_config["shot"])
-    return _apply_mobile_framing(initial, resolution), resolution
+    return _apply_mobile_framing(initial, resolution, era), resolution
 
 
 def _build_prompt_with_mobile_logic(scale, shot, seed_text="", era="modern"):
@@ -2096,6 +2098,27 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
         if not isinstance(inputs, dict):
             continue
         class_type = str(node.get("class_type") or "")
+        if class_type == "RandomPhotoPrompt":
+            scale_label_map = {
+                "normal": "一档",
+                "bold": "二档",
+                "bold_no_outfit": "三档",
+                "nsfw": "四档",
+            }
+            era_label_map = {"modern": "现代", "ancient": "古装"}
+            shot_label_map = {
+                "head_shot": "头部",
+                "half_body": "半身",
+                "full_body": "全身",
+            }
+            inputs["scale"] = scale_label_map.get(str(prompt_item.get("scale") or ""), prompt_item.get("scale") or "二档")
+            inputs["era"] = era_label_map.get(str(prompt_item.get("era") or ""), prompt_item.get("era") or "现代")
+            inputs["shot"] = prompt_item.get("shot") or shot_label_map.get(str(prompt_item.get("shot_key") or ""), "随机")
+            inputs["use_pregenerated_prompt"] = False
+            inputs["cached_prompt"] = ""
+            inputs["cached_negative_prompt"] = ""
+            inputs["cached_signature"] = ""
+            inputs["cached_prompt_source"] = ""
         if class_type == "LayerUtility: PurgeVRAM V2" and inputs.get("purge_models") is True:
             inputs["purge_models"] = False
             patched["purge_models_disabled"] += 1
@@ -3403,7 +3426,8 @@ async def generate_mobile_image(request):
         scale = data.get("scale", "bold")
         era = data.get("era", "modern")
         shot_config = _mobile_shot_config(data.get("shot", "full_body_portrait"))
-        custom_prompt = str(data.get("custom_prompt") or "").strip()
+        custom_prompt_source = str(data.get("custom_prompt_source") or "").strip()
+        custom_prompt = str(data.get("custom_prompt") or "").strip() if custom_prompt_source == "manual" else ""
         client_id = str(data.get("client_id") or "").strip()
         output_mode = "mac"
         requested_count = max(1, min(int(data.get("count", 1) or 1), 64))

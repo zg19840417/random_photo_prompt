@@ -21,7 +21,8 @@ class EraPromptGenerationTest(unittest.TestCase):
         parts = item["dimension_parts"]
 
         self.assertNotIn("era", parts)
-        self.assertTrue(any(marker in parts["outfit"] for marker in ("古装", "汉服", "中式", "盘扣", "斜襟")))
+        ancient_outfit_markers = ("古装", "古典", "古代", "汉服", "中式", "盘扣", "斜襟", "唐制", "襦裙", "披帛", "织金", "云头鞋", "云头绣鞋", "交领", "绣鞋", "高腰裙")
+        self.assertTrue(any(marker in parts["outfit"] for marker in ancient_outfit_markers))
         self.assertTrue(any(marker in parts["scene_light"] for marker in ("古代", "中式", "宫苑", "屏风", "花窗", "竹帘")))
 
     def test_modern_era_affects_outfit_and_scene_dimensions(self):
@@ -34,7 +35,8 @@ class EraPromptGenerationTest(unittest.TestCase):
         parts = item["dimension_parts"]
 
         self.assertNotIn("era", parts)
-        self.assertFalse(any(marker in parts["outfit"] for marker in ("古装", "汉服", "中式", "盘扣", "斜襟")))
+        ancient_outfit_markers = ("古装", "古典", "古代", "汉服", "中式", "盘扣", "斜襟", "唐制", "襦裙", "披帛", "织金", "云头鞋", "云头绣鞋", "交领", "绣鞋", "高腰裙")
+        self.assertFalse(any(marker in parts["outfit"] for marker in ancient_outfit_markers))
         self.assertFalse(any(marker in parts["scene_light"] for marker in ("古代", "宫苑", "屏风", "花窗", "竹帘")))
 
 

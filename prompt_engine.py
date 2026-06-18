@@ -47,14 +47,59 @@ from prompt_postprocess import (
 
 
 def _bold_no_outfit_stocking_outfit(shot: str, rng: random.Random, era: str = "modern") -> str:
-    if str(era or "").strip() in {"ancient", "古装", "古代"}:
-        return ""
-    options = BOLD_NO_OUTFIT_STOCKING_OUTFIT_OPTIONS.get(shot, [])  # noqa: F405
-    return choose(options, rng) if options else ""
+    return ""
 
 
 def _is_ancient_era(era: str) -> bool:
     return str(era or "").strip() in {"ancient", "古装", "古代"}
+
+
+_MODERN_SCENE_MARKERS_FOR_ANCIENT = (
+    "玻璃小桌",
+    "藤椅",
+    "藤编",
+    "露台",
+    "阳台",
+    "城市",
+    "泳池",
+    "玻璃栏杆",
+    "现代",
+    "天台",
+    "屋顶",
+    "白色栏杆",
+    "躺椅",
+)
+
+_BAR_COUNTER_MIST_SCENE = "环境光设定：夜店吧台后方大团紫色烟雾被冷紫逆光照亮，右后方红色射灯切过暗部，幽蓝霓虹散景包住背景，黑色湿润吧台从左下角斜向延伸，前景酒瓶和玻璃杯虚化反光，淡粉补光落在脸、锁骨和手指上"
+_BAR_COUNTER_BOLD_OUTFIT = "夜店吧台半身造型，黑色细带亮钻胸衣配银色身体链，锁骨链、手链、臂环和腰链在紫色灯光下反光，关键部位由黑色布料完整覆盖，肩颈、胸线边缘和细腰成为视觉重点"
+_BAR_COUNTER_HALF_BODY_POSE = "人物侧坐在吧台高脚椅上，上身前倾靠近黑色吧台，左前臂压在吧台边缘，右手举着威士忌杯停在脸侧，肩膀转向镜头，腰臀向画面右下方延伸，头部回望镜头，眼神直视镜头，嘴角轻轻上扬"
+_BAR_COUNTER_CAMERA = "竖向夜店吧台半身近景，人物从头到大腿上侧入镜，黑色吧台从左下角斜向延伸，身体沿右下角形成对角线，脸部靠近画面中心"
+_DOUBLE_GIRL_CAMERA = "竖向双人贴身半身构图，两名女性从头到大腿上侧入镜，脸部和嘴唇靠近画面中心，肩颈、手部、腰线和身体接触点清楚，背景保持简单"
+_DOUBLE_GIRL_SCENE = "环境光设定：灰色墙面和浅色室内地面保持极简背景，左侧大窗柔光照亮两名女性的脸、肩颈、手指和腰腹，身体贴合处保留柔和阴影，整体是安静室内私房半身近景"
+_BEACH_CAT_CAMERA = "竖向海边沙滩低机位全身强透视构图，镜头贴近沙地和前景高跟鞋，脚部在画面下方放大，腿部向后延伸，人物从脚到头完整入镜，远处海平线保持水平"
+_BEACH_CAT_POSE = "人物背向镜头跪坐在蓝色复古手提箱上，双腿一前一后打开，前脚靠近镜头形成强透视，身体前倾后扭腰回头看向镜头，肩膀微微转开，眼神直视镜头，嘴唇微开，表情带一点挑逗和无辜感"
+_BEACH_CAT_OUTFIT = "海边猫系私房全身造型，白色猫耳发箍配白色蕾丝边连体泳装，腰臀边缘露肤明显，白色大腿袜带蕾丝袜口，白色厚底高跟鞋带深蓝蝴蝶结和珍珠装饰，整体是沙滩局部阳光下的清透诱惑造型"
+_BEACH_CAT_SCENE = "环境光设定：海边沙滩被镜头压低曝光，远处海面和晴空只保留柔和蓝色虚化，局部阳光从左上方切到人物腿部、腰线和肩颈，沙地只在脚边形成小面积反光，蓝色复古手提箱处在主体附近，背景不展开全景"
+_CINEMA_CUP_CAMERA = "竖向电影院座椅半身构图，人物坐在红色影院座椅中，从头到大腿上侧入镜，脸部靠近画面中心，手部和白色纸杯挡在嘴唇前方，后排红色座椅虚化成背景层次"
+_CINEMA_CUP_OUTFIT = "电影院日常半身造型，黑色高领修身针织长袖上衣贴合肩颈和上身线条，衣料细密柔软，袖口自然包住手腕，整体干净低调，红色座椅衬出黑色衣料轮廓"
+_CINEMA_CUP_POSE = "人物坐在电影院红色座椅里，身体轻轻靠向椅背，右手拿着白色纸杯停在嘴唇前方，左手自然放在大腿上，眼睛越过纸杯直视镜头，嘴唇被纸杯边缘遮住，表情安静专注"
+_CINEMA_CUP_SCENE = "电影院红色座椅半身场景，成排红色软椅在背景中虚化，暖色放映光从画面上方和后方落下，照亮头发边缘、眼睛、鼻梁、手指和白色纸杯，暗部保持柔和，整体像安静观影前的生活方式写真"
+
+_BRIGHT_SEDUCTIVE_SCENE_TIMES = ("morning", "noon", "afternoon")
+_DARK_SEDUCTIVE_SCENE_TIMES = ("sunset", "night")
+
+
+def _choose_seductive_scene_time(rng: random.Random) -> str:
+    if rng.choice((True, False)):
+        return rng.choice(_BRIGHT_SEDUCTIVE_SCENE_TIMES)
+    return rng.choice(_DARK_SEDUCTIVE_SCENE_TIMES)
+
+
+def _is_valid_ancient_scene(text: str) -> bool:
+    scene = str(text or "")
+    if any(marker in scene for marker in _MODERN_SCENE_MARKERS_FOR_ANCIENT):
+        return False
+    return any(marker in scene for marker in ANCIENT_SCENE_MARKERS)  # noqa: F405
 
 
 def _lock_era_dimensions(
@@ -68,20 +113,52 @@ def _lock_era_dimensions(
     locked = dict(parts)
     pool_scale = prompt_pool_scale(scale)
     if scale == "bold_no_outfit":
-        if shot in {"half_body", "full_body"} and not _is_ancient_era(era):
-            outfit = locked.get("outfit") or _bold_no_outfit_stocking_outfit(shot, rng, era)
-            if outfit:
-                locked["outfit"] = outfit
-        else:
-            locked["outfit"] = ""
+        locked["outfit"] = ""
     elif not skips_outfit(scale):
         outfit_options = outfit_options_by_aspect(pool_scale, shot, aspect, era)
         if outfit_options:
             locked["outfit"] = choose(outfit_options, rng)
-    scene_options = scene_light_options_by_aspect(pool_scale, shot, aspect, era)
+    scene_options = scene_light_options_by_aspect(scale, shot, aspect, era)
     scene_light = choose_scene_light(scene_options, rng)
     if scene_light:
         locked["scene_light"] = scene_light
+    if _is_ancient_era(era) and not _is_valid_ancient_scene(locked.get("scene_light", "")):
+        scene_light = choose_scene_light(scene_light_options_by_aspect(scale, shot, aspect, "ancient"), rng)
+        if scene_light:
+            locked["scene_light"] = scene_light
+    bar_context = "，".join(str(locked.get(name) or "") for name in ("camera", "pose_expression", "scene_light"))
+    if "吧台" in bar_context or "威士忌杯" in bar_context:
+        if shot == "half_body":
+            locked["camera"] = (
+                "横向夜店吧台半身构图，人物大腿以上入镜，黑色吧台沿画面下缘斜向延伸，脸部靠近画面左侧，手部和威士忌杯在画面中段"
+                if aspect == "landscape"
+                else _BAR_COUNTER_CAMERA
+            )
+            locked["pose_expression"] = _BAR_COUNTER_HALF_BODY_POSE
+        locked["scene_light"] = _BAR_COUNTER_MIST_SCENE
+        locked["quality"] = "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝，夜景私房调色，暗部压低，肤色由窄光托亮"
+        if scale == "bold":
+            locked["outfit"] = _BAR_COUNTER_BOLD_OUTFIT
+    double_girl_pose = str(locked.get("pose_expression") or "")
+    if shot == "half_body" and any(marker in double_girl_pose for marker in ("双女", "两名女性", "接吻")):
+        locked["camera"] = _DOUBLE_GIRL_CAMERA
+        locked["scene_light"] = _DOUBLE_GIRL_SCENE
+        locked["quality"] = "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝，柔和室内侧光调色，肤色自然明亮，阴影保留层次"
+    beach_cat_context = "，".join(str(locked.get(name) or "") for name in ("camera", "pose_expression", "scene_light", "outfit"))
+    if shot == "full_body" and any(marker in beach_cat_context for marker in ("蓝色复古手提箱", "猫耳", "前景高跟鞋")):
+        locked["camera"] = _BEACH_CAT_CAMERA
+        locked["pose_expression"] = _BEACH_CAT_POSE
+        locked["scene_light"] = _BEACH_CAT_SCENE
+        locked["quality"] = "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝，白天欠曝背景调色，人物局部受光，环境压暗虚化"
+        if scale == "bold":
+            locked["outfit"] = _BEACH_CAT_OUTFIT
+    cinema_context = "，".join(str(locked.get(name) or "") for name in ("camera", "pose_expression", "scene_light", "outfit"))
+    if scale == "normal" and shot == "half_body" and any(marker in cinema_context for marker in ("电影院", "影院座椅", "白色纸杯", "观影")):
+        locked["camera"] = _CINEMA_CUP_CAMERA
+        locked["outfit"] = _CINEMA_CUP_OUTFIT
+        locked["pose_expression"] = _CINEMA_CUP_POSE
+        locked["scene_light"] = _CINEMA_CUP_SCENE
+        locked["quality"] = "真实镜头质感，主体清晰，脸部焦点锐利，自然皮肤纹理，高光不过曝，暖色电影厅生活方式调色，背景座椅柔和虚化"
     return locked
 
 
@@ -98,7 +175,7 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     camera = choose_directed(camera_options_by_aspect(shot, aspect), rng, director, coordination_keywords)
     character = choose(character_identity_options_by_aspect(shot, aspect), rng)
     scene_light = choose_scene_light(
-        scene_light_options_by_aspect(pool_scale, shot, aspect, era),
+        scene_light_options_by_aspect(scale, shot, aspect, era),
         rng,
         {**director, "keywords": intent_keywords(tuple(director.get("keywords", ())), visual_keywords, focus_keywords)},
         palette,
@@ -107,8 +184,7 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     context_keywords = intent_keywords(scene_context_keywords(scene_light), visual_keywords, emotion_intent, focus_keywords)
     outfit = ""
     if scale == "bold_no_outfit":
-        if shot in {"half_body", "full_body"} and rng.random() < 0.5:
-            outfit = _bold_no_outfit_stocking_outfit(shot, rng, era)
+        outfit = ""
     elif not skips_outfit(scale):
         outfit = choose_directed(outfit_options_by_aspect(pool_scale, shot, aspect, era), rng, director, context_keywords)
     pose_pool_scale = "nsfw" if scale == "nsfw" else pool_scale
@@ -148,7 +224,6 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     cleaned = apply_conflict_cleaner(cleaned, scale, shot, aspect)
     cleaned = simplify_pose_language(cleaned)
     cleaned = strengthen_expression(cleaned, scale, rng)
-    cleaned = strengthen_seductive_scene_and_pose(cleaned, scale, shot, aspect)
     cleaned = simplify_pose_language(cleaned)
     cleaned = order_pose_before_expression(cleaned)
     cleaned = polish_photographic_naturalness(cleaned, scale, shot)
@@ -171,16 +246,16 @@ def generate_candidate_parts(scale: str, shot: str, rng: random.Random, aspect: 
         attempts = 1
     scene_time = ""
     if normalize_scale(scale) in {"bold", "bold_no_outfit", "nsfw"} and not _is_ancient_era(era):
-        scene_time = rng.choice(("morning", "noon", "afternoon", "sunset", "night"))
+        scene_time = _choose_seductive_scene_time(rng)
     best_parts = None
     best_score = -10_000
     for _attempt in range(max(1, attempts)):
         parts = prompt_parts(scale, shot, rng, aspect, era)
         if scene_time:
+            parts = _lock_era_dimensions(parts, scale, shot, aspect, era, rng)
             parts = strengthen_seductive_scene_and_pose(parts, scale, shot, aspect, scene_time=scene_time)
             parts = clean_global_prompt_text(parts, shot, scale)
             parts = enforce_prompt_length(parts)
-            parts = _lock_era_dimensions(parts, scale, shot, aspect, era, rng)
             parts["prompt_score"] = str(score_prompt_parts(parts, scale, shot, aspect))
         score = int(parts.get("prompt_score") or score_prompt_parts(parts, scale, shot, aspect))
         if score > best_score:
@@ -208,7 +283,6 @@ def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str
     for index in range(count):
         parts = generate_candidate_parts(scale, shot, rng, aspect, era)
         parts = enforce_prompt_length(parts)
-        parts = _lock_era_dimensions(parts, scale, shot, aspect, era, rng)
         parts = {name: (clean_prompt_text(value) if isinstance(value, str) else value) for name, value in parts.items()}
         prompt = build_prompt(parts)
         negative_prompt = build_negative_prompt(prompt, parts, scale, shot, aspect, width, height)

@@ -6,6 +6,7 @@ import random
 import re
 
 from prompt_constants import (
+    ANCIENT_OUTFIT_MARKERS,
     FEEDBACK_TAG_RULES,
     FORBIDDEN_BY_SHOT,
     MAX_POSITIVE_PROMPT_LENGTH,
@@ -491,7 +492,7 @@ _BROKEN_PHRASE_REPLACEMENTS = (
     ("看着向镜头", "看向镜头"),
     ("嘴角是眼神斜看镜头", "嘴角轻轻上扬，眼神斜看镜头"),
     ("嘴角是眼神", "眼神"),
-    ("眉峰轻轻上扬，指尖停在颈侧中央", "眉峰轻轻上扬，指尖停在颈侧"),
+    ("眉峰轻轻上扬，指尖停在颈侧中央", "眼神微微上挑，指尖停在颈侧"),
     ("颈侧中央", "颈侧"),
     ("让颈线拉长", "颈线被拉长"),
     ("肩线与颈侧自然展开", "肩线自然展开，颈侧靠近镜头"),
@@ -931,9 +932,43 @@ _SEDUCTIVE_SCENE_BY_SHOT_AND_TIME = {
     for shot, options in _SEDUCTIVE_SCENE_BY_SHOT.items()
 }
 
+_NO_OUTFIT_MIST_SCENE_BY_SHOT = {
+    "head_shot": (
+        "环境光设定：冷紫主光穿过薄雾形成丁达尔光束，淡粉补光落在狐狸眼、鼻梁、湿润唇峰和脸侧黑色手指甲上，幽蓝镜面反射压暗背景，深夜雾感镜面房头部近景",
+        "环境光设定：幽蓝水汽柔光包住背景，侧后方冷紫轮廓光勾出黑发，淡粉低位光点亮嘴唇和下颌线，雾面玻璃浴室头部近景",
+        "环境光设定：淡粉霓虹柔光透过纱帘和迷雾，冷紫边缘光贴住发丝，幽蓝暗部包住脸侧，只让眼神、鼻梁和唇峰清楚，卧室头部近景",
+        "环境光设定：冷紫侧光穿过纱帐烟雾形成细小丁达尔光束，淡粉烛光照亮眼尾、鼻梁和湿润嘴唇，屏风和宫灯被薄雾柔化，古代夜宴寝殿头部近景",
+        "环境光设定：正午天光被深色窗帘压暗，只有一束月白窄光落在眼尾、鼻梁和唇峰，背景退成银蓝灰色块，室内头部近景",
+        "环境光设定：黄昏金橙侧逆光穿过薄雾，脸侧和发丝边缘有暖金轮廓，暗部保留淡粉反光，露台头部近景",
+        "环境光设定：森林湖边的冷白晨雾压暗背景，湖面银蓝反光只托亮眼睛、下颌线和黑色手指甲，雾林头部近景",
+    ),
+    "half_body": (
+        "环境光设定：冷紫光束从侧后方穿过薄雾形成丁达尔光，淡粉低位光照亮脸、锁骨、手指和细腰，黑色镜面和湿润地面反出幽蓝暗光，深夜镜面暗房半身场景",
+        "环境光设定：淡粉柔光贴着肩颈和腰线，粉紫雾光从半透明纱帘后扩散，幽蓝暗部压住空间边缘，床边迷雾半身场景",
+        "环境光设定：幽蓝镜前光照亮眼神、锁骨和腰线，冷紫湿光穿过水汽和雾面玻璃，淡粉反光落在黑色手指甲上，浴室半身场景",
+        "环境光设定：蓝紫灯带和低雾压低背景，冷紫轮廓光勾出发丝和肩颈，淡粉窄光照亮嘴唇、锁骨和细腰，地下霓虹酒廊半身场景",
+        "环境光设定：冷紫窗光穿过香炉烟雾形成丁达尔光束，淡粉烛光照亮脸、锁骨、手指和细腰，屏风、铜镜和纱帐围住人物，古代纱帐寝殿半身场景",
+        "环境光设定：幽蓝湖面反光从窗外映入，冷紫边缘光擦过腰线，淡粉灯笼光落在脸、肩颈和手指，薄雾纱帘柔化雕花窗，古代船舫夜雾半身场景",
+        "环境光设定：正午玻璃温室被镜头压低曝光，强天光只切到脸、锁骨和手指，背景绿植退成深绿虚化，半身场景",
+        "环境光设定：黄昏暗红窗帘和暖金侧光围住人物，淡粉反光落在锁骨和腰线，房间角落压成深色，半身场景",
+        "环境光设定：雨后庭院的湿石板反出银蓝暗光，薄雾停在背景植物之间，冷白窄光照亮脸、肩颈和手指，半身场景",
+    ),
+    "full_body": (
+        "环境光设定：冷紫光束从侧后方穿过低雾形成丁达尔光，淡粉低位光沿脸、腰线、长腿和裸足边缘滑过，幽蓝镜面反光铺在湿润地面，深夜镜面房全身场景",
+        "环境光设定：冷紫轮廓光勾出完整身形，淡粉反光照亮腰线、腿部和脚尖，幽蓝水汽柔光包住雾面玻璃和暗色瓷砖，玻璃浴室全身场景",
+        "环境光设定：淡粉霓虹柔光沿脸、细腰、长腿和裸足滑过，粉紫灯带穿过床边低雾，幽蓝暗部压低房间边缘，卧室全身场景",
+        "环境光设定：蓝紫灯带穿过低雾，冷紫边缘光切出肩线、腰背、腿部和脚部落点，淡粉壁灯落在黑色镜面地面反光里，地下酒廊全身场景",
+        "环境光设定：冷紫窗光穿过香炉烟雾形成丁达尔光束，淡粉烛光沿脸、腰线、腿部和裸足滑过，屏风、铜镜、纱帐和暗色木地板完整入景，古代纱帐寝殿全身场景",
+        "环境光设定：幽蓝湖面反光穿过薄雾纱帘，冷紫月光勾出完整身形，淡粉灯笼光照亮腰线、长腿和脚部落点，雕花窗和木质甲板完整入景，古代船舫夜雾全身场景",
+        "环境光设定：黄昏沙丘背景被压暗成琥珀色层次，金橙侧逆光沿腰线、长腿和裸足滑过，脚边有低雾和细沙反光，全身场景",
+        "环境光设定：正午泳池强反光被遮阳棚压柔，湖蓝水光只落在腰线、腿部和脚踝，背景欠曝虚化，全身场景",
+        "环境光设定：夜晚森林木栈道铺着低雾，银蓝月光勾出完整身形，淡粉小灯只照亮脸、腰线和裸足边缘，全身场景",
+    ),
+}
+
 _DAY_SCENE_MARKERS = ("清晨", "正午", "下午", "晨光", "天光", "暖白斜光", "泳池边", "玻璃温室", "阳光房")
 _SUNSET_SCENE_MARKERS = ("黄昏", "落日", "晚霞", "金橙")
-_NIGHT_SCENE_MARKERS = ("深夜", "夜景", "夜色", "暗光", "暗房", "霓虹", "灯带", "月色")
+_NIGHT_SCENE_MARKERS = ("深夜", "夜景", "夜色", "夜店", "暗光", "暗房", "霓虹", "灯带", "月色", "射灯", "紫色烟雾")
 
 _SEDUCTIVE_QUALITY_BY_TIME = {
     "day": (
@@ -972,12 +1007,14 @@ _SEDUCTIVE_POSE_BY_SHOT = {
         "肩颈侧转靠近镜头，手指从颈侧滑到锁骨，眼神微眯俯视镜头，嘴角轻轻上扬",
         "身体靠在窗边向前倾，左手停在肩膀旁边，黑色指甲清楚，头部低垂后抬眼看镜头",
         "半身向前俯近镜头，肩颈压低，舌头向下伸出很多，嘴唇微张，眼神上翻后再直视镜头，黑色手指甲停在胸前衣料边缘，挑逗感集中在眼神和舌头",
+        "人物侧坐在吧台高脚椅上，上身前倾靠近黑色吧台，左前臂压在吧台边缘，右手举着威士忌杯停在脸侧，肩膀转向镜头，腰臀向画面右下方延伸，头部回望镜头，嘴角轻轻上扬",
     ),
     "half_body": (
         "半身斜靠支撑面，左手停在胸前衣料边缘展示黑色手指甲，右手压在腰侧，头部从发丝间俯视镜头，嘴唇微开",
         "腰部向一侧压出S形曲线，手指停在裙腰或腰侧边缘，眼神斜看镜头，舌尖轻轻探出碰到唇角",
         "身体前倾靠近镜头，左手停在锁骨下方，右手压在大腿上，肩颈和细腰向后拉开，嘴角轻轻上扬",
         "半身向镜头前倾，腰线向一侧压出S形，舌头明显向下伸出，眼睛半睁带阿黑颜式挑逗感，左手停在胸前衣料边缘，右手停在腰侧",
+        "人物侧坐在吧台高脚椅上，上身前倾靠近黑色吧台，左前臂压在吧台边缘，右手举着威士忌杯停在脸侧，肩膀转向镜头，腰臀向画面右下方延伸，头部回望镜头，眼神直视镜头",
     ),
     "half_body": (
         "镜头从膝盖高度略微仰拍，膝盖靠近画面下缘，左手停在大腿上，身体向后展开，头部低垂俯视镜头，眼神微眯",
@@ -990,21 +1027,22 @@ _SEDUCTIVE_POSE_BY_SHOT = {
         "人物跪坐并向镜头前倾，一只裸足停在画面下缘前景，左手停在大腿上，腰背弯成S形曲线，嘴唇微开",
         "身体侧躺在暗色地面或床边，一只脚掌和脚尖靠近镜头，足弓侧面清楚，头部回望镜头，嘴角轻轻上扬",
         "人物站在低机位镜头上方，双腿前后错开，脚尖贴近画面前缘，左手停在大腿上，头部微低俯视镜头",
-        "人物低机位全身入镜，双腿前后错开，脚尖落在画面下缘，身体向前压近镜头，舌头向下伸出很多，眼神半睁带阿黑颜式挑逗感，左手扶腰，右手贴在大腿上",
-        "人物坐在床沿前缘，上身后靠，双腿向画面下方斜向延展，裸足落地，舌头明显向下伸出，眼睛半睁直视镜头，黑色手指甲停在脚踝旁",
-        "人物侧身倚靠墙面，腰线向外推成S形，一腿承重一腿伸直点地，舌头向下伸出很多，头部微低俯视镜头，左手扶住腰线，右手沿大腿下滑",
+        "人物低机位全身入镜，双腿前后错开，脚尖落在画面下缘，身体向前压近镜头，眼神半睁直视镜头，左手扶腰，右手贴在大腿上",
+        "人物坐在床沿前缘，上身后靠，双腿向画面下方斜向延展，裸足落地，眼睛半睁直视镜头，黑色手指甲停在脚踝旁",
+        "人物侧身倚靠墙面，腰线向外推成S形，一腿承重一腿伸直点地，头部微低俯视镜头，左手扶住腰线，右手沿大腿下滑",
     ),
 }
 
 _SEDUCTIVE_LANDSCAPE_POSE_BY_SHOT = {
     "half_body": (
         "身体横向斜靠在床边或暗色地面上，左手停在胸前衣料边缘，右手停在腰侧，大腿沿画面宽度延伸，头部侧偏看向镜头，嘴唇微开",
-        "人物侧躺靠近镜头，左手停在大腿上，黑色指甲清楚，大腿从前景斜向后延伸，头部从发丝间回望镜头",
+        "人物侧躺靠近镜头，左手停在大腿上，黑色指甲清楚，大腿从前景斜向后延伸，头部从发丝间回望镜头，眼神半睁直视镜头",
+        "人物斜坐在画面一侧，上身沿宽画幅向后靠，左手停在大腿上，右手停在腰侧，肩线和大腿沿横向展开，头部回望镜头，嘴唇微开",
     ),
     "full_body": (
         "身体侧躺在暗色地面或床边，一只脚掌和脚尖靠近镜头，足弓侧面清楚，头部回望镜头，嘴角轻轻上扬",
         "人物横向趴伏在床边，左手停在肩膀旁边，双腿沿画面宽度拉开，脚尖停在一侧前景，头部侧转看向镜头",
-        "人物横向侧躺靠近镜头，左手停在大腿上，双腿沿宽画幅展开，头部抬起看向镜头，舌头向下伸出很多，半睁眼带阿黑颜式挑逗感",
+        "人物横向侧躺靠近镜头，左手停在大腿上，双腿沿宽画幅展开，头部抬起看向镜头，半睁眼直视镜头",
     ),
 }
 
@@ -1020,8 +1058,8 @@ _BOLD_NO_OUTFIT_POSE_BY_SHOT = {
         "人物侧躺在床边或暗色地面上，上身以前臂支撑，双腿沿画面斜向拉开，脚尖指向画面边缘，腰线被侧躺姿态拉长，头部回望镜头，嘴角带危险浅笑",
         "人物从门框边向镜头迈步，前脚落在画面下缘，后腿拉长，身体略微前倾，双腿形成窄长比例，一只手扶住门框，另一只手停在腰侧，眼神向下俯视镜头",
         "人物站在镜面暗房中央，脚尖轻轻交叉落地，腰背微微反弓，双臂在头侧和腰侧形成对角线，黑发垂向一侧，头部后仰后垂眸看向镜头，眼神直视镜头",
-        "人物站在低机位镜头前方，前脚落在画面下缘，后腿拉长，身体向前倾，舌头向下伸出很多，眼神半睁带阿黑颜式挑逗感，左手压在大腿上，右手扶住腰线",
-        "人物坐在床沿前缘，上身后靠，裸足自然落地，双腿斜向画面下方延展，舌头明显向下伸出，眼睛半睁直视镜头，黑色手指甲停在脚背旁",
+        "人物站在低机位镜头前方，前脚落在画面下缘，后腿拉长，身体向前倾，眼神半睁直视镜头，左手压在大腿上，右手扶住腰线",
+        "人物坐在床沿前缘，上身后靠，裸足自然落地，双腿斜向画面下方延展，眼睛半睁直视镜头，黑色手指甲停在脚背旁",
     ),
 }
 
@@ -1031,10 +1069,13 @@ _BOLD_NO_OUTFIT_LANDSCAPE_POSE_BY_SHOT = {
         "人物斜坐在宽画幅前缘，上身后靠，双腿一曲一伸向侧方展开，双手撑在身后，腰线和腿线被横向画幅拉开",
         "人物沿沙发或床沿横向倚靠，一手穿过长发，一手停在腰侧，双腿斜向延展，脚部落在画面边缘，头部侧转看向镜头",
         "人物横向俯身以前臂支撑，上身压低，膝部稳定落点，臀线抬高，头部从发丝间回望镜头，腿线沿宽画幅展开",
-        "人物横向侧躺在床边或暗色地面上，双腿沿宽画幅斜向展开，头部抬起看向镜头，舌头向下伸出很多，眼神半睁带挑逗感，左手摸到脚背旁，右手停在腰侧",
+        "人物横向侧躺在床边或暗色地面上，双腿沿宽画幅斜向展开，头部抬起看向镜头，眼神半睁直视镜头，左手摸到脚背旁，右手停在腰侧",
     ),
 }
 
+_BAR_COUNTER_HALF_BODY_POSE = "人物侧坐在吧台高脚椅上，上身前倾靠近黑色吧台，左前臂压在吧台边缘，右手举着威士忌杯停在脸侧，肩膀转向镜头，腰臀向画面右下方延伸，头部回望镜头，眼神直视镜头，嘴角轻轻上扬"
+_BAR_COUNTER_MIST_SCENE = "环境光设定：夜店吧台后方大团紫色烟雾被冷紫逆光照亮，右后方红色射灯切过暗部，幽蓝霓虹散景包住背景，黑色湿润吧台从左下角斜向延伸，前景酒瓶和玻璃杯虚化反光，淡粉补光落在脸、锁骨和手指上"
+_BAR_COUNTER_BOLD_OUTFIT = "夜店吧台半身造型，黑色细带亮钻胸衣配银色身体链，锁骨链、手链、臂环和腰链在紫色灯光下反光，关键部位由黑色布料完整覆盖，肩颈、胸线边缘和细腰成为视觉重点"
 
 def strengthen_seductive_scene_and_pose(
     parts: dict[str, str],
@@ -1052,10 +1093,11 @@ def strengthen_seductive_scene_and_pose(
     )
     digest = hashlib.sha1(f"{scale}|{shot}|{aspect}|{seed_text}".encode("utf-8")).hexdigest()
 
-    scene_options = _SEDUCTIVE_SCENE_BY_SHOT.get(shot)
+    has_bar_context = shot == "half_body" and any(marker in seed_text for marker in ("吧台", "威士忌杯", "夜店吧台"))
+    scene_options = _NO_OUTFIT_MIST_SCENE_BY_SHOT.get(shot)
     if scene_options:
         time_name = scene_time if scene_time in _SEDUCTIVE_SCENE_TIMES else _SEDUCTIVE_SCENE_TIMES[int(digest[34:42], 16) % len(_SEDUCTIVE_SCENE_TIMES)]
-        timed_scene_options = _SEDUCTIVE_SCENE_BY_SHOT_AND_TIME.get(shot, {}).get(time_name) or scene_options
+        timed_scene_options = scene_options
         scene = timed_scene_options[int(digest[:8], 16) % len(timed_scene_options)]
         if scale == "bold_no_outfit":
             scene = scene.replace("胸前衣料边缘和", "").replace("裙腰或", "")
@@ -1076,8 +1118,19 @@ def strengthen_seductive_scene_and_pose(
             else _SEDUCTIVE_POSE_BY_SHOT.get(shot)
         )
     if not pose_options and scale != "nsfw":
-        pose_options = _SEDUCTIVE_POSE_BY_SHOT.get(shot)
+        pose_options = (
+            _SEDUCTIVE_LANDSCAPE_POSE_BY_SHOT.get(shot)
+            if aspect == "landscape"
+            else _SEDUCTIVE_POSE_BY_SHOT.get(shot)
+        )
     if pose_options:
+        if time_name in {"morning", "noon", "afternoon"}:
+            non_night_pose_options = tuple(
+                option
+                for option in pose_options
+                if not any(marker in option for marker in ("吧台", "威士忌杯", "夜店"))
+            )
+            pose_options = non_night_pose_options or pose_options
         tongue_options = tuple(
             option
             for option in pose_options
@@ -1090,6 +1143,13 @@ def strengthen_seductive_scene_and_pose(
         if scale == "bold_no_outfit":
             pose = pose.replace("裙腰或", "").replace("衣料边缘", "锁骨下方")
         strengthened["pose_expression"] = pose
+        if has_bar_context:
+            pose = _BAR_COUNTER_HALF_BODY_POSE
+            strengthened["pose_expression"] = pose
+        if has_bar_context or (time_name in {"sunset", "night"} and ("吧台" in pose or "威士忌杯" in pose)):
+            strengthened["scene_light"] = _BAR_COUNTER_MIST_SCENE
+            if scale == "bold":
+                strengthened["outfit"] = _BAR_COUNTER_BOLD_OUTFIT
 
     quality = str(strengthened.get("quality") or "")
     scene_time = _seductive_scene_time(str(strengthened.get("scene_light") or ""))
@@ -1142,6 +1202,32 @@ def _dedupe_clauses(text: str) -> str:
     return "，".join(deduped)
 
 
+def _remove_brow_focus_language(text: str) -> str:
+    cleaned = str(text or "")
+    replacements = (
+        ("从眉眼下方抬眸", "低头后抬眸"),
+        ("从眉眼下方盯住镜头", "低头后盯住镜头"),
+        ("从眉眼下方看向镜头", "低头后看向镜头"),
+        ("从眉眼下方", "低头后"),
+        ("眉心", "眼神"),
+        ("眉间", "眼神"),
+        ("额心", "额头"),
+        ("额间", "额头"),
+        ("印堂", "额头"),
+        ("眉眼下方", "眼睛下方"),
+        ("眉峰轻轻上扬", "眼神微微上挑"),
+        ("眉峰上扬", "眼神微微上挑"),
+        ("眉毛自然舒展", "眼神自然放松"),
+        ("侧上方窄光切过眉眼和唇峰", "侧上方窄光切过眼尾和唇峰"),
+        ("窄光切过眉眼", "窄光切过眼尾"),
+        ("眉眼", "眼睛"),
+    )
+    for source, replacement in replacements:
+        cleaned = cleaned.replace(source, replacement)
+    cleaned = re.sub(r"，{2,}", "，", cleaned)
+    return cleaned.strip("，。 \n\t")
+
+
 def _clean_instantiated_prompt_artifacts(text: str) -> str:
     cleaned = str(text or "")
     replacements = (
@@ -1177,6 +1263,11 @@ def _clean_instantiated_prompt_artifacts(text: str) -> str:
         ("嘴唇闭合，嘴唇轻闭", "嘴唇轻闭"),
         ("双手，顺着肩颈和腰线形成柔和宽幅曲线", "双手顺着肩颈和腰线形成柔和宽幅曲线"),
         ("画面呈现强烈诱惑的完整身体外轮廓", "身体外轮廓完整，姿态更贴近镜头"),
+        ("整体像安静观影前的生活方式写真", "白色纸杯和红色座椅形成安静观影前的画面"),
+        ("整体像轻松玩闹中的抓拍", "发丝贴着肩侧晃动，嘴角带浅淡笑意"),
+        ("整体像克制的艺术写真坐姿", "双手遮在裙摆前方，眼神安静"),
+        ("像生活方式杂志写真", "衣着干净，姿态自然"),
+        ("画面有时尚杂志式的松弛感", "人物姿态自然，衣料边缘有柔和高光"),
         ("头部近景，嘴唇微开靠近镜头前景，形成轻微近大远小效果", "嘴唇微开靠近镜头前景，形成轻微近大远小效果"),
         ("头部近景，手指从画面前景靠近唇边", "手指停在脸侧或耳侧发丝旁"),
         ("嘴角带浅淡微笑式的眼神斜看镜头", "嘴角轻轻上扬，眼神斜看镜头"),
@@ -1224,7 +1315,7 @@ def _clean_instantiated_prompt_artifacts(text: str) -> str:
         ("让整个空间充满浪漫的氛围", "让窗边空间呈现柔和暖色层次"),
         ("整幅画面时尚而惬意", "画面有时尚杂志式的松弛感"),
         ("上次，使用", "上次使用"),
-        ("眼神带挑逗", "眼神直视镜头"),
+        ("眼神带挑逗", "眼神半睁，直视镜头"),
         ("嫌弃挑衅", "眼神斜看镜头"),
         ("危险浅笑", "嘴角轻轻上扬"),
         ("嘴角带俏皮坏笑", "嘴角轻轻上扬"),
@@ -1251,6 +1342,13 @@ def _clean_instantiated_prompt_artifacts(text: str) -> str:
         ("肩颈显得俏皮又危险地靠近", "肩颈向镜头靠近"),
         ("大腿线条在金色光晕中显得修长", "金色光晕沿大腿线条延伸"),
         ("显得修长", "线条拉长"),
+        ("双肩线条成为下方重点", "双肩线条落在画面下方"),
+        ("颈侧和肩颈显得柔美细腻", "颈侧和肩线有柔和侧光"),
+        ("姿态显得从容", "肩线放松，身体微侧"),
+        ("整个人显得高挑轻盈", "身体线条高挑，步伐轻快"),
+        ("脸上是，", "眼睛明亮直视镜头，"),
+        ("嘴角是清楚可见的浅淡微笑", "嘴角带浅淡微笑"),
+        ("嘴角有浅淡微笑", "嘴角带浅淡微笑"),
         ("目光直视镜头表情自然明亮", "目光直视镜头，表情自然明亮"),
         ("表情慵懒放松嘴角，带着满足的浅笑", "表情放松，嘴角带浅淡笑意"),
         ("唇边，带着一丝若有若无的笑意", "唇边带浅淡笑意"),
@@ -1261,9 +1359,24 @@ def _clean_instantiated_prompt_artifacts(text: str) -> str:
         ("横向构图中半身伏低靠近镜头", "半身伏低靠近镜头"),
         ("横向构图两侧", "画面两侧"),
         ("肩线在横向构图两侧完整展开", "肩线向画面两侧展开"),
+        ("人物仰躺在画面中央，双臂和双腿向四周展开，四肢向画面四周展开", "人物仰躺在画面中央，双臂和双腿向四周展开"),
+        ("头部微微后仰露出完整的颈线目光", "头部微微后仰露出颈线，目光"),
+        ("头部微转向一侧露出颈部的线条目光", "头部微转向一侧露出颈部线条，目光"),
+        ("侧对镜头头部转向镜头方向下巴", "侧对镜头，头部转向镜头方向，下巴"),
+        ("面向镜头略侧头左手", "面向镜头略侧头，左手"),
+        ("面向镜头头部微微侧向一边双手", "面向镜头，头部微微侧向一边，双手"),
+        ("身体横向展开在画面中头部", "身体横向展开在画面中，头部"),
+        ("嘴角，带着自然的笑意", "嘴角带自然笑意"),
+        ("嘴唇，带着自然放松的弧度", "嘴唇微开"),
+        ("带着自然的笑意直视镜头", "嘴角带自然笑意，直视镜头"),
+        ("目光看向镜头方向嘴角", "目光看向镜头方向，嘴角"),
+        ("表情轻松带一丝微笑眼角弯起", "表情轻松，眼角弯起，嘴角带浅淡笑意"),
+        ("头部转向镜头左手", "头部转向镜头，左手"),
+        ("头发铺散在脸侧和头下闭眼", "头发铺散在脸侧和头下，闭眼"),
     )
     for source, replacement in replacements:
         cleaned = cleaned.replace(source, replacement)
+    cleaned = _remove_brow_focus_language(cleaned)
     cleaned = re.sub(r"空气中[^，。]*(?:气息|花香|水声|回响)[，。]?", "", cleaned)
     cleaned = re.sub(r"空气中充满[^，。]*[，。]?", "", cleaned)
     cleaned = re.sub(r"空气里弥漫[^，。]*(?:气息|花香|水声|回响)[，。]?", "", cleaned)
@@ -1627,6 +1740,8 @@ def _normalize_bold_outfit_coverage(text: str, shot: str) -> str:
         outfit = outfit.replace(source, replacement)
     outfit = re.sub(r"裸露|全裸|露点|乳头|胸点|私处|裆部", "衣料覆盖", outfit)
     outfit = re.sub(r"，{2,}", "，", outfit).strip("，、 \n\t")
+    if any(marker in outfit for marker in ANCIENT_OUTFIT_MARKERS):
+        return outfit
     color_match = re.search(
         r"(珊瑚粉|湖蓝|海蓝|玫瑰粉|亮橙|柠檬黄|薄荷绿|蜜桃橙|浅紫|薰衣草紫|苹果绿|西瓜红|蓝绿色|樱桃粉|孔雀蓝|橘粉|青柠绿|番茄红|晴空蓝)",
         outfit,
@@ -2337,6 +2452,8 @@ _VAGUE_PROMPT_REPLACEMENTS = (
 def strengthen_expression(parts: dict[str, str], scale: str, rng: random.Random | None = None) -> dict[str, str]:
     strengthened = dict(parts)
     pose = str(strengthened.get("pose_expression") or "")
+    if _text_has_any(pose, ("双女", "两名女性", "接吻")):
+        return strengthened
     for source, replacement in _FLAT_EXPRESSION_REPLACEMENTS:
         pose = pose.replace(source, replacement)
 
@@ -2357,6 +2474,8 @@ def strengthen_expression(parts: dict[str, str], scale: str, rng: random.Random 
 def order_pose_before_expression(parts: dict[str, str]) -> dict[str, str]:
     ordered = dict(parts)
     pose = str(ordered.get("pose_expression") or "")
+    if _text_has_any(pose, ("双女", "两名女性", "接吻")):
+        return ordered
     clauses = _clauses(pose.replace("；", "，"))
     if len(clauses) < 3:
         return ordered
@@ -2517,6 +2636,11 @@ def score_prompt_parts(parts: dict[str, str], scale: str, shot: str, aspect: str
     concrete_light_hits = sum(1 for marker in _CONCRETE_LIGHT_MARKERS if marker in quality_scene_text)
     photo_natural_hits = sum(1 for marker in _PHOTOGRAPHIC_MARKERS if marker in text)
     tension_hits = sum(1 for marker in _TENSION_MARKERS if marker in pose_text)
+    double_girl_contact_hits = sum(
+        1
+        for marker in ("双女", "两名女性", "接吻", "身体正面贴近", "上衣被手指向上提起")
+        if marker in pose_text
+    )
     if scale in {"bold", "bold_no_outfit", "nsfw"}:
         score += 10 if concrete_light_hits >= 2 else concrete_light_hits * 3
     else:
@@ -2524,6 +2648,8 @@ def score_prompt_parts(parts: dict[str, str], scale: str, shot: str, aspect: str
     score += min(12, photo_natural_hits * 4)
     if scale in {"bold", "bold_no_outfit", "nsfw"}:
         score += min(14, tension_hits * 3)
+    if scale == "nsfw" and double_girl_contact_hits >= 3:
+        score += 18
     generic_quality_hits = sum(text.count(marker) for marker in _GENERIC_QUALITY_MARKERS)
     repeated_soft_words = sum(max(0, text.count(marker) - 2) for marker in ("高级", "质感", "光泽", "完整", "清楚", "冷白"))
     score -= generic_quality_hits * 2

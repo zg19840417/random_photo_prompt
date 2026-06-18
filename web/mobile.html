@@ -1352,6 +1352,7 @@
       sessionOnly: false,
       customPrompt: "",
       customResolution: "",
+      customPromptSource: "",
       sourceImage: null,
       videoActionNonce: 0,
       waterfallCols: 4,
@@ -1574,8 +1575,9 @@
           videoCount: currentVideoCount(),
           videoFps: videoFpsSelect.value,
           videoSeconds: videoSecondsSelect.value,
-          customPrompt: state.customPrompt,
-          customResolution: state.customResolution,
+          customPrompt: state.customPromptSource === "manual" ? state.customPrompt : "",
+          customResolution: state.customPromptSource === "manual" ? state.customResolution : "",
+          customPromptSource: state.customPromptSource === "manual" ? "manual" : "",
           videoAction: videoActionInput.value,
           sourceFilename: state.sourceImage?.filename || ""
         }));
@@ -1610,8 +1612,9 @@
         if (settings.videoCount) setVideoCount(settings.videoCount);
         if (optionExists(videoFpsSelect, settings.videoFps)) setSelectValue(videoFpsSelect, settings.videoFps);
         if (optionExists(videoSecondsSelect, settings.videoSeconds)) setSelectValue(videoSecondsSelect, settings.videoSeconds);
-        state.customPrompt = String(settings.customPrompt || "");
-        state.customResolution = String(settings.customResolution || "");
+        state.customPromptSource = settings.customPromptSource === "manual" ? "manual" : "";
+        state.customPrompt = state.customPromptSource === "manual" ? String(settings.customPrompt || "") : "";
+        state.customResolution = state.customPromptSource === "manual" ? String(settings.customResolution || "") : "";
         updateCustomPromptButton();
         if (settings.videoAction) videoActionInput.value = settings.videoAction;
         if (settings.sourceFilename) {
@@ -1626,7 +1629,8 @@
     function updateCustomPromptButton() {
       const active = Boolean(state.customPrompt.trim());
       customPromptButton.classList.toggle("active", active);
-      customPromptButton.textContent = active ? `已填入提示词${state.customResolution ? ` ${state.customResolution}` : ""}` : "填入提示词";
+      const label = state.customPromptSource === "pregenerated" ? "已生成提示词" : "已填入提示词";
+      customPromptButton.textContent = active ? `${label}${state.customResolution ? ` ${state.customResolution}` : ""}` : "填入提示词";
       copyCustomPrompt.disabled = !active;
     }
 
@@ -1663,6 +1667,7 @@
         const resolution = data.resolution || (data.width && data.height ? `${data.width}x${data.height}` : "");
         state.customPrompt = prompt;
         state.customResolution = String(resolution || "");
+        state.customPromptSource = "pregenerated";
         customPromptText.value = prompt;
         ensureSelectOption(customPromptResolution, state.customResolution);
         setSelectValue(customPromptResolution, state.customResolution);
@@ -3005,6 +3010,7 @@
     customPromptClear.addEventListener("click", () => {
       state.customPrompt = "";
       state.customResolution = "";
+      state.customPromptSource = "";
       customPromptText.value = "";
       setSelectValue(customPromptResolution, "");
       updateCustomPromptButton();
@@ -3015,6 +3021,7 @@
     customPromptOk.addEventListener("click", () => {
       state.customPrompt = customPromptText.value.trim();
       state.customResolution = customPromptResolution.value;
+      state.customPromptSource = state.customPrompt ? "manual" : "";
       updateCustomPromptButton();
       saveSettings();
       closePromptDialog();
@@ -3582,8 +3589,9 @@
             zib_model: ["zib_single", "zitb_double"].includes(workflowSelect.value) ? zibModelSelect.value : "",
             lora_name: loraNameSelect.value,
             lora_strength: loraStrengthInput.value,
-            custom_prompt: state.customPrompt.trim(),
-            custom_resolution: state.customResolution,
+            custom_prompt_source: state.customPromptSource,
+            custom_prompt: state.customPromptSource === "manual" ? state.customPrompt.trim() : "",
+            custom_resolution: state.customPromptSource === "manual" ? state.customResolution : "",
             count
           };
     }

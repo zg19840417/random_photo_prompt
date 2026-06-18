@@ -413,11 +413,14 @@
       "shot": "半身像",
       "use_pregenerated_prompt": false,
       "auto_resolution": true,
-      "cached_prompt": "腰部以上近景半身像，脸部、肩颈、锁骨、胸线边缘、细腰和手部同时清楚，画面下缘严格停在腰部。\n固定冷白皮22岁k-pop韩国女星，脸部精致狭长，浅棕美瞳湿润，黑色齐胸直发顺直贴着肩颈，锁骨、胸前上缘和纤细腰线完整入镜，手指修长且指甲为黑色。\n成人镜前水光妆，底妆水润贴肤，眼周浅棕晕染集中在眼尾，浅棕美瞳有近距离反光，睫毛根根清楚，纤薄唇形带自然粉润亮泽，鼻梁高光和下颌阴影干净，纤薄原生唇形，透明无色水光，浅粉自然唇色。\n半身像，头部贴近肩侧回眸，半睁狐眼斜视镜头充满挑逗，嘴唇闭合湿亮，嘴角带轻蔑坏笑，上半身三分之二侧转，黑发垂在胸前边缘形成自然遮挡，双手停在腰线两侧轻轻按压，腰线凹陷明显。\n私房浴缸半身场景，暖光从水面反射照亮湿润的脸、肩颈和胸前边缘。\n真实写真质感，人物主体清晰，面部锐利，肤质细腻真实，电影感光影high-end editorial portrait, best quality, ultra detailed。，半身构图，头部到腰部或部分大腿完整保留，双手和上身姿势完整",
-      "cached_signature": "mobile-logic-v1|三档|半身像",
+      "cached_prompt": "",
+      "cached_signature": "",
       "cached_aspect": "portrait",
       "预生成提示词": null,
-      "反推提示词": null
+      "反推提示词": null,
+      "era": "现代",
+      "cached_negative_prompt": "",
+      "cached_prompt_source": ""
     },
     "class_type": "RandomPhotoPrompt",
     "_meta": {
