@@ -212,9 +212,9 @@ PART_LENGTH_BUDGETS = {
     "character": 200,
     "makeup": 74,
     "outfit": 130,
-    "pose_expression": 155,
-    "scene_light": 170,
-    "quality": 120,
+    "pose_expression": 220,
+    "scene_light": 210,
+    "quality": 130,
 }
 
 SHOT_ALIASES = {

@@ -4,6 +4,7 @@ import signal
 import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -13,6 +14,8 @@ MAIN = ROOT / "main.py"
 PID_FILE = ROOT / "comfyui-8188.pid"
 LOG_FILE = ROOT / "comfyui-codex.log"
 ERR_FILE = ROOT / "comfyui-codex.err.log"
+STARTUP_ATTEMPTS = int(os.environ.get("RPP_MAC_LOCAL_STARTUP_ATTEMPTS", "3"))
+STARTUP_WAIT_SECONDS = int(os.environ.get("RPP_MAC_LOCAL_STARTUP_WAIT_SECONDS", "45"))
 
 
 def running(pid):
@@ -84,19 +87,32 @@ def main():
         "8188",
         "--disable-api-nodes",
     ]
-    with LOG_FILE.open("ab", buffering=0) as stdout, ERR_FILE.open("ab", buffering=0) as stderr:
-        process = subprocess.Popen(
-            args,
-            cwd=str(ROOT),
-            stdin=subprocess.DEVNULL,
-            stdout=stdout,
-            stderr=stderr,
-            env=env,
-            start_new_session=True,
-        )
-    PID_FILE.write_text(str(process.pid))
-    print(process.pid)
-    return 0
+    for attempt in range(1, max(1, STARTUP_ATTEMPTS) + 1):
+        with LOG_FILE.open("ab", buffering=0) as stdout, ERR_FILE.open("ab", buffering=0) as stderr:
+            process = subprocess.Popen(
+                args,
+                cwd=str(ROOT),
+                stdin=subprocess.DEVNULL,
+                stdout=stdout,
+                stderr=stderr,
+                env=env,
+                start_new_session=True,
+            )
+        PID_FILE.write_text(str(process.pid))
+        print(process.pid)
+        for _ in range(max(1, STARTUP_WAIT_SECONDS * 2)):
+            if process.poll() is not None:
+                PID_FILE.unlink(missing_ok=True)
+                break
+            if port_listening():
+                return 0
+            time.sleep(0.5)
+        if port_listening() and running(process.pid):
+            return 0
+        if process.poll() is None:
+            return 0
+        print(f"local comfyui startup retry {attempt}/{STARTUP_ATTEMPTS}", file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":

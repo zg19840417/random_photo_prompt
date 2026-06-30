@@ -57,7 +57,7 @@ def build_negative_prompt(
         _append_negative_terms(terms, ("cropped feet", "missing feet", "feet out of frame"))
     if _text_has_any(source, ("笑", "微笑", "大笑", "俏皮", "坏笑")):
         _append_negative_terms(terms, ("flat expression", "blank expression", "emotionless face"))
-    if _text_has_any(source, ("泳池", "沙滩", "海边", "阳光", "晴空")):
+    if scale == "normal" and _text_has_any(source, ("泳池", "沙滩", "海边", "阳光", "晴空")):
         _append_negative_terms(terms, ("dark gloomy lighting", "night scene", "low-key dark room"))
     if scale == "normal":
         _append_negative_terms(terms, ("nudity", "lingerie", "transparent underwear"))
@@ -202,7 +202,7 @@ def build_chinese_negative_prompt(
         _append_negative_terms(terms, ("脚部裁切", "缺脚", "脚在画面外"))
     if _text_has_any(source, ("笑", "微笑", "大笑", "俏皮", "坏笑")):
         _append_negative_terms(terms, ("表情呆板", "空洞表情", "面无表情"))
-    if _text_has_any(source, ("泳池", "沙滩", "海边", "阳光", "晴空")):
+    if scale == "normal" and _text_has_any(source, ("泳池", "沙滩", "海边", "阳光", "晴空")):
         _append_negative_terms(terms, ("阴暗光线", "夜景", "低调暗房"))
     if scale == "normal":
         _append_negative_terms(terms, ("裸体", "内衣", "透明内衣"))

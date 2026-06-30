@@ -17,7 +17,7 @@ MOBILE_CUSTOM_RESOLUTION_PRESETS = {
     "1216x1664": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": ""},
     "1920x1280": {"aspect": "landscape", "width": 1920, "height": 1280, "framing": ""},
     "1920x1088": {"aspect": "landscape", "width": 1920, "height": 1088, "framing": ""},
-    "1280x1920_head": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": ""},
+    "1344x1792_head": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": ""},
 }
 
 
@@ -63,7 +63,7 @@ def mobile_resolution_for_custom_prompt(prompt_text):
     if any(marker in text for marker in ("半身", "大腿以上", "腰部", "腰线")):
         return clamp_mobile_resolution({"aspect": "portrait", "width": 1216, "height": 1664, "framing": ""})
     if any(marker in text for marker in ("头部", "肩膀及以上", "肩部以上", "脸部特写", "面部特写")):
-        return clamp_mobile_resolution({"aspect": "portrait", "width": 1280, "height": 1920, "framing": ""})
+        return clamp_mobile_resolution({"aspect": "portrait", "width": 1344, "height": 1792, "framing": ""})
     if any(marker in text for marker in ("半身", "肩部以上", "肩部以上", "胸部")):
         return clamp_mobile_resolution({"aspect": "portrait", "width": 1280, "height": 1920, "framing": ""})
     return clamp_mobile_resolution({"aspect": "portrait", "width": 1280, "height": 1920, "framing": ""})

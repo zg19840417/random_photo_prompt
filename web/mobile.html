@@ -1147,6 +1147,7 @@
                   <option value="zit_single" selected>单采-ZIT</option>
                   <option value="zib_single">单采-ZIB</option>
                   <option value="zitb_double">双采-ZIT+ZIB</option>
+                  <option value="redcraft_krea2">单采-RedCraft Krea2</option>
                 </select>
               </label>
               <div id="modelSelectGroup" class="model-select-group">
@@ -1323,7 +1324,7 @@
           <option value="1216x1664">1216 × 1664</option>
           <option value="1920x1280">1920 × 1280</option>
           <option value="1920x1088">1920 × 1088</option>
-          <option value="1280x1920_head">1280 × 1920（头部）</option>
+          <option value="1344x1792_head">1344 × 1792（头部）</option>
         </select>
       </label>
       <div class="confirm-actions prompt-dialog-actions" style="margin-top: 12px;">
@@ -1684,6 +1685,9 @@
 
     function normalizeStoredShot(shot, preset) {
       if (optionExists(shotSelect, shot)) return shot;
+      if (shot === "full_body_portrait" || shot === "full_body_landscape") return "full_body";
+      if (shot === "half_body_portrait" || shot === "half_body_landscape") return "half_body";
+      if (shot === "head_shot_portrait" || shot === "head_shot_landscape") return "head_shot";
       if (shot === "full_body" || shot === "全身") return "full_body";
       if (shot === "half_body" || shot === "半身") return "half_body";
       if (shot === "head_shot" || shot === "头部") return "head_shot";
@@ -1946,15 +1950,15 @@
     }
 
     function updateZitModelOptions(models) {
-      const previous = zitModelSelect.value || "";
+      const previous = zitModelSelect.dataset.pendingValue || zitModelSelect.value || "";
       const options = models.length
         ? models.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
         : ['<option value="">无可用模型</option>'];
       zitModelSelect.innerHTML = options.join("");
-      if (models.length) {
-        setSelectValue(zitModelSelect, models[0]);
-      } else if (optionExists(zitModelSelect, previous)) {
+      if (optionExists(zitModelSelect, previous)) {
         setSelectValue(zitModelSelect, previous);
+      } else if (models.length) {
+        setSelectValue(zitModelSelect, models[0]);
       } else {
         renderCustomSelect(zitModelSelect);
       }
@@ -1962,15 +1966,15 @@
     }
 
     function updateZibModelOptions(models) {
-      const previous = zibModelSelect.value || "";
+      const previous = zibModelSelect.dataset.pendingValue || zibModelSelect.value || "";
       const options = models.length
         ? models.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
         : ['<option value="">无可用模型</option>'];
       zibModelSelect.innerHTML = options.join("");
-      if (models.length) {
-        setSelectValue(zibModelSelect, models[0]);
-      } else if (optionExists(zibModelSelect, previous)) {
+      if (optionExists(zibModelSelect, previous)) {
         setSelectValue(zibModelSelect, previous);
+      } else if (models.length) {
+        setSelectValue(zibModelSelect, models[0]);
       } else {
         renderCustomSelect(zibModelSelect);
       }
@@ -2080,6 +2084,7 @@
     function jobResultState(job) {
       if (!job) return "idle";
       if (job.pollError) return "error";
+      if (job.status === "failed") return "failed";
       if (job.status === "completed") {
         if ((job.images || []).length || (job.videos || []).length) return "ready";
         return "missing";
@@ -2094,10 +2099,12 @@
       const stateName = jobResultState(job);
       if (stateName === "ready") return "已完成，正在入图库";
       if (stateName === "missing") return "已完成，但没有找到结果文件";
+      if (stateName === "failed") return compactRemoteError(job.error || job.statusText || "远端任务已结束，但没有找到结果文件");
       if (stateName === "error") return compactRemoteError(job.pollError || "任务状态读取失败");
       if (stateName === "stale") return "任务已中断，请查看瀑布流";
       if (stateName === "unknown") return "等待结果";
       if (stateName === "pending") return "排队中";
+      if (stateName === "receiving") return "正在接收结果";
       if (stateName === "running") return "生成中";
       return "等待结果";
     }
@@ -2136,6 +2143,8 @@
     function isActiveJob(job) {
       if (!job) return false;
       if (job.status === "stale") return false;
+      if (job.status === "failed") return false;
+      if (job.status === "unknown") return false;
       if (job.status !== "completed") return true;
       return !((job.images || []).length || (job.videos || []).length || job.pollFinalized);
     }
@@ -3469,6 +3478,8 @@
       if (status === "completed") return "已完成";
       if (status === "running") return "生成中";
       if (status === "pending") return "排队中";
+      if (status === "receiving") return "正在接收结果";
+      if (status === "failed") return "未找到结果文件";
       if (status === "stale") return "任务已中断";
       if (status === "unknown") return "等待结果";
       return "等待结果";
@@ -3480,9 +3491,11 @@
       let changed = false;
       for (const job of state.jobs.values()) {
         if (!job?.prompt_id || !isActiveJob(job) || serverIds.has(String(job.prompt_id))) continue;
-        job.status = job.progress?.max > 0 ? "running" : "pending";
-        job.statusText = "等待结果";
-        changed = true;
+        if (job.status !== "receiving") {
+          job.status = "receiving";
+          job.statusText = "正在接收结果";
+          changed = true;
+        }
       }
       return changed;
     }
@@ -3521,7 +3534,8 @@
           delete job.pollError;
           const data = await requestJson(`/random_photo_prompt/mobile/job/${job.prompt_id}`);
           job.status = data.status;
-          job.statusText = statusText(data.status);
+          job.error = data.error || "";
+          job.statusText = data.error || statusText(data.status);
           job.images = data.images || [];
           job.videos = data.videos || [];
           if (data.progress?.max > 0) {
@@ -3663,15 +3677,13 @@
             batchIndex: index + 1,
             batchTotal: jobs.length,
             statusText: statusText(job.status),
-            progress: job.status === "completed"
-              ? {value: Number(job.node_total || 1), max: Number(job.node_total || 1), percent: 100, node: "", type: "node"}
-              : (Number(job.node_total || 0) > 0 ? {value: 0, max: Number(job.node_total), percent: 0, node: "", type: "node"} : null),
+            progress: job.progress || null,
             images: job.images || [],
             videos: job.videos || []
           });
         });
         renderJobs();
-        startPolling();
+        if (jobs.length) startPolling();
       } catch (error) {
         setStatus(error.message, true);
       }

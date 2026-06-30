@@ -334,8 +334,10 @@ async def _watch_prompt_websocket_output(prompt_ref, client_id, ready_event=None
 
 async def _local_mobile_request(method, path, **kwargs):
     timeout = kwargs.pop("timeout", CLIENT_TIMEOUT)
+    headers = dict(kwargs.pop("headers", {}) or {})
+    headers["Host"] = urllib.parse.urlparse(LOCAL_MOBILE_URL).netloc or "127.0.0.1:8188"
     async with ClientSession(timeout=timeout) as session:
-        async with session.request(method, f"{LOCAL_MOBILE_URL}{path}", **kwargs) as response:
+        async with session.request(method, f"{LOCAL_MOBILE_URL}{path}", headers=headers, **kwargs) as response:
             body = await response.read()
             return response, body
 
@@ -761,14 +763,20 @@ async def handle_list_assets(request):
 
 
 async def handle_get_asset(request):
-    path = _local_asset_path_for_id(request.match_info.get("asset_id", ""))
+    asset_id = str(request.match_info.get("asset_id", "") or "")
+    if "." in Path(asset_id).name:
+        return await proxy_request(request)
+    path = _local_asset_path_for_id(asset_id)
     if not path:
         return await proxy_request(request)
     return web.json_response(_local_asset_payload(path))
 
 
 async def handle_asset_content(request):
-    path = _local_asset_path_for_id(request.match_info.get("asset_id", ""))
+    asset_id = str(request.match_info.get("asset_id", "") or "")
+    if "." in Path(asset_id).name:
+        return await proxy_request(request)
+    path = _local_asset_path_for_id(asset_id)
     if not path:
         return await proxy_request(request)
     return _local_view_response(path)
