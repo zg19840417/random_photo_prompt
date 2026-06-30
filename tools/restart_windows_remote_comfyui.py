@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from pathlib import Path
 
 
 REMOTE_SSH = os.environ.get("RPP_WINDOWS_REMOTE_SSH", "administrator@192.168.123.111")
@@ -14,6 +15,10 @@ TASK_NAME = os.environ.get("RPP_WINDOWS_COMFYUI_TASK", "ComfyUI-8188-Interactive
 PORT = os.environ.get("RPP_WINDOWS_COMFYUI_PORT", "8188")
 REMOTE_OUTPUT_DIR = os.environ.get("RPP_WINDOWS_COMFYUI_OUTPUT_DIR", r"D:\ComfyUI\ComfyUI\output")
 MAC_PROXY_CLEAR_URL = os.environ.get("RPP_MAC_PROXY_CLEAR_URL", "http://127.0.0.1:18199/random_photo_prompt/proxy/runtime/clear")
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+MAC_LOCAL_MOBILE_STATUS_URL = os.environ.get("RPP_MAC_LOCAL_MOBILE_STATUS_URL", "http://127.0.0.1:8188/random_photo_prompt/mobile/status")
+MAC_PROXY_STATUS_URL = os.environ.get("RPP_MAC_PROXY_STATUS_URL", "http://127.0.0.1:18199/random_photo_prompt/proxy/status")
+MAC_SERVICE_WAIT_SECONDS = float(os.environ.get("RPP_MAC_SERVICE_WAIT_SECONDS", "8") or 8)
 
 
 def ps_quote(value):
@@ -25,11 +30,13 @@ def encoded_powershell(script):
 
 
 def main():
+    ensure_mac_local_services()
     mac_upload_url = os.environ.get("RPP_MAC_IMAGE_UPLOAD_URL") or default_mac_upload_url()
     mac_video_upload_url = os.environ.get("RPP_MAC_VIDEO_UPLOAD_URL") or mac_upload_url.replace("/upload_image", "/upload_video")
     clear_mac_runtime_state("before_remote_restart")
     script = rf'''
 $ErrorActionPreference = 'Continue'
+$ProgressPreference = 'SilentlyContinue'
 $taskName = {ps_quote(TASK_NAME)}
 $baseDir = {ps_quote(BASE_DIR)}
 $port = {ps_quote(PORT)}
@@ -160,6 +167,40 @@ if ($ready) {{
     if code == 0 and not wait_remote_queue():
         return 3
     return code
+
+
+def ensure_mac_local_services():
+    checks = (
+        ("mac local mobile", MAC_LOCAL_MOBILE_STATUS_URL, PROJECT_DIR / "tools/run_mac_local_comfyui_daemon.py"),
+        ("mac proxy", MAC_PROXY_STATUS_URL, PROJECT_DIR / "tools/run_mac_remote_proxy_daemon.py"),
+    )
+    for label, url, script in checks:
+        if url_ready(url, timeout=3):
+            print(f"{label} ready: {url}")
+            continue
+        print(f"{label} starting: {script}")
+        subprocess.call([sys.executable, str(script)], cwd=str(PROJECT_DIR))
+        if wait_url(url, timeout=MAC_SERVICE_WAIT_SECONDS):
+            print(f"{label} ready: {url}")
+        else:
+            print(f"{label} warning: {url} not ready, continuing remote restart")
+
+
+def url_ready(url, timeout=5):
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return 200 <= response.status < 500
+    except Exception:
+        return False
+
+
+def wait_url(url, timeout=120):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if url_ready(url, timeout=3):
+            return True
+        time.sleep(2)
+    return False
 
 
 def clear_mac_runtime_state(reason):

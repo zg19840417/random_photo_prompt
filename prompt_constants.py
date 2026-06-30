@@ -212,9 +212,9 @@ PART_LENGTH_BUDGETS = {
     "character": 200,
     "makeup": 74,
     "outfit": 130,
-    "pose_expression": 155,
-    "scene_light": 170,
-    "quality": 120,
+    "pose_expression": 220,
+    "scene_light": 210,
+    "quality": 130,
 }
 
 SHOT_ALIASES = {
@@ -305,6 +305,16 @@ ANCIENT_OUTFIT_MARKERS = (
     "襦裙",
     "褙子",
     "披帛",
+    "花魁",
+    "夜宴",
+    "青绿山水",
+    "苗疆",
+    "民国",
+    "银饰",
+    "步摇",
+    "云头鞋",
+    "绣鞋",
+    "云肩",
 )
 ANCIENT_SCENE_MARKERS = (
     "古代",

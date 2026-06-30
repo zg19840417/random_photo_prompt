@@ -57,15 +57,20 @@ PHOTOGRAPHIC_NATURALNESS_MARKERS = ('真实皮肤纹理', '自然皮肤纹理', 
 CONCRETE_PHOTO_MARKERS = ('高光', '阴影', '暗部', '层次', '边缘光', '轮廓光', '反光', '景深', '胶片', '调色', '颗粒', '肤质', '肤纹')
 GENERIC_QUALITY_MARKERS = ('高级', '质感', '氛围', '大片', '真实写真', 'ultra detailed')
 SENSUAL_TENSION_MARKERS = ('直视', '凝视', '盯', '眼神', '挑衅', '克制微笑', '嘴角', '锁骨', '胸腰', '腰线', '臀腿', '大腿', '曲线', '贴近', '压向镜头')
-SEDUCTIVE_LIGHT_MARKERS = ('清晨', '晨光', '正午', '天光', '下午', '斜光', '黄昏', '落日', '晚霞', '夜景', '深夜', '夜色', '床头', '暗光', '暗部', '霓虹', '灯带', '窄光', '侧光', '暖光', '镜面', '湿光', '雨夜', '低位', '窗外城市')
-SEDUCTIVE_TIME_MARKERS = ('清晨', '晨光', '正午', '天光', '下午', '黄昏', '落日', '晚霞', '深夜', '夜景', '夜色')
+SEDUCTIVE_LIGHT_MARKERS = ('清晨', '晨光', '银蓝晨光', '正午', '天光', '下午', '斜光', '黄昏', '落日', '晚霞', '夜景', '深夜', '夜色', '雨后', '雨夜', '床头', '床头灯', '暗光', '暗部', '霓虹', '灯带', '窄光', '侧光', '暖光', '暖粉侧光', '暖金侧光', '黄铜壁灯', '镜面', '湿光', '低位', '窗外城市', '水面反光', '月光', '烛光')
+SEDUCTIVE_TIME_MARKERS = ('清晨', '晨光', '正午', '天光', '下午', '黄昏', '落日', '晚霞', '深夜', '夜景', '夜色', '雨后', '雨夜', 'Art Deco酒廊')
 TEASING_POSE_MARKERS = ('舌尖', '俯视镜头', '低机位', '贴近镜头', '靠近镜头', '脚尖', '脚掌', '裸足', '足弓', '手指', '黑色指甲', '黑色手指甲', '脸旁', '唇边', '肩膀', '锁骨', '胸前', '腰侧', '大腿', '眼神微眯', '斜看镜头')
+THEME_LOCATION_TERMS = ('夜店', '吧台', '卧室', '床边', '浴室', '镜面', '泳池', '玻璃温室', '绿植', '庭院', '植物', '森林', '木栈道', '酒廊', '古代', '雨夜廊下', '青瓦', '木柱', '宫苑夜宴', '屏风', '酒案', '宫灯', '书房夜读', '卷轴', '香炉', '敦煌', '壁画', '温泉', '竹帘', '画舫', '雕花窗', '竹林', '戏台后台', '红木妆台', '铜镜', '苗疆', '银饰', '民国', '老洋房')
+THEME_OUTFIT_TERMS = ('黑色', '亮钻', '胸衣', '身体链', '银色', '腰链', '蕾丝', '吊带', '短裙', '网纱', '丝袜', '薄纱', '短上衣', '法式短上衣', '细项圈', '斜肩', '连体泳装', '挂脖', '细带', '脚踝链', '缎面', '金属扣', '深V领', '吊带丝袜', '交领', '披帛', '绣边', '绣鞋', '唐制', '织金', '短襦', '高腰裙', '宋制', '褙子', '月白', '玉坠', '舞姬', '臂钏', '流苏', '江南', '抹胸', '青绿山水', '花魁', '步摇', '盘扣', '苗疆', '银链', '银铃', '刺绣', '民国', '蕾丝立领', '象牙白', '浅金缎面', '珍珠')
+THEME_POSE_TERMS = ('坐', '吧台', '酒杯', '前倾', '回望', '手', '床沿', '床边', '侧躺', '斜靠', '后靠', '双腿', '裸足', '跨步', '镜头', '锁骨', '肩颈', '手指', '食指', '指尖', '腰侧', '低机位', '全身', '脚尖', '腿', '俯视', '站', '倚靠', '侧身', '脚下', '吧椅', '大腿', '跪坐', '低坐', '廊下', '手扶', '低案', '舞', '抬手', '扭腰', '手臂', '水边', '船舷', '窗边', '竹林', '妆台', '铜镜', '手腕')
 HAND_TO_CAMERA_PATTERNS = (re.compile('(?:左手|右手|一只手|手指|手掌)[^，。]{0,14}(?:伸向|贴近|靠近)镜头'), re.compile('(?:左手|右手|一只手|手指|手掌)[^，。]{0,14}(?:画面前缘|画面前景)'), re.compile('(?:左手|右手|一只手|手指|手掌)[^，。]{0,14}近大远小'))
 BOLD_OUTFIT_NUDE_RISK_MARKERS = ('极少覆盖', '最低覆盖', '覆盖面积极少', '极少量半透明必要遮挡', '半透明必要遮挡', '必要遮挡', '近似饰品', '接近饰品', '几乎没有完整衣物轮廓', '几乎没有传统衣物轮廓', '不形成完整上衣或裙装轮廓', '布料存在感降到最低', '轻薄料少到近似饰品', '大片皮肤边距', '只剩几条窄带', '只有极细窄带', '微型布片', '小片不透明布片')
 BOLD_OUTFIT_BANNED_MATERIAL_MARKERS = ('乳胶', '乳胶感', '亮面皮革', '皮革', '皮质', '皮裙', 'PVC', 'pvc', 'latex', 'leather')
 FINAL_PROMPT_BAD_PHRASES = ('横向竖向', '横向平视腰部及以', '看着向镜头', '斜看观众', '形成近景焦点', '嘴角是眼神', '嘴角是明亮嘲弄笑', '浅淡微笑意', '表情眼神', '画，面', '把，阳光', '大下巴', '大膝盖', '非显式边界', '维持清晰姿态边界', '诱惑焦点', '诱惑感集中', '带着勾引意味', '私密邀请感', '私房张力', '压住镜头', '让手脚更醒目', '完整身体轮廓', '双乳挺立', '甜中带藐视', '表情微笑', '嘴角带浅淡微笑感', '嘴角带一点嘴角', '眼神斜看镜头和', '腰部、腰部', '乳沟深邃', '从上方角度可以看到', '双手手指轻轻按压在自己胸前', '乳尖在衣物下挺立', '双乳在胸前挺立', '宽大的，落地', '午后，光线', '高光把画面推到近处', '高光地画面推到近处', '彩色棚拍近景', '视线沿手指', '抬眼露出嘴角', '抬眼露出甜美又危险', '甜美又危险的挑逗笑', '成为构图重点', '脚部落点', '连续拉开', '非室内道具', '人物轮廓清楚轻盈', '强烈诱惑的竖向构图', '，。', '收出腰线', '贴颈细项圈', '贴锁细项圈', '胸腰和双手完整', '形成斜向对角线', '眼神燃跳', '托亮身体全色阳光镶边', '人物轮廓带出轻盈轮廓', '轻轻侧偏带浅淡', '侧偏带浅淡', '竖向S形曲线', '纵向S曲线', '纵向S形曲线', '完整S线', '被姿态拉开', '双手引导视线经过', '墙角或，', '显得更有冲击力', '成为画面重点', '形成横向张力', '形成竖向曲线', '形成紧张对角线', '紧张对角线', '竖向坐立', '眼神看向镜头', '狐眼眼神放松带', '自然反光托亮人物边缘', '明亮笑弧', '小号刺绣标出现在画面下缘', '性感更直接', '更直接', '眼神眼神', '嘴角嘴角', '身体身体', '彩色光只停在水面边缘', '日光反射到身体边缘', '手指从画面前景靠近唇边，近大远小', '她抬眼', '透明薄唇', '肩线保持干净', '横向展开左手', '肩颈线条眼神', '眼神勾人地看向镜头', '近处手掌贴近镜头，脚尖落在画面下缘，近处手掌贴近镜头', '她抬眼微笑', '抬眼微笑', '让腿部和手指更醒目', '保持优雅S线', '的裤腰', '腰部以半身', '上下呼应', '很浅的浅淡')
 NON_VISUAL_SCENE_PHRASES = ('空气里弥漫', '空气中充满', '空气中是', '气息', '花香', '水声', '回响', '传来', '让人联想到')
 ABSTRACT_POSE_PHRASES = ('勾引意味', '诱惑感集中', '压迫感', '藐视感', '私密邀请', '勾人弧度', '视觉路径', '视线沿手指', '画面大胆', '姿态边界', '构图重点', '连续拉开')
+DETACHED_FOOT_PHRASES = ('一只裸足', '一只脚掌', '一只脚尖', '裸足停在', '脚掌和脚尖靠近镜头')
+CONNECTED_FOOT_CHAIN_MARKERS = ('前腿', '小腿', '脚踝', '腿部末端')
 HUMAN_REVIEW_ABSTRACT_MARKERS = ('焦点', '重点', '构图重点', '视觉中心', '视觉焦点', '张力', '氛围', '诱惑感', '压迫感', '邀请感', '边界', '层次感')
 HUMAN_REVIEW_HIGH_RISK_MARKERS = ('焦点', '视觉焦点', '构图重点', '视觉中心', '诱惑感', '压迫感', '邀请感', '边界', '显得', '可以看到', '而非', '用于', '用来', '收出', '连续拉开')
 HUMAN_REVIEW_EXPLANATION_MARKERS = ('可以看到', '来自', '而非', '用于', '用来', '作为', '让人', '显得', '呈现', '形成', '成为', '保持', '维持')
@@ -86,8 +91,43 @@ ANCIENT_OUTFIT_MODERN_CONFLICT_MARKERS = (
     '微型',
     '细肩带',
     '吊带裙',
+    '吊带短裙',
+    '连体泳装',
+    '连体衣',
+    '泳装',
+    '短罩衫',
+    '吊带丝袜',
+    '长筒丝袜',
+    '包臀短裙',
+    '胸衣',
+    '酒红缎面胸衣',
+    '亮钻胸衣',
     '现代',
     'glamour',
+)
+ANCIENT_SCENE_MODERN_CONFLICT_MARKERS = (
+    '夜店',
+    '吧台',
+    '霓虹',
+    '灯带',
+    '镜面房',
+    '地下酒廊',
+    '泳池',
+    '玻璃浴室',
+    '现代',
+    '黑色镜面地面',
+)
+MODERN_THEME_ANCIENT_SCENE_MARKERS = (
+    '古代',
+    '宫苑',
+    '画舫',
+    '雕花窗',
+    '纱帐寝殿',
+    '香炉',
+    '屏风',
+    '铜镜',
+    '竹林月色',
+    '雨夜廊下',
 )
 ANCIENT_OUTFIT_STRUCTURE_MARKERS = (
     '交领',
@@ -330,6 +370,45 @@ def quality_findings(scale: str, shot: str, aspect: str, sample: int, prompt: st
             findings.append(Finding('warning', scale, shot, aspect, sample, 'weak_teasing_pose', '二/三档姿势缺少按镜头范围可见的手足前景/俯视/低机位/表情挑逗动作', prompt))
     return findings
 
+def _split_theme_terms(value: str) -> tuple[str, ...]:
+    return tuple(term.strip() for term in str(value or '').split('，') if term.strip())
+
+def _theme_terms_for_lane(parts: dict[str, str], lane_name: str, allowed_terms: tuple[str, ...]) -> tuple[str, ...]:
+    lane_terms = _split_theme_terms(str(parts.get(lane_name) or ''))
+    return tuple(term for term in lane_terms if term in allowed_terms)
+
+def theme_coherence_findings(scale: str, shot: str, aspect: str, sample: int, prompt: str, parts: dict[str, str]) -> list[Finding]:
+    findings: list[Finding] = []
+    theme_name = str(parts.get('theme_name') or '')
+    if not theme_name:
+        return findings
+    scene_terms = _theme_terms_for_lane(parts, 'theme_scene_keywords', THEME_LOCATION_TERMS)
+    outfit_terms = _theme_terms_for_lane(parts, 'theme_outfit_keywords', THEME_OUTFIT_TERMS)
+    pose_terms = _theme_terms_for_lane(parts, 'theme_pose_keywords', THEME_POSE_TERMS)
+    scene = str(parts.get('scene_light') or '')
+    outfit = str(parts.get('outfit') or '')
+    pose = str(parts.get('pose_expression') or '')
+    all_theme_terms = _split_theme_terms(str(parts.get('theme_keywords') or ''))
+    is_ancient_theme = any(term in all_theme_terms or term in theme_name for term in ('古代', 'ancient', 'dunhuang', 'miao', 'republic', '民国', '苗疆'))
+    if scene_terms and not any(term in scene for term in scene_terms):
+        findings.append(Finding('warning', scale, shot, aspect, sample, 'theme_scene_mismatch', f'{theme_name}: scene misses {"、".join(scene_terms[:6])}', prompt))
+    if scale == 'bold' and outfit_terms and outfit and not any(term in outfit for term in outfit_terms):
+        findings.append(Finding('warning', scale, shot, aspect, sample, 'theme_outfit_mismatch', f'{theme_name}: outfit misses {"、".join(outfit_terms[:6])}', prompt))
+    if pose_terms and not any(term in pose for term in pose_terms):
+        findings.append(Finding('warning', scale, shot, aspect, sample, 'theme_pose_mismatch', f'{theme_name}: pose misses {"、".join(pose_terms[:6])}', prompt))
+    if is_ancient_theme:
+        scene_conflicts = [marker for marker in ANCIENT_SCENE_MODERN_CONFLICT_MARKERS if marker in scene]
+        outfit_conflicts = [marker for marker in ANCIENT_OUTFIT_MODERN_CONFLICT_MARKERS if marker in outfit]
+        if scene_conflicts:
+            findings.append(Finding('error', scale, shot, aspect, sample, 'ancient_theme_modern_scene_conflict', '、'.join(scene_conflicts), prompt))
+        if outfit_conflicts:
+            findings.append(Finding('error', scale, shot, aspect, sample, 'ancient_theme_modern_outfit_conflict', '、'.join(outfit_conflicts), prompt))
+    elif theme_name:
+        ancient_scene_hits = [marker for marker in MODERN_THEME_ANCIENT_SCENE_MARKERS if marker in scene]
+        if ancient_scene_hits:
+            findings.append(Finding('error', scale, shot, aspect, sample, 'modern_theme_ancient_scene_conflict', '、'.join(ancient_scene_hits), prompt))
+    return findings
+
 def final_semantic_findings(scale: str, shot: str, aspect: str, sample: int, prompt: str, parts: dict[str, str]) -> list[Finding]:
     findings: list[Finding] = []
     bad_hits = [phrase for phrase in FINAL_PROMPT_BAD_PHRASES if phrase in prompt]
@@ -343,6 +422,11 @@ def final_semantic_findings(scale: str, shot: str, aspect: str, sample: int, pro
     abstract_hits = [phrase for phrase in ABSTRACT_POSE_PHRASES if phrase in pose]
     if abstract_hits:
         findings.append(Finding('warning', scale, shot, aspect, sample, 'abstract_pose_text', '、'.join(abstract_hits), prompt))
+    detached_foot_hits = [phrase for phrase in DETACHED_FOOT_PHRASES if phrase in pose or phrase in prompt]
+    if detached_foot_hits:
+        findings.append(Finding('error', scale, shot, aspect, sample, 'detached_foot_subject', '脚部前景不能写成独立身体部位主语：' + '、'.join(detached_foot_hits), prompt))
+    if '脚掌和脚尖' in pose and not any(marker in pose for marker in CONNECTED_FOOT_CHAIN_MARKERS):
+        findings.append(Finding('error', scale, shot, aspect, sample, 'foot_foreground_without_leg_chain', '脚掌/脚尖前景必须写明前腿、小腿、脚踝或腿部末端连接关系', prompt))
     if shot == 'head_shot' and re.match('^(头部近景|贴近镜头的头部肖像|竖向头部写真构图|方形头部)', pose):
         findings.append(Finding('warning', scale, shot, aspect, sample, 'pose_repeats_camera_scope', pose.split('，', 1)[0], prompt))
     camera = str(parts.get('camera') or '')
@@ -420,6 +504,7 @@ def audit_item(scale: str, shot: str, aspect: str, sample: int, item: dict) -> l
     findings.extend(duplicate_findings(scale, shot, aspect, sample, prompt, parts))
     findings.extend(contradiction_findings(scale, shot, aspect, sample, prompt, parts))
     findings.extend(quality_findings(scale, shot, aspect, sample, prompt, parts))
+    findings.extend(theme_coherence_findings(scale, shot, aspect, sample, prompt, parts))
     findings.extend(final_semantic_findings(scale, shot, aspect, sample, prompt, parts))
     findings.extend(human_review_findings(scale, shot, aspect, sample, prompt, parts))
     budget = PROMPT_LENGTH_BUDGETS.get(shot)

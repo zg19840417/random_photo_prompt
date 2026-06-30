@@ -87,13 +87,19 @@ def local_asset_relative_name(path):
 def local_asset_files():
     if not LOCAL_OUTPUT_DIR.is_dir():
         return []
-    return [path for path in LOCAL_OUTPUT_DIR.iterdir() if path.is_file() and path.suffix.lower() in CONTENT_TYPES]
+    try:
+        return [path for path in LOCAL_OUTPUT_DIR.iterdir() if path.is_file() and path.suffix.lower() in CONTENT_TYPES]
+    except OSError:
+        return []
 
 
 def local_image_files_recursive():
     if not LOCAL_OUTPUT_DIR.is_dir():
         return []
-    return [path for path in LOCAL_OUTPUT_DIR.rglob("*") if path.is_file() and path.suffix.lower() in CONTENT_TYPES]
+    try:
+        return [path for path in LOCAL_OUTPUT_DIR.rglob("*") if path.is_file() and path.suffix.lower() in CONTENT_TYPES]
+    except OSError:
+        return []
 
 
 def refresh_local_asset_id_map():

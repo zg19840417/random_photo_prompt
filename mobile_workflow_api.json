@@ -170,12 +170,15 @@
     "inputs": {
       "scale": "NSFW",
       "shot": "全身构图镜头",
-      "use_pregenerated_prompt": true,
-      "cached_prompt": "横构图全身像，人物完整身形沿画面宽度斜向展开，脸部、腰线、腿部线条和脚部落点都清楚，背景留出横向空间。成年韩国女性角色，冷白皮肤、狐狸眼、高鼻梁和尖下巴稳定清晰，黑色长直发垂到腰间，身材是八头身比例，胸腰臀曲线明确，长腿完整入镜，手指甲和脚指甲都是细长黑色。低光私房猫眼妆，冷白肤色在暗部里保持干净，黑色眼线拉长眼尾，睫毛浓密下压，眼神迷离直接，嘴唇饱满微亮，修容强化高鼻梁和尖下巴。全身像，横屏侧面构图，人物以前臂和膝部支撑在柔软支撑面上，头部从肩侧看向镜头，半睁眼湿润强势，嘴唇柔软半开，嘴角带危险微笑，臀线抬高，腰背压出深弧线，侧面身材曲线、腿部轮廓和裸足位置完整清楚，长发、手臂和阴影维持非显式遮挡。正午海崖全身场景，蓝天、白浪和岩石形成纯自然背景，强自然光照亮完整身形、腰线、腿部和脚部落点，非显式边界清楚。真实写真质感，人物主体清晰，面部锐利，肤质细腻真实，电影感光影，high-end editorial portrait, best quality, ultra detailed。",
-      "cached_signature": "NSFW|全身构图镜头|landscape",
-      "cached_aspect": "landscape",
+      "use_pregenerated_prompt": false,
+      "cached_prompt": "",
+      "cached_signature": "",
+      "cached_aspect": "portrait",
       "预生成提示词": null,
-      "反推提示词": null
+      "反推提示词": null,
+      "era": "现代",
+      "cached_negative_prompt": "",
+      "cached_prompt_source": ""
     },
     "class_type": "RandomPhotoPrompt",
     "_meta": {

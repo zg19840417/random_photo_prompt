@@ -64,6 +64,7 @@ MOBILE_WORKFLOWS = {
     "zit_single": {"label": "单采-ZIT", "path": MOBILE_WORKFLOW_PATH, "type": "image"},
     "zib_single": {"label": "单采-ZIB", "path": NODE_DIR / "mobile_workflow_api_2.json", "type": "image"},
     "zitb_double": {"label": "双采-ZIT+ZIB", "path": NODE_DIR / "mobile_workflow_api_2.json", "type": "image"},
+    "redcraft_krea2": {"label": "单采-RedCraft Krea2", "path": NODE_DIR / "mobile_workflow_api_krea2.json", "type": "image"},
     "ltx_video": {"label": "图生视频", "path": NODE_DIR / "mobile_workflow_api_3.json", "type": "video"},
 }
 MOBILE_DEFAULT_WORKFLOW_KEY = "zit_single"
@@ -98,11 +99,12 @@ REMOTE_MAC_IMAGE_UPLOAD_URL = os.environ.get("RPP_MAC_IMAGE_UPLOAD_URL", "").str
 REMOTE_MAC_VIDEO_UPLOAD_URL = os.environ.get("RPP_MAC_VIDEO_UPLOAD_URL", "").strip() or REMOTE_MAC_IMAGE_UPLOAD_URL.replace("/upload_image", "/upload_video")
 REMOTE_MAC_SOURCE_IMAGE_URL = os.environ.get("RPP_MAC_SOURCE_IMAGE_URL", "").strip() or REMOTE_MAC_IMAGE_UPLOAD_URL.replace("/upload_image", "/source_image")
 MOBILE_SCOPE_PRESETS = {
-    "head_shot": {"shot": "head_shot", "aspect": "portrait", "width": 1536, "height": 1536},
+    "head_shot": {"shot": "head_shot", "aspect": "portrait", "width": 1344, "height": 1792},
     "half_body": {"shot": "half_body", "aspect": "portrait", "width": 1280, "height": 1920},
     "full_body": {"shot": "full_body", "aspect": "portrait", "width": 1088, "height": 1920},
 }
 MOBILE_MAX_ACTIVE_JOBS = 100
+MOBILE_RESULT_RECEIVE_GRACE_SECONDS = float(os.environ.get("RPP_MOBILE_RESULT_RECEIVE_GRACE_SECONDS", "45") or 45)
 MOBILE_SESSION_JOBS = []
 MOBILE_SESSION_JOBS_LOADED = False
 MOBILE_PROMPT_BY_FILENAME = {}
@@ -142,8 +144,8 @@ MOBILE_RESOLUTION_RULES = {
             {"aspect": "landscape", "width": 1920, "height": 1280, "framing": "横向全身构图，身体沿宽画幅展开，从头到脚完整入镜"},
         ),
         (
-            ("近大远小", "强透视", "前景", "靠近镜头", "脚伸到镜头", "手掌和脚尖", "脚尖和脚踝因近大远小"),
-            {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身强透视构图"},
+            ("低机位", "自然纵深", "前景肢体"),
+            {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身低机位构图"},
         ),
         (
             ("站立", "站姿", "直立", "倚靠", "靠墙", "迈步", "行走", "走姿"),
@@ -171,7 +173,7 @@ MOBILE_RESOLUTION_RULES = {
     "head_shot": (
         (
             ("横向", "侧脸", "躺", "侧躺"),
-            {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部镜头，肩膀及以上入镜，头顶完整"},
+            {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部镜头，肩膀及以上入镜，头顶完整"},
         ),
     ),
 }
@@ -189,7 +191,7 @@ MOBILE_FRAMING_COMPACT_REPLACEMENTS = {
 MOBILE_DEFAULT_RESOLUTIONS = {
     "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身构图"},
     "half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向半身镜头，大腿以上入镜"},
-    "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部镜头，肩膀及以上入镜，头顶完整"},
+    "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部镜头，肩膀及以上入镜，头顶完整"},
 }
 MOBILE_DIRECTOR_RESOLUTION_RULES = {
     "sunny_multicolor_pool_glamour": {
@@ -207,12 +209,12 @@ MOBILE_DIRECTOR_RESOLUTION_RULES = {
     "glass_balcony_colorlight": {
         "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身玻璃反射构图，从头到脚完整入镜，脚下地面边距清楚"},
         "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身玻璃彩光构图，大腿以上入镜"},
-        "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部玻璃反光近景，肩膀及以上入镜，头顶完整"},
+        "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部玻璃反光近景，肩膀及以上入镜，头顶完整"},
     },
     "bright_studio_color_fashion": {
         "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身彩色棚拍构图，从头到脚完整入镜，脚下地面边距清楚"},
         "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身彩色棚拍构图，大腿以上入镜"},
-        "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部彩色棚拍近景，肩膀及以上入镜，头顶完整"},
+        "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部彩色棚拍近景，肩膀及以上入镜，头顶完整"},
     },
     "tropical_terrace_sensuality": {
         "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身热带露台构图，从头到脚完整入镜，脚下甲板或地面边距清楚"},
@@ -221,12 +223,12 @@ MOBILE_DIRECTOR_RESOLUTION_RULES = {
     "sweet_vivid_tease": {
         "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身甜艳构图，从头到脚完整入镜，脚下边距清楚"},
         "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身甜艳构图，大腿以上入镜"},
-        "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部甜艳近景，肩膀及以上入镜，头顶完整"},
+        "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部甜艳近景，肩膀及以上入镜，头顶完整"},
     },
     "forced_perspective_focus": {
-        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身强透视构图，从头到脚完整入镜，前景肢体和脚下地面边距清楚"},
+        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身低机位构图，从头到脚完整入镜，脚下地面边距清楚"},
         "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身强透视构图，大腿以上入镜，手部动作清楚"},
-        "head_shot": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": "方形头部强透视近景，肩膀及以上入镜，头顶完整"},
+        "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部近景，肩膀及以上入镜，头顶完整"},
     },
 }
 
@@ -265,7 +267,7 @@ def _nsfw_pose_data_hash():
 
 
 def _prompt_signature(scale, shot, aspect="portrait", era="modern"):
-    return f"mobile-logic-v2|{_nsfw_pose_data_hash()}|{scale or ''}|{shot or ''}|{era or 'modern'}"
+    return f"mobile-logic-v15-ancient-barefoot|{_nsfw_pose_data_hash()}|{scale or ''}|{shot or ''}|{era or 'modern'}"
 
 
 def _as_bool(value, default=True):
@@ -350,12 +352,12 @@ def _build_mobile_prompt_item(scale, shot_config, seed_text, era="modern"):
 FIXED_CHARACTER_IDENTITY = "22岁冷白皮K-pop韩国女生"
 
 
-def _ensure_scoped_character_prompt(prompt_item):
+def _ensure_scoped_character_prompt(prompt_item, era="modern"):
     item = copy.deepcopy(prompt_item)
     parts = item.get("dimension_parts")
     if isinstance(parts, dict):
         shot_key = item.get("shot_key") or ""
-        parts = _clean_mobile_prompt_parts(parts, shot_key)
+        parts = _clean_mobile_prompt_parts(parts, shot_key, era)
         character = str(parts.get("character") or "").strip()
         if not character:
             character = CHARACTER_BY_SHOT.get(shot_key) or CHARACTER_BY_SHOT["full_body"]
@@ -388,6 +390,108 @@ def _prompt_text(prompt_item):
     return clean_prompt_text(prompt_item.get("compact_prompt") or prompt_item["positive_prompt"])
 
 
+KREA2_PORTRAIT_HORIZONTAL_MARKERS = (
+    "横躺",
+    "横向展开",
+    "身体横向",
+    "侧躺",
+    "平躺",
+    "沿宽画幅",
+    "宽画幅",
+    "左手枕在头侧",
+    "头发铺散在脸侧和头下",
+)
+
+
+def _krea2_upright_pose_fallback(shot):
+    if shot == "head_shot":
+        return "脸部保持竖直方向贴近镜头，头顶朝画面上方，肩颈在脸部下方自然承接，眼神从睫毛下方看向镜头，嘴角带轻蔑浅笑"
+    if shot == "half_body":
+        return "人物上半身保持竖直方向靠近镜头，头部在肩颈正上方，肩线接近水平，一只手停在锁骨旁，眼神俯视镜头，嘴角带轻蔑浅笑"
+    return "人物身体主轴保持竖直方向，头部位于画面上方，躯干自然向下承接，肩线接近水平，眼神俯视镜头，嘴角带轻蔑浅笑"
+
+
+def _apply_krea2_prompt_item_orientation_guard(prompt_item, width, height):
+    if int(height or 0) <= int(width or 0):
+        return prompt_item
+    item = copy.deepcopy(prompt_item)
+    parts = item.get("dimension_parts") or {}
+    if parts:
+        parts = dict(parts)
+        shot = str(item.get("shot_key") or "")
+        camera = str(parts.get("camera") or "")
+        upright_camera = "竖屏正立构图，人物头顶朝画面上方，肩线接近水平，画面不旋转"
+        if upright_camera not in camera:
+            parts["camera"] = f"{upright_camera}，{camera}" if camera else upright_camera
+
+        pose = str(parts.get("pose_expression") or "")
+        pose = pose.replace("头部大幅后仰后又用眼尾向下俯视镜头", "头部轻微后仰但脸部保持竖直，眼尾向下俯视镜头")
+        pose = pose.replace("头部大幅后仰后俯视镜头", "头部轻微后仰但脸部保持竖直，俯视镜头")
+        pose = pose.replace("头部大幅后仰", "头部轻微后仰且脸部保持竖直")
+        pose = _remove_mobile_clauses_with_markers(pose, KREA2_PORTRAIT_HORIZONTAL_MARKERS)
+        if not pose.strip() or any(marker in pose for marker in KREA2_PORTRAIT_HORIZONTAL_MARKERS):
+            pose = _krea2_upright_pose_fallback(shot)
+        parts["pose_expression"] = _clean_mobile_prompt_clause_text(pose)
+        item["dimension_parts"] = parts
+        prompt = _rebuild_prompt_text_from_parts(parts)
+        item["positive_prompt"] = prompt
+        item["compact_prompt"] = prompt
+    return item
+
+
+def _apply_krea2_portrait_orientation_guard(positive_prompt, negative_prompt, prompt_item, width, height):
+    if int(height or 0) <= int(width or 0):
+        return positive_prompt, negative_prompt
+    shot = str(prompt_item.get("shot_key") or "")
+    if shot == "head_shot":
+        positive_guard = (
+            "strict upright vertical portrait, camera level, camera not rotated, subject not sideways, "
+            "Krea2竖屏正立头部构图，脸部保持竖直方向，头顶朝向画面上方，下巴朝向画面下方，双眼水平对齐，"
+            "肩线接近水平，肩颈在脸部下方自然承接，背景保持正常上下关系，不要横躺脸，不要侧躺，不要横向构图，不要旋转画面"
+        )
+    else:
+        positive_guard = (
+            "strict upright vertical portrait, camera level, camera not rotated, subject not sideways, "
+            "Krea2竖屏正立构图，人物身体主轴保持竖直方向，头部位于画面上方，躯干在画面中段，膝盖、脚部或身体下缘位于画面下方，"
+            "脊柱和颈部保持正立，肩线接近水平，背景墙面和地面保持正常上下关系，不要横躺人物，不要侧躺，不要横向构图，不要旋转画面"
+        )
+    negative_guard = "sideways, head sideways, body sideways, rotated image, rotated face, rotated 90 degrees, landscape body in portrait canvas, horizontal person, lying sideways, side lying pose, tilted 90 degrees, 横躺人物, 侧躺人物, 横向脸部, 画面旋转, 人物旋转90度"
+    positive = f"{positive_guard}\n\n{positive_prompt}" if positive_prompt else positive_guard
+    negative = f"{negative_prompt}, {negative_guard}" if negative_prompt else negative_guard
+    return clean_prompt_text(positive), clean_prompt_text(negative)
+
+
+def _patch_krea2_negative_text_node(workflow, negative_prompt):
+    if not isinstance(workflow, dict):
+        return 0
+    clip_link = None
+    for node in workflow.values():
+        if not isinstance(node, dict):
+            continue
+        if str(node.get("class_type") or "") != "CLIPTextEncode":
+            continue
+        inputs = node.get("inputs")
+        if isinstance(inputs, dict) and isinstance(inputs.get("clip"), list):
+            clip_link = list(inputs["clip"])
+            break
+    if not clip_link:
+        return 0
+    changed = 0
+    for node in workflow.values():
+        if not isinstance(node, dict):
+            continue
+        if str(node.get("class_type") or "") != "ConditioningZeroOut":
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict) or "conditioning" not in inputs:
+            continue
+        node["class_type"] = "CLIPTextEncode"
+        node["_meta"] = {"title": "Negative Prompt"}
+        node["inputs"] = {"clip": clip_link, "text": negative_prompt}
+        changed += 1
+    return changed
+
+
 def _rebuild_prompt_text_from_parts(parts):
     lines = [
         clean_prompt_text(str(parts.get(name, "")).strip())
@@ -416,7 +520,56 @@ def _strip_outfit_palette_clause(text):
     return cleaned.strip("，、 \n\t")
 
 
-def _clean_mobile_prompt_parts(parts, shot_key):
+ANCIENT_SHOE_REPLACEMENTS = (
+    ("脚下是浅色云头绣鞋", "裸足踩在浅色裙摆下方"),
+    ("脚下是红色软底绣鞋", "裸足从红色裙摆下方露出"),
+    ("脚下是浅色软底绣鞋", "裸足从浅色裙摆下方露出"),
+    ("脚下是软底绣鞋", "裸足从裙摆下方露出"),
+    ("脚下是软底舞鞋", "裸足点在地面上"),
+    ("脚下是浅色绣鞋", "裸足从浅色裙摆下方露出"),
+    ("脚下是软底鞋", "裸足从裙摆下方露出"),
+    ("脚下是浅色软底鞋", "裸足从浅色裙摆下方露出"),
+    ("云头绣鞋", "裸足"),
+    ("云头鞋", "裸足"),
+    ("软底绣鞋", "裸足"),
+    ("软底舞鞋", "裸足"),
+    ("浅色绣鞋", "裸足"),
+    ("红色软底绣鞋", "裸足"),
+    ("浅色软底绣鞋", "裸足"),
+    ("细跟绣鞋", "裸足"),
+    ("浅金绣鞋", "裸足"),
+    ("绣鞋", "裸足"),
+    ("软底鞋", "裸足"),
+)
+
+
+def _is_ancient_mobile_era(era):
+    return str(era or "").strip() in {"ancient", "古装", "古代"}
+
+
+def _enforce_mobile_ancient_barefoot_text(text, era):
+    cleaned = str(text or "")
+    if not _is_ancient_mobile_era(era):
+        return cleaned
+    for old, new in ANCIENT_SHOE_REPLACEMENTS:
+        cleaned = cleaned.replace(old, new)
+    cleaned = cleaned.replace("和裸足完整入镜", "，裸足完整入镜")
+    cleaned = cleaned.replace("配裸足", "，裸足")
+    return cleaned
+
+
+def _enforce_mobile_ancient_barefoot_parts(parts, era):
+    cleaned = dict(parts or {})
+    if not _is_ancient_mobile_era(era):
+        return cleaned
+    for name in ("camera", "outfit", "pose_expression", "scene_light"):
+        cleaned[name] = _enforce_mobile_ancient_barefoot_text(cleaned.get(name, ""), era)
+    if cleaned.get("outfit") and "裸足" not in str(cleaned["outfit"]):
+        cleaned["outfit"] = f'{cleaned["outfit"]}，裙摆下方保持裸足'
+    return cleaned
+
+
+def _clean_mobile_prompt_parts(parts, shot_key, era="modern"):
     cleaned = dict(parts or {})
     cleaned["outfit"] = _strip_outfit_palette_clause(cleaned.get("outfit", ""))
     if shot_key == "head_shot":
@@ -434,6 +587,7 @@ def _clean_mobile_prompt_parts(parts, shot_key):
                 cleaned.get(name, ""),
                 ("胸部", "胸前", "乳沟", "腰", "臀", "腿", "脚"),
             )
+    cleaned = _enforce_mobile_ancient_barefoot_parts(cleaned, era)
     return cleaned
 
 
@@ -594,7 +748,9 @@ def _clamp_mobile_resolution(resolution):
     return clamp_mobile_resolution(resolution)
 
 
-def _mobile_ground_anchor(parts):
+def _mobile_ground_anchor(parts, era="modern"):
+    if str(era or "").strip() in {"ancient", "古装", "古代"}:
+        return "暗色木地板或木质甲板"
     context = "，".join(
         str(parts.get(name, ""))
         for name in ("scene_light", "camera", "pose_expression")
@@ -616,9 +772,9 @@ def _mobile_ground_anchor(parts):
     return "浅暖色地面纹理"
 
 
-def _resolve_mobile_framing(framing, parts):
+def _resolve_mobile_framing(framing, parts, era="modern"):
     if "{ground_anchor}" in framing:
-        return framing.replace("{ground_anchor}", _mobile_ground_anchor(parts))
+        return framing.replace("{ground_anchor}", _mobile_ground_anchor(parts, era))
     return framing
 
 
@@ -626,13 +782,13 @@ def _round_to_multiple(value, multiple=MOBILE_RESOLUTION_MULTIPLE):
     return max(multiple, int(round(float(value) / multiple) * multiple))
 
 
-def _apply_mobile_framing(prompt_item, resolution):
+def _apply_mobile_framing(prompt_item, resolution, era="modern"):
     framing = resolution.get("framing")
     if not framing:
         return prompt_item
     item = copy.deepcopy(prompt_item)
     parts = item.setdefault("dimension_parts", {})
-    framing = _resolve_mobile_framing(framing, parts)
+    framing = _resolve_mobile_framing(framing, parts, era)
     camera = str(parts.get("camera") or "")
     if any(marker in camera for marker in ("入镜", "镜头", "构图", "画面", "头顶", "完整")):
         framing = MOBILE_FRAMING_COMPACT_REPLACEMENTS.get(framing, framing)
@@ -652,7 +808,7 @@ def _apply_mobile_framing(prompt_item, resolution):
     )
     if not already_covered:
         parts["camera"] = f"{camera}，{framing}" if camera else framing
-    parts = _clean_mobile_prompt_parts(parts, item.get("shot_key") or "")
+    parts = _clean_mobile_prompt_parts(parts, item.get("shot_key") or "", era)
     parts = _enforce_prompt_length(parts)
     item["dimension_parts"] = parts
     prompt = _rebuild_prompt_text_from_parts(parts)
@@ -663,7 +819,7 @@ def _apply_mobile_framing(prompt_item, resolution):
 
 def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern"):
     initial = _build_mobile_prompt_item(scale, shot_config, seed_text, era)
-    initial = _ensure_scoped_character_prompt(initial)
+    initial = _ensure_scoped_character_prompt(initial, era)
     resolution = _mobile_resolution_for_prompt(initial, shot_config["shot"])
     if resolution["aspect"] != shot_config["aspect"]:
         resolved_config = {
@@ -675,7 +831,7 @@ def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern"):
         initial = _build_mobile_prompt_item(scale, resolved_config, f"{seed_text}-{resolution['aspect']}", era)
         initial = _ensure_scoped_character_prompt(initial)
         resolution = _mobile_resolution_for_prompt(initial, shot_config["shot"])
-    return _apply_mobile_framing(initial, resolution), resolution
+    return _apply_mobile_framing(initial, resolution, era), resolution
 
 
 def _build_prompt_with_mobile_logic(scale, shot, seed_text="", era="modern"):
@@ -708,12 +864,16 @@ def _mobile_image_workflows():
 
 
 def _available_zimage_models(prefix):
-    if not ZIT_MODEL_DIR.exists():
+    try:
+        if not ZIT_MODEL_DIR.exists():
+            return []
+        paths = list(ZIT_MODEL_DIR.iterdir())
+    except OSError:
         return []
     prefix = str(prefix or "").lower()
     return sorted(
         path.name
-        for path in ZIT_MODEL_DIR.iterdir()
+        for path in paths
         if path.is_file()
         and path.suffix.lower() in ZIT_MODEL_EXTENSIONS
         and path.name.lower().startswith(prefix)
@@ -842,6 +1002,10 @@ def _zimage_unet_value(model_name):
     if REMOTE_COMFYUI_URL:
         return f"z_image\\{model_name}"
     return f"z_image/{model_name}"
+
+
+def _is_krea2_workflow(workflow_key):
+    return str(workflow_key or "") == "redcraft_krea2"
 
 
 def _resolve_lora_name(value=None):
@@ -2050,13 +2214,22 @@ def _mac_proxy_source_image_url(filename):
     return f"{REMOTE_MAC_SOURCE_IMAGE_URL}?{urllib.parse.urlencode({'filename': safe_name})}"
 
 
-def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model="", output_prefix=None, lora_name="", lora_strength=0.8, zib_model=""):
+def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model="", output_prefix=None, lora_name="", lora_strength=0.8, zib_model="", workflow_key=""):
     workflow = copy.deepcopy(template)
     removed_auxiliary_outputs = _remove_mobile_auxiliary_outputs(workflow)
     positive_prompt = _prompt_text(prompt_item)
     negative_prompt = prompt_item.get("negative_prompt", "")
     resolved_zit_model = Path(str(zit_model or "").replace("\\", "/")).name
     resolved_zib_model = Path(str(zib_model or "").replace("\\", "/")).name
+    is_krea2 = _is_krea2_workflow(workflow_key)
+    if is_krea2:
+        positive_prompt, negative_prompt = _apply_krea2_portrait_orientation_guard(
+            positive_prompt,
+            negative_prompt,
+            prompt_item,
+            width,
+            height,
+        )
     use_zib_single = bool(resolved_zib_model and not resolved_zit_model)
     if use_zib_single:
         base_width, base_height, output_scale = int(width), int(height), 1.0
@@ -2080,12 +2253,15 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
         "removed_auxiliary_outputs": removed_auxiliary_outputs,
         "bypassed_upscale_nodes": 0,
         "zib_single_output_rerouted": 0,
+        "krea2_negative_text_node": 0,
     }
     text_nodes = []
     if use_zib_single:
         patched["zib_single_output_rerouted"] = _route_zib_single_outputs(workflow)
+    if is_krea2:
+        patched["krea2_negative_text_node"] = _patch_krea2_negative_text_node(workflow, negative_prompt)
     patched["lora"] = _patch_existing_lora_nodes(workflow, lora_name, lora_strength)
-    sampler_steps = 8
+    sampler_steps = 10 if is_krea2 else 8
     zit_unet_value = _zimage_unet_value(resolved_zit_model)
     zib_unet_value = _zimage_unet_value(resolved_zib_model)
     model_consumers = _workflow_model_consumers(workflow)
@@ -2096,11 +2272,34 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
         if not isinstance(inputs, dict):
             continue
         class_type = str(node.get("class_type") or "")
+        if class_type == "RandomPhotoPrompt":
+            scale_label_map = {
+                "normal": "一档",
+                "bold": "二档",
+                "bold_no_outfit": "三档",
+                "nsfw": "四档",
+            }
+            era_label_map = {"modern": "现代", "ancient": "古装"}
+            shot_label_map = {
+                "head_shot": "头部",
+                "half_body": "半身",
+                "full_body": "全身",
+            }
+            inputs["scale"] = scale_label_map.get(str(prompt_item.get("scale") or ""), prompt_item.get("scale") or "二档")
+            inputs["era"] = era_label_map.get(str(prompt_item.get("era") or ""), prompt_item.get("era") or "现代")
+            inputs["shot"] = prompt_item.get("shot") or shot_label_map.get(str(prompt_item.get("shot_key") or ""), "随机")
+            inputs["use_pregenerated_prompt"] = False
+            inputs["cached_prompt"] = ""
+            inputs["cached_negative_prompt"] = ""
+            inputs["cached_signature"] = ""
+            inputs["cached_prompt_source"] = ""
         if class_type == "LayerUtility: PurgeVRAM V2" and inputs.get("purge_models") is True:
             inputs["purge_models"] = False
             patched["purge_models_disabled"] += 1
         if "text" in inputs and ("CLIPTextEncode" in class_type or "TextEncode" in class_type or "Conditioning" in class_type):
             text_nodes.append(node)
+        if is_krea2 and "unet_name" in inputs and "krea2" in str(inputs.get("unet_name") or "").lower():
+            inputs["weight_dtype"] = "default"
         if resolved_zit_model and "unet_name" in inputs:
             current_unet = str(inputs.get("unet_name") or "")
             if _is_zit_turbo_model_name(current_unet):
@@ -2130,6 +2329,13 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
             if key in inputs and isinstance(inputs.get(key), (int, float, str)):
                 inputs[key] = int(seed)
                 patched["seed"] += 1
+        if is_krea2 and class_type == "KSampler":
+            if "cfg" in inputs:
+                inputs["cfg"] = 1
+            if "sampler_name" in inputs:
+                inputs["sampler_name"] = "euler"
+            if "scheduler" in inputs:
+                inputs["scheduler"] = "simple"
         if not use_zib_single and class_type == "KSampler" and "steps" in inputs and isinstance(inputs.get("steps"), (int, float, str)):
             inputs["steps"] = sampler_steps
             patched["steps"] += 1
@@ -2585,7 +2791,35 @@ def _remote_local_path_for_image(image):
     return target_dir / filename
 
 
+def _local_uploaded_image_path_for_remote_result(image):
+    filename = Path(str((image or {}).get("filename") or "")).name
+    if not filename:
+        return None
+    output_dir = _mobile_local_output_dir()
+    candidates = []
+    subfolder = _normalize_remote_output_subfolder((image or {}).get("subfolder", ""))
+    if subfolder:
+        candidates.append((output_dir / subfolder / filename).resolve())
+    candidates.append((output_dir / filename).resolve())
+    for path in candidates:
+        if path.is_file() and path.stat().st_size > 0 and (path == output_dir or output_dir in path.parents):
+            return path
+    matches = []
+    try:
+        matches = [path for path in output_dir.rglob(filename) if path.is_file() and path.stat().st_size > 0]
+    except Exception:
+        matches = []
+    for path in matches:
+        resolved = path.resolve()
+        if resolved == output_dir or output_dir in resolved.parents:
+            return resolved
+    return None
+
+
 async def _download_remote_image(image):
+    uploaded_path = _local_uploaded_image_path_for_remote_result(image)
+    if uploaded_path:
+        return uploaded_path
     local_path = _remote_local_path_for_image(image)
     if local_path.is_file() and local_path.stat().st_size > 0:
         await _remote_delete_output_file(image)
@@ -2739,6 +2973,30 @@ async def _mobile_image_urls(prompt_id):
     return images
 
 
+async def _mobile_remote_history_entry(prompt_id):
+    if not REMOTE_COMFYUI_URL:
+        return None
+    entry, error = await _remote_history(prompt_id)
+    if error:
+        raise RuntimeError(error.get("error") or "远端历史记录读取失败。")
+    return entry if isinstance(entry, dict) else None
+
+
+def _remote_history_error_message(entry):
+    status = (entry or {}).get("status")
+    if not isinstance(status, dict) or status.get("status_str") != "error":
+        return ""
+    for message in reversed(status.get("messages") or []):
+        if not isinstance(message, (list, tuple)) or len(message) < 2:
+            continue
+        if message[0] != "execution_error" or not isinstance(message[1], dict):
+            continue
+        node_type = str(message[1].get("node_type") or "远端节点")
+        detail = str(message[1].get("exception_message") or message[1].get("exception_type") or "").strip()
+        return f"{node_type} 执行失败：{detail}" if detail else f"{node_type} 执行失败。"
+    return "远端任务执行失败。"
+
+
 async def _mobile_video_urls(prompt_id):
     if REMOTE_COMFYUI_URL:
         entry, error = await _remote_history(prompt_id)
@@ -2855,6 +3113,7 @@ def _remember_mobile_prompt_videos(prompt_id, videos):
 
 async def _mobile_job_status(prompt_id):
     _ensure_mobile_session_jobs_loaded()
+    prompt_id = str(prompt_id or "")
     if REMOTE_COMFYUI_URL:
         running, pending = await _remote_queue()
     else:
@@ -2891,6 +3150,9 @@ async def _mobile_job_status(prompt_id):
             )
     images = await _mobile_image_urls(prompt_id)
     videos = await _mobile_video_urls(prompt_id)
+    remote_history_entry = None
+    if REMOTE_COMFYUI_URL and not (images or videos):
+        remote_history_entry = await _mobile_remote_history_entry(prompt_id)
     _remember_mobile_prompt_images(prompt_id, images)
     _remember_mobile_prompt_videos(prompt_id, videos)
     if images or videos:
@@ -2901,14 +3163,33 @@ async def _mobile_job_status(prompt_id):
         status = "pending"
     elif REMOTE_COMFYUI_URL and (watcher := REMOTE_WS_WATCHERS.get(str(prompt_id))) and not watcher.done():
         status = "running"
+    elif REMOTE_COMFYUI_URL and remote_history_entry is not None:
+        if _remote_history_error_message(remote_history_entry):
+            status = "failed"
+        else:
+            status = "receiving"
+            now_ms = int(time.time() * 1000)
+            receive_started_at = 0
+            for job in MOBILE_SESSION_JOBS:
+                if str(job.get("prompt_id") or "") == prompt_id:
+                    receive_started_at = int(job.get("result_receive_started_at") or 0)
+                    if not receive_started_at:
+                        job["result_receive_started_at"] = now_ms
+                        receive_started_at = now_ms
+                        _save_mobile_session_jobs()
+                    break
+            if receive_started_at and now_ms - receive_started_at > int(MOBILE_RESULT_RECEIVE_GRACE_SECONDS * 1000):
+                status = "failed"
     else:
         status = "unknown"
-    if status == "completed":
+    if status in {"completed", "failed"}:
         before = len(MOBILE_SESSION_JOBS)
         MOBILE_SESSION_JOBS[:] = [job for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id")) != str(prompt_id)]
         if len(MOBILE_SESSION_JOBS) != before:
             _save_mobile_session_jobs()
     result = {"prompt_id": prompt_id, "status": status, "images": images, "videos": videos}
+    if status == "failed":
+        result["error"] = _remote_history_error_message(remote_history_entry) or "远端任务已结束，但没有可回传的图片或视频。"
     if REMOTE_COMFYUI_URL and prompt_id in REMOTE_PROGRESS_BY_PROMPT_ID:
         result["progress"] = REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id]
     elif REMOTE_COMFYUI_URL:
@@ -2920,7 +3201,7 @@ async def _mobile_job_status(prompt_id):
         if node_total > 0:
             if status == "completed":
                 result["progress"] = {"value": node_total, "max": node_total, "percent": 100, "node": "", "type": "node"}
-            elif status == "running":
+            elif status in {"running", "receiving"}:
                 result["progress"] = {"value": 1, "max": node_total, "percent": max(1, round(100 / node_total)), "node": "", "type": "node"}
             elif status == "pending":
                 result["progress"] = {"value": 0, "max": node_total, "percent": 0, "node": "", "type": "node"}
@@ -2945,6 +3226,43 @@ async def _mobile_session_job(item):
         "node_total": item.get("node_total", 0),
         "progress": status.get("progress"),
     }
+
+
+async def _active_mobile_session_jobs():
+    _ensure_mobile_session_jobs_loaded()
+    items = list(MOBILE_SESSION_JOBS)
+    active_jobs = []
+    changed = False
+    for item in items:
+        prompt_id = str(item.get("prompt_id") or "")
+        if not prompt_id:
+            changed = True
+            continue
+        status = await _mobile_job_status(prompt_id)
+        state = status.get("status", "unknown")
+        if state not in {"running", "pending", "receiving"}:
+            changed = True
+            continue
+        active_jobs.append(
+            {
+                **item,
+                "status": state,
+                "images": status.get("images", []),
+                "videos": status.get("videos", []),
+                "node_total": item.get("node_total", 0),
+                "progress": status.get("progress"),
+                "error": status.get("error", ""),
+            }
+        )
+    if changed:
+        active_ids = {str(job.get("prompt_id") or "") for job in active_jobs}
+        before = len(MOBILE_SESSION_JOBS)
+        MOBILE_SESSION_JOBS[:] = [
+            job for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id") or "") in active_ids
+        ]
+        if len(MOBILE_SESSION_JOBS) != before:
+            _save_mobile_session_jobs()
+    return active_jobs
 
 
 def _load_image_interrogator():
@@ -2995,7 +3313,7 @@ class RandomPhotoPrompt:
             aspect = _normalize_aspect(cached_aspect)
             signature = _prompt_signature(scale, shot, aspect, era)
             if use_pregenerated_prompt and cached_prompt and str(cached_signature or "") == signature:
-                return (clean_prompt_text(cached_prompt), cached_negative_prompt)
+                return (clean_prompt_text(_enforce_mobile_ancient_barefoot_text(cached_prompt, era)), cached_negative_prompt)
             item, _resolution = _build_desktop_prompt_with_mobile_logic(scale, shot, str(time.time()), era)
             return (_prompt_text(item), item.get("negative_prompt", ""))
         except Exception:
@@ -3133,6 +3451,9 @@ async def pregenerate_mobile_image_prompt(request):
         prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era)
         width = int(resolution["width"])
         height = int(resolution["height"])
+        workflow_key = str(data.get("workflow") or "")
+        if _is_krea2_workflow(workflow_key):
+            prompt_item = _apply_krea2_prompt_item_orientation_guard(prompt_item, width, height)
         return web.json_response(
             {
                 "prompt": _prompt_text(prompt_item),
@@ -3154,7 +3475,7 @@ async def pregenerate_mobile_image_prompt(request):
 
 async def mobile_generation_page(request):
     try:
-        return web.FileResponse(MOBILE_PAGE_PATH)
+        return web.Response(text=MOBILE_PAGE_PATH.read_text(encoding="utf-8"), content_type="text/html")
     except Exception:
         return web.Response(text=traceback.format_exc(), status=500)
 
@@ -3166,6 +3487,16 @@ async def mobile_root_redirect(request):
 async def _mobile_entry_status():
     output_dir = _mobile_local_output_dir()
     remote_enabled = bool(REMOTE_COMFYUI_URL)
+    remote_ok = not remote_enabled
+    remote_message = "未设置 RPP_REMOTE_COMFYUI_URL，当前仅作为内部本机服务。"
+    if remote_enabled:
+        _remote_status, remote_error = await _remote_json("GET", "/system_stats", timeout=5)
+        remote_ok = remote_error is None
+        remote_message = (
+            f"远端 {REMOTE_COMFYUI_URL} 连接正常。"
+            if remote_ok
+            else remote_error.get("error", f"远端 {REMOTE_COMFYUI_URL} 连接失败。")
+        )
     workflow_statuses = _mobile_workflow_statuses()
     image_workflows_ready = all(item["template_ready"] for item in workflow_statuses.values() if item["type"] == "image")
     video_workflow_ready = workflow_statuses.get(MOBILE_VIDEO_WORKFLOW_KEY, {}).get("template_ready", False)
@@ -3200,8 +3531,8 @@ async def _mobile_entry_status():
         "health": {
             "local_mobile": {"ok": True, "message": "本机手机页接口正常。"},
             "remote_comfyui": {
-                "ok": not remote_enabled,
-                "message": f"已配置远端 {REMOTE_COMFYUI_URL}，统一入口会通过 18199 访问。" if remote_enabled else "未设置 RPP_REMOTE_COMFYUI_URL，当前仅作为内部本机服务。",
+                "ok": remote_ok,
+                "message": remote_message,
             },
             "output_dir": {
                 "ok": output_dir.exists() and os.access(output_dir, os.W_OK),
@@ -3356,15 +3687,21 @@ def _mobile_shot_config(value):
         return MOBILE_SCOPE_PRESETS[key]
     shot_map = {
         "full_body": "full_body",
+        "full_body_portrait": "full_body",
+        "full_body_landscape": "full_body",
         "全身": "full_body",
         "全身像": "full_body",
         "half_body": "half_body",
+        "half_body_portrait": "half_body",
+        "half_body_landscape": "half_body",
         "半身": "half_body",
         "半身像": "half_body",
         "半身镜头": "half_body",
         "大腿以上": "half_body",
         "大腿以上镜头": "half_body",
         "head_shot": "head_shot",
+        "head_shot_portrait": "head_shot",
+        "head_shot_landscape": "head_shot",
         "头部": "head_shot",
         "头部镜头": "head_shot",
         "肩膀及以上": "head_shot",
@@ -3389,7 +3726,10 @@ async def generate_mobile_image(request):
         zimage_models = await _available_mobile_zimage_models()
         requested_zit_model = str(data.get("zit_model") or "").strip()
         requested_zib_model = str(data.get("zib_model") or "").strip()
-        if workflow_key == "zib_single":
+        if _is_krea2_workflow(workflow_key):
+            zit_model = ""
+            zib_model = ""
+        elif workflow_key == "zib_single":
             zit_model = ""
             zib_model = _resolve_zib_model(requested_zib_model, zimage_models["zib_models"])
         elif workflow_key == "zitb_double":
@@ -3403,7 +3743,8 @@ async def generate_mobile_image(request):
         scale = data.get("scale", "bold")
         era = data.get("era", "modern")
         shot_config = _mobile_shot_config(data.get("shot", "full_body_portrait"))
-        custom_prompt = str(data.get("custom_prompt") or "").strip()
+        custom_prompt_source = str(data.get("custom_prompt_source") or "").strip()
+        custom_prompt = str(data.get("custom_prompt") or "").strip() if custom_prompt_source == "manual" else ""
         client_id = str(data.get("client_id") or "").strip()
         output_mode = "mac"
         requested_count = max(1, min(int(data.get("count", 1) or 1), 64))
@@ -3416,6 +3757,7 @@ async def generate_mobile_image(request):
         for index in range(count):
             seed_text = f"{time.time()}-{uuid.uuid4()}-{index}"
             if custom_prompt:
+                custom_prompt = _enforce_mobile_ancient_barefoot_text(custom_prompt, era)
                 prompt_item = _custom_mobile_prompt_item(custom_prompt, seed_text)
                 resolution = _mobile_custom_resolution(custom_prompt, data.get("custom_resolution"))
             else:
@@ -3425,11 +3767,13 @@ async def generate_mobile_image(request):
             aspect = resolution["aspect"]
             if workflow_key == "zitb_double":
                 _use_chinese_negative_prompt(prompt_item, scale, shot_config, width, height, aspect)
+            if _is_krea2_workflow(workflow_key):
+                prompt_item = _apply_krea2_prompt_item_orientation_guard(prompt_item, width, height)
             seed = int(data.get("seed") or prompt_item.get("seed") or int(time.time() * 1000))
             if count > 1 and not data.get("seed"):
                 seed = int(prompt_item.get("seed") or seed)
             output_prefix = f"mobile_{uuid.uuid4().hex[:12]}"
-            workflow, patched = _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model, output_prefix, lora_name, lora_strength, zib_model)
+            workflow, patched = _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model, output_prefix, lora_name, lora_strength, zib_model, workflow_key)
             queued, error = await _queue_mobile_workflow(workflow, client_id, output_mode=output_mode)
             if error:
                 errors.append(error)
@@ -3588,8 +3932,7 @@ async def mobile_job_detail(request):
 
 async def mobile_session_jobs(request):
     try:
-        _ensure_mobile_session_jobs_loaded()
-        return web.json_response({"jobs": [await _mobile_session_job(item) for item in MOBILE_SESSION_JOBS]})
+        return web.json_response({"jobs": await _active_mobile_session_jobs()})
     except Exception:
         return web.json_response({"error": traceback.format_exc()}, status=500)
 
