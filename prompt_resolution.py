@@ -15,6 +15,7 @@ MOBILE_CUSTOM_RESOLUTION_PRESETS = {
     "1088x1920": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": ""},
     "1280x1920": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": ""},
     "1216x1664": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": ""},
+    "1536x1536": {"aspect": "portrait", "width": 1536, "height": 1536, "framing": ""},
     "1920x1280": {"aspect": "landscape", "width": 1920, "height": 1280, "framing": ""},
     "1920x1088": {"aspect": "landscape", "width": 1920, "height": 1088, "framing": ""},
     "1344x1792_head": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": ""},
