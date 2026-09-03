@@ -2,9 +2,9 @@ from __future__ import annotations
 
 
 RESOLUTIONS = {
-    "head_shot": (1408, 1856),
-    "half_body": (1280, 1920),
-    "full_body": (1088, 1920),
+    "head_shot": (1024, 1536),
+    "half_body": (1024, 1536),
+    "full_body": (1024, 1536),
 }
 
 MAX_POSITIVE_PROMPT_LENGTH = 99999  # 不再限制提示词长度

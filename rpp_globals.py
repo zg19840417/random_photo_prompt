@@ -20,8 +20,8 @@ __all__ = sorted(["ANCIENT_SHOE_REPLACEMENTS", "BLOCK_REMOTE_ASSET_SAVE", "CHARA
 
 
 
-FIXED_CHARACTER_ORIGINAL = '22岁瓷白冷白皮K-pop韩国美女，瓷器般细腻冷白皮肤，细长瓜子脸，非常尖的下巴，高挺精致鼻梁，鼻尖尖翘。黑色直发散落在脸部两侧，魅惑狐狸眼，精致夜店斩男妆，锋利黑色眼线，冷调眼妆，卷翘的长睫毛，纯蓝色美瞳，棕色眼影，眼角和脸颊点缀闪烁银粉与淡淡美人痣，湿润闪亮的粉红唇彩，又细又长的黑色手指甲点缀反光银粉，性感锁骨，骨架偏瘦但胸部和臀部丰满，小蛮腰，腿细且长'
-CHARACTER_BY_SHOT = {'head_shot': '22岁瓷白冷白皮K-pop韩国美女，瓷器般细腻冷白皮肤，细长瓜子脸，非常尖的下巴，高挺精致鼻梁，鼻尖尖翘。黑色直发散落在脸部两侧，魅惑狐狸眼，精致夜店斩男妆，锋利黑色眼线，冷调眼妆，卷翘的长睫毛，纯蓝色美瞳，棕色眼影，眼角和脸颊点缀闪烁银粉与淡淡美人痣，湿润闪亮的粉红唇彩', 'half_body': '22岁瓷白冷白皮K-pop韩国美女，瓷器般细腻冷白皮肤，细长瓜子脸，非常尖的下巴，高挺精致鼻梁，鼻尖尖翘。黑色直发散落在脸部两侧，魅惑狐狸眼，精致夜店斩男妆，锋利黑色眼线，冷调眼妆，卷翘的长睫毛，纯蓝色美瞳，棕色眼影，眼角和脸颊点缀闪烁银粉与淡淡美人痣，湿润闪亮的粉红唇彩，又细又长的黑色手指甲点缀反光银粉，性感锁骨，骨架偏瘦但胸部丰满，小蛮腰', 'full_body': FIXED_CHARACTER_ORIGINAL}
+FIXED_CHARACTER_ORIGINAL = '22岁瓷白冷白皮K-pop韩国美女，黑色渐变的手指甲又细又长，瓷器般细腻冷白皮肤，细长瓜子脸，非常尖的下巴，高挺精致鼻梁，鼻尖尖翘。黑色直发散落在脸部两侧，魅惑狐狸眼，精致夜店斩男妆，锋利黑色眼线，冷调眼妆，卷翘的长睫毛，纯蓝色美瞳，棕色眼影，眼角和脸颊点缀闪烁银粉与淡淡美人痣，湿润闪亮的粉红唇彩，性感锁骨，骨架偏瘦但胸部和臀部丰满，小蛮腰，腿细且长'
+CHARACTER_BY_SHOT = {'head_shot': '22岁瓷白冷白皮K-pop韩国美女，黑色渐变的手指甲又细又长，瓷器般细腻冷白皮肤，细长瓜子脸，非常尖的下巴，高挺精致鼻梁，鼻尖尖翘。黑色直发散落在脸部两侧，魅惑狐狸眼，精致夜店斩男妆，锋利黑色眼线，冷调眼妆，卷翘的长睫毛，纯蓝色美瞳，棕色眼影，眼角和脸颊点缀闪烁银粉与淡淡美人痣，湿润闪亮的粉红唇彩', 'half_body': '22岁瓷白冷白皮K-pop韩国美女，黑色渐变的手指甲又细又长，瓷器般细腻冷白皮肤，细长瓜子脸，非常尖的下巴，高挺精致鼻梁，鼻尖尖翘。黑色直发散落在脸部两侧，魅惑狐狸眼，精致夜店斩男妆，锋利黑色眼线，冷调眼妆，卷翘的长睫毛，纯蓝色美瞳，棕色眼影，眼角和脸颊点缀闪烁银粉与淡淡美人痣，湿润闪亮的粉红唇彩，性感锁骨，骨架偏瘦但胸部丰满，小蛮腰', 'full_body': FIXED_CHARACTER_ORIGINAL}
 
 
 NODE_DIR = Path(__file__).resolve().parent
@@ -122,9 +122,9 @@ REMOTE_MAC_SOURCE_IMAGE_URL = os.environ.get("RPP_MAC_SOURCE_IMAGE_URL", "").str
 REMOTE_TRANSFER_TOKEN = os.environ.get("RPP_REMOTE_TRANSFER_TOKEN", "").strip()
 REMOTE_TRANSFER_ALLOWED_IP = os.environ.get("RPP_REMOTE_TRANSFER_ALLOWED_IP", "").strip()
 MOBILE_SCOPE_PRESETS = {
-    "head_shot": {"shot": "head_shot", "aspect": "portrait", "width": 1344, "height": 1792},
-    "half_body": {"shot": "half_body", "aspect": "portrait", "width": 1280, "height": 1920},
-    "full_body": {"shot": "full_body", "aspect": "portrait", "width": 1088, "height": 1920},
+    "head_shot": {"shot": "head_shot", "aspect": "portrait", "width": 1024, "height": 1536},
+    "half_body": {"shot": "half_body", "aspect": "portrait", "width": 1024, "height": 1536},
+    "full_body": {"shot": "full_body", "aspect": "portrait", "width": 1024, "height": 1536},
 }
 MOBILE_MAX_ACTIVE_JOBS = 99
 MOBILE_RESULT_RECEIVE_GRACE_SECONDS = float(os.environ.get("RPP_MOBILE_RESULT_RECEIVE_GRACE_SECONDS", "45") or 45)
@@ -167,15 +167,15 @@ MOBILE_RESOLUTION_RULES = {
     "full_body": (
         (
             ("大字", "四肢展开", "双臂自然向两侧展开", "手脚乱舞", "跳", "跃起", "腾空"),
-            {"aspect": "landscape", "width": 1920, "height": 1280, "framing": "横向全身动态构图"},
+            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向全身动态构图"},
         ),
         (
             ("俯拍", "顶视角", "正上方", "仰躺", "侧躺", "横躺", "平躺", "趴", "横向展开", "沿宽画幅", "床中央", "睡", "睡着"),
-            {"aspect": "landscape", "width": 1920, "height": 1280, "framing": "横向全身构图，身体沿宽画幅展开，从头到脚完整入镜"},
+            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向全身构图，身体沿宽画幅展开，从头到脚完整入镜"},
         ),
         (
             ("低机位", "自然纵深", "前景肢体"),
-            {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身低机位构图"},
+            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身低机位构图"},
         ),
         (
             ("站立", "站姿", "直立", "倚靠", "靠墙", "迈步", "行走", "走姿"),
@@ -183,27 +183,27 @@ MOBILE_RESOLUTION_RULES = {
         ),
         (
             ("坐", "坐姿", "坐在", "侧坐", "跪", "跪姿", "跪坐", "膝", "蹲", "半蹲", "蜷", "抱膝"),
-            {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身坐跪构图"},
+            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身坐跪构图"},
         ),
         (
             ("扭腰", "回望", "转身", "侧身", "交叉点地", "向后拉长", "双手一上一下"),
-            {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身动态姿势构图"},
+            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身动态姿势构图"},
         ),
     ),
     "half_body": (
         (
             ("横躺", "侧躺", "仰躺", "平躺", "俯拍", "顶视角", "床", "横向", "横跨", "横向靠", "横向坐", "横向趴", "沿宽画幅", "斜向铺"),
-            {"aspect": "landscape", "width": 1920, "height": 1280, "framing": "横向半身镜头，大腿以上入镜"},
+            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身镜头，大腿以上入镜"},
         ),
         (
             ("坐", "坐姿", "跪", "跪坐", "膝", "直立", "站", "站立", "竖向", "纵向"),
-            {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向半身镜头，大腿以上入镜"},
+            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身镜头，大腿以上入镜"},
         ),
     ),
     "head_shot": (
         (
             ("横向", "侧脸", "躺", "侧躺"),
-            {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部镜头，肩膀及以上入镜，头顶完整"},
+            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部镜头，肩膀及以上入镜，头顶完整"},
         ),
     ),
 }
@@ -219,46 +219,46 @@ MOBILE_FRAMING_COMPACT_REPLACEMENTS = {
     "头部镜头，肩膀及以上入镜，头顶完整": "竖向头部构图，头顶完整",
 }
 MOBILE_DEFAULT_RESOLUTIONS = {
-    "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身构图"},
-    "half_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向半身镜头，大腿以上入镜"},
-    "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部镜头，肩膀及以上入镜，头顶完整"},
+    "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身构图"},
+    "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身镜头，大腿以上入镜"},
+    "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部镜头，肩膀及以上入镜，头顶完整"},
 }
 MOBILE_DIRECTOR_RESOLUTION_RULES = {
     "sunny_multicolor_pool_glamour": {
-        "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身阳光水光构图，从头到脚完整入镜，脚下留地面或池边边距"},
-        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身多色反光构图，大腿以上入镜"},
+        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身阳光水光构图，从头到脚完整入镜，脚下留地面或池边边距"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身多色反光构图，大腿以上入镜"},
     },
     "beach_vivid_glamour": {
-        "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身海边构图，从头到脚完整入镜，脚下沙面边距清楚"},
-        "half_body": {"aspect": "landscape", "width": 1920, "height": 1088, "framing": "横向半身海边构图，大腿以上入镜，保留海风空间"},
+        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身海边构图，从头到脚完整入镜，脚下沙面边距清楚"},
+        "half_body": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身海边构图，大腿以上入镜，保留海风空间"},
     },
     "garden_waterlight_seduction": {
-        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身花园构图，从头到脚完整入镜，脚下草地或地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身花园水光构图，大腿以上入镜"},
+        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身花园构图，从头到脚完整入镜，脚下草地或地面边距清楚"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身花园水光构图，大腿以上入镜"},
     },
     "glass_balcony_colorlight": {
-        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身玻璃反射构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身玻璃彩光构图，大腿以上入镜"},
-        "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部玻璃反光近景，肩膀及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身玻璃反射构图，从头到脚完整入镜，脚下地面边距清楚"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身玻璃彩光构图，大腿以上入镜"},
+        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部玻璃反光近景，肩膀及以上入镜，头顶完整"},
     },
     "bright_studio_color_fashion": {
-        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身彩色棚拍构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身彩色棚拍构图，大腿以上入镜"},
-        "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部彩色棚拍近景，肩膀及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身彩色棚拍构图，从头到脚完整入镜，脚下地面边距清楚"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身彩色棚拍构图，大腿以上入镜"},
+        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部彩色棚拍近景，肩膀及以上入镜，头顶完整"},
     },
     "tropical_terrace_sensuality": {
-        "full_body": {"aspect": "portrait", "width": 1088, "height": 1920, "framing": "竖向全身热带露台构图，从头到脚完整入镜，脚下甲板或地面边距清楚"},
-        "half_body": {"aspect": "landscape", "width": 1920, "height": 1088, "framing": "横向半身热带露台构图，大腿以上入镜"},
+        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身热带露台构图，从头到脚完整入镜，脚下甲板或地面边距清楚"},
+        "half_body": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身热带露台构图，大腿以上入镜"},
     },
     "sweet_vivid_tease": {
-        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身甜艳构图，从头到脚完整入镜，脚下边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身甜艳构图，大腿以上入镜"},
-        "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部甜艳近景，肩膀及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身甜艳构图，从头到脚完整入镜，脚下边距清楚"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身甜艳构图，大腿以上入镜"},
+        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部甜艳近景，肩膀及以上入镜，头顶完整"},
     },
     "forced_perspective_focus": {
-        "full_body": {"aspect": "portrait", "width": 1280, "height": 1920, "framing": "竖向全身低机位构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1216, "height": 1664, "framing": "竖向半身强透视构图，大腿以上入镜，手部动作清楚"},
-        "head_shot": {"aspect": "portrait", "width": 1344, "height": 1792, "framing": "竖向头部近景，肩膀及以上入镜，头顶完整"},
+        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身低机位构图，从头到脚完整入镜，脚下地面边距清楚"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身强透视构图，大腿以上入镜，手部动作清楚"},
+        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部近景，肩膀及以上入镜，头顶完整"},
     },
 }
 

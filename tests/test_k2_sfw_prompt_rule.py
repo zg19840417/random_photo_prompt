@@ -28,10 +28,10 @@ class K2SfwPromptRuleTests(unittest.TestCase):
 
     def test_resolution_follows_narrative_camera_and_composition(self):
         self.assertEqual(select_resolution("wide", "bird", "构图采用三分法"), {"aspect": "square", "width": 1536, "height": 1536})
-        self.assertEqual(select_resolution("wide", "side", "构图采用引导线"), {"aspect": "landscape", "width": 1920, "height": 1280})
+        self.assertEqual(select_resolution("wide", "side", "构图采用引导线"), {"aspect": "landscape", "width": 1536, "height": 1024})
         self.assertEqual(select_resolution("medium", "side", "构图采用中心对称"), {"aspect": "square", "width": 1536, "height": 1536})
-        self.assertEqual(select_resolution("medium", "side", "构图采用三分法"), {"aspect": "portrait", "width": 1216, "height": 1664})
-        self.assertEqual(select_resolution("close", "side", "构图采用框架构图"), {"aspect": "portrait", "width": 1088, "height": 1920})
+        self.assertEqual(select_resolution("medium", "side", "构图采用三分法"), {"aspect": "portrait", "width": 1024, "height": 1536})
+        self.assertEqual(select_resolution("close", "side", "构图采用框架构图"), {"aspect": "portrait", "width": 1024, "height": 1536})
 
     def test_uses_multiple_document_lenses_and_viewpoints(self):
         generated = [generate_prompt_item(f"k2-options-{index}")["dimension_parts"] for index in range(40)]

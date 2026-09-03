@@ -7,9 +7,9 @@ import re
 RULE_KEY = "k2_sfw"
 RULE_LABEL = "K2 SFW 叙事规则"
 K2_RESOLUTION_BY_SCOPE = {
-    "close": {"aspect": "portrait", "width": 1088, "height": 1920},
-    "medium": {"aspect": "portrait", "width": 1216, "height": 1664},
-    "wide": {"aspect": "landscape", "width": 1920, "height": 1280},
+    "close": {"aspect": "portrait", "width": 1024, "height": 1536},
+    "medium": {"aspect": "portrait", "width": 1024, "height": 1536},
+    "wide": {"aspect": "landscape", "width": 1536, "height": 1024},
 }
 K2_SQUARE_RESOLUTION = {"aspect": "square", "width": 1536, "height": 1536}
 
