@@ -162,3 +162,12 @@ def video_prompt_from_action(action_text: str, source_prompt: str='', filename: 
     elif resolved_seconds is not None:
         text = stage_video_action(text, resolved_seconds, infer_video_scope(source_prompt), allow_extras=False)
     return (text, resolved_seconds or estimate_video_seconds(text))
+
+
+def resolve_video_submission_prompt(action_text: str, source_prompt: str='', filename: str='', seed_text: str='', seconds: int | str=4) -> tuple[str, int]:
+    """Keep a non-empty user submission unchanged; generate only when no text was supplied."""
+    raw_text = str(action_text or '')
+    resolved_seconds = normalize_video_seconds(seconds)
+    if raw_text.strip():
+        return raw_text, resolved_seconds
+    return video_prompt_from_action('', source_prompt, filename, seed_text, resolved_seconds)

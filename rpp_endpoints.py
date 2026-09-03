@@ -115,7 +115,7 @@ from rpp_mobile import (
     _save_mobile_session_jobs,
     _video_prompt_from_action,
 )
-from video_prompt_engine import normalize_video_seconds
+from video_prompt_engine import normalize_video_seconds, resolve_video_submission_prompt
 
 __all__ = sorted(["__all__", "_local_status_html", "_local_status_item", "_mobile_entry_status", "backup_mobile_favorite_image", "backup_mobile_favorite_video", "clear_remote_mobile_runtime_state", "delete_mobile_favorite_images", "delete_mobile_gallery_images", "delete_mobile_gallery_videos", "delete_remote_output_file", "generate_mobile_image", "generate_mobile_video", "generate_random_photo_prompt", "interrogate_random_photo_prompt", "local_status_page", "manual_generation_page", "mobile_favorite_image_file", "mobile_favorite_images", "mobile_gallery_images", "mobile_gallery_videos", "mobile_generation_page", "mobile_generation_status", "mobile_job_detail", "mobile_remote_video_source_image", "mobile_root_redirect", "mobile_runtime_image", "mobile_session_jobs", "mark_mobile_viewed_images", "open_mobile_gallery_image_in_qview", "pregenerate_mobile_image_prompt", "pregenerate_mobile_video_action", "resolve_random_photo_prompt_resolution", "submit_guarded_remote_workflow", "upload_mobile_video_source"])
 
@@ -699,7 +699,7 @@ async def generate_mobile_video(request):
             source_path, image_load_name, source_is_uploaded = _mobile_video_source_path(source_filename)
             remote_source_url = _mac_proxy_source_image_url(image_load_name) if REMOTE_COMFYUI_URL else ""
         # Video has its own action field. Never inherit a manual still-image prompt.
-        action_text = str(data.get("action_text") or "").strip()
+        action_text = str(data.get("action_text") or "")
         fps = 24
         requested_seconds = normalize_video_seconds(data.get("seconds", 8))
         source_prompt = "" if video_mode == "text" or source_is_uploaded else _mobile_prompt_for_gallery_file(Path(source_filename).name)
@@ -708,7 +708,7 @@ async def generate_mobile_video(request):
         for index in range(count):
             seed_text = f"video-{time.time()}-{uuid.uuid4()}-{index}"
             prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text)
-            video_prompt, seconds = _video_prompt_from_action(
+            video_prompt, seconds = resolve_video_submission_prompt(
                 action_text,
                 seed_text=seed_text,
                 seconds=requested_seconds,

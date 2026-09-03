@@ -9,7 +9,7 @@ from PIL import Image
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from video_prompt_engine import normalize_video_seconds
+from video_prompt_engine import normalize_video_seconds, resolve_video_submission_prompt
 from video_resolution import image_to_video_resolution
 
 
@@ -17,6 +17,12 @@ class VideoRuntimeLimitsTests(unittest.TestCase):
     def test_four_second_default_is_allowed(self):
         self.assertEqual(normalize_video_seconds(4), 4)
         self.assertEqual(normalize_video_seconds(None), 4)
+
+    def test_custom_video_prompt_is_not_rewritten(self):
+        custom_prompt = "  0-2秒：镜头向前推进。\n2-4秒：人物转身看向镜头。  "
+        prompt, seconds = resolve_video_submission_prompt(custom_prompt, seconds=4)
+        self.assertEqual(prompt, custom_prompt)
+        self.assertEqual(seconds, 4)
 
     def test_image_to_video_resolution_preserves_aspect_ratio_and_caps_runtime_limits(self):
         cases = {
