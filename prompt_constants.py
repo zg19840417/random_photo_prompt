@@ -52,7 +52,7 @@ QUALITY_BY_SCALE = {
     "normal": "商业写真级自然光影，肤色真实不过曝，清晰镜头景深，暗部有层次",
     "bold": "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝",
     "bold_no_outfit": "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝",
-    "nsfw": "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝",
+    "nsfw": "高级私房写真调色，肤质细腻保留真实纹理，光影有层次，高光不过曝，sharp focus, detailed skin, natural anatomy",
 }
 QUALITY_SUFFIX = QUALITY_BY_SCALE["bold"]  # fallback
 
@@ -254,13 +254,13 @@ PART_LENGTH_BUDGETS = {
 }
 
 NSFW_PART_LENGTH_BUDGETS = {
-    "camera": 120,
-    "character": 220,
-    "makeup": 80,
+    "camera": 90,
+    "character": 180,
+    "makeup": 60,
     "outfit": 0,
-    "pose_expression": 400,
-    "scene_light": 200,
-    "quality": 100,
+    "pose_expression": 160,
+    "scene_light": 140,
+    "quality": 120,
 }
 
 SHOT_ALIASES = {
