@@ -1,0 +1,4289 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>手机生成</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0B0E14;
+      --panel: #15181E;
+      --panel-2: #1F2430;
+      --field: #0B0E14;
+      --text: #BFBDB6;
+      --muted: #777B85;
+      --line: rgba(191, 189, 182, .18);
+      --soft-line: rgba(191, 189, 182, .10);
+      --accent: #E6B450;
+      --accent-strong: #E6B450;
+      --on-accent: #0B0E14;
+      --accent-2: #AAD94C;
+      --danger: #F07178;
+      --nav: rgba(11, 14, 20, .82);
+      --shadow: 0 18px 42px rgba(0, 0, 0, .48);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    main {
+      width: min(720px, 100%);
+      margin: 0 auto;
+      padding: 18px 14px 32px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      margin: 0 -14px 14px;
+      padding: max(6px, env(safe-area-inset-top)) 16px 10px;
+      background: var(--nav);
+      backdrop-filter: saturate(180%) blur(18px);
+      -webkit-backdrop-filter: saturate(180%) blur(18px);
+      border-bottom: 1px solid var(--soft-line);
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      min-width: 0;
+      padding: 3px;
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      background: rgba(191, 189, 182, .06);
+    }
+
+    .tab {
+      min-height: 38px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .tab.active {
+      background: rgba(191, 189, 182, .18);
+      color: var(--text);
+    }
+
+    .panel[hidden] {
+      display: none;
+    }
+
+    .jobs {
+      height: 0;
+      overflow: hidden;
+      visibility: hidden;
+      margin: 0;
+      padding: 0;
+    }
+
+    .section {
+      padding: 14px;
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 1px 0 rgba(191, 189, 182, .05) inset;
+    }
+
+    .label {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .label-row .label {
+      margin-bottom: 0;
+    }
+
+    button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      color: var(--text);
+      font: inherit;
+      font-size: 15px;
+      transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease, transform 140ms ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button:active {
+      transform: scale(.985);
+    }
+
+    button:disabled {
+      opacity: .55;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    .custom-select-trigger:focus-visible {
+      outline: 2px solid rgba(230, 180, 80, .88);
+      outline-offset: 2px;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .video-settings-row {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .video-control-row {
+      grid-template-columns: minmax(0, .95fr) minmax(0, .95fr) minmax(0, .85fr) minmax(0, .9fr);
+      gap: 8px;
+    }
+
+    .image-control-row {
+      grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, .85fr)) minmax(58px, .85fr);
+      gap: 6px;
+      align-items: end;
+    }
+
+    .image-control-row.k2-rule {
+      grid-template-columns: minmax(0, 1fr) minmax(58px, .85fr);
+    }
+
+    .model-workflow-row {
+      display: grid;
+      grid-template-columns: minmax(118px, .78fr) minmax(0, 1.55fr);
+      gap: 8px;
+      align-items: end;
+      margin-top: 10px;
+    }
+
+    .model-select-group {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+      align-items: end;
+    }
+
+    .model-select-group.double {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .prompt-rule-row {
+      margin-top: 10px;
+    }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--field);
+      color: var(--text);
+      font: inherit;
+    }
+
+    select,
+    input {
+      height: 42px;
+      padding: 0 12px;
+    }
+
+    textarea {
+      min-height: 132px;
+      padding: 10px 12px;
+      resize: vertical;
+      line-height: 1.45;
+      caret-color: var(--accent);
+    }
+
+    .negative-prompt-field textarea {
+      min-height: 88px;
+    }
+
+    .prompt-dialog-negative {
+      display: block;
+      margin-top: 12px;
+    }
+
+    .prompt-dialog-negative[hidden] {
+      display: none;
+    }
+
+    .custom-prompt-button {
+      width: 100%;
+      min-height: 42px;
+      margin-top: 10px;
+      border-color: var(--soft-line);
+      background: rgba(191, 189, 182, .06);
+      color: var(--text);
+    }
+
+    .custom-prompt-button.active {
+      border-color: rgba(230, 180, 80, .78);
+      color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(230, 180, 80, .16);
+    }
+
+    .prompt-action-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(76px, .55fr) minmax(0, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .prompt-action-row .custom-prompt-button {
+      margin-top: 0;
+    }
+
+    select {
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+      background-position: calc(100% - 18px) 18px, calc(100% - 12px) 18px;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+      padding-right: 32px;
+    }
+
+    .native-select-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .custom-select {
+      position: relative;
+      width: 100%;
+    }
+
+    .custom-select-trigger {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      width: 100%;
+      height: 42px;
+      min-height: 42px;
+      padding: 0 10px 0 12px;
+      border-color: var(--line);
+      background: var(--field);
+      color: var(--text);
+      text-align: left;
+      touch-action: manipulation;
+    }
+
+    .custom-select-trigger::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      margin-left: 8px;
+      border-right: 2px solid var(--accent);
+      border-bottom: 2px solid var(--accent);
+      transform: translateY(-2px) rotate(45deg);
+      transition: transform 140ms ease;
+    }
+
+    .custom-select.open .custom-select-trigger {
+      border-color: rgba(230, 180, 80, .75);
+      box-shadow: 0 0 0 2px rgba(230, 180, 80, .12);
+    }
+
+    .custom-select.open .custom-select-trigger::after {
+      transform: translateY(2px) rotate(225deg);
+    }
+
+    .custom-select-value {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .custom-select-menu {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      z-index: 40;
+      display: none;
+      max-height: min(46vh, 320px);
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #15181E;
+      box-shadow: var(--shadow);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+    }
+
+    .custom-select.open .custom-select-menu {
+      display: grid;
+      gap: 4px;
+    }
+
+    .custom-select-option {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      min-height: 40px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      font-size: 14px;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      touch-action: manipulation;
+    }
+
+    .custom-select-option.selected {
+      background: rgba(230, 180, 80, .16);
+      color: var(--text);
+    }
+
+    .custom-select-option.selected::after {
+      content: "✓";
+      color: var(--accent);
+      font-weight: 900;
+    }
+
+    .lora-select-wide-menu .custom-select-menu {
+      width: min(100%, 520px);
+      max-height: min(46vh, 320px);
+    }
+
+    .lora-controls {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .lora-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .lora-row {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(86px, 1fr) 42px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .lora-remove {
+      min-width: 42px;
+      width: 42px;
+      padding: 0;
+      color: #F0A4A4;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .add-lora {
+      width: 100%;
+      border-style: dashed;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .count-stepper {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 32px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--field);
+    }
+
+    .count-value {
+      display: grid;
+      place-items: center;
+      color: var(--text);
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .count-arrows {
+      display: grid;
+      border-left: 1px solid var(--line);
+    }
+
+    .count-arrow {
+      min-height: 0;
+      height: 21px;
+      border: 0;
+      border-radius: 0;
+      background: #1F2430;
+      color: var(--accent);
+      font-size: 13px;
+      line-height: 1;
+      touch-action: manipulation;
+    }
+
+    .count-arrow:first-child {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--field);
+    }
+
+    .mode-tab {
+      min-height: 36px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .mode-tab.active {
+      background: rgba(230, 180, 80, .18);
+      color: var(--text);
+    }
+
+    .mode-panel[hidden] {
+      display: none;
+    }
+
+    .shared-shot-row.video-mode {
+      display: none;
+    }
+
+    .source-picker-button {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+      min-height: 54px;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .source-picker-button.has-source {
+      grid-template-columns: 46px minmax(0, 1fr);
+      border-color: rgba(230, 180, 80, .48);
+      background: rgba(230, 180, 80, .1);
+    }
+
+    .source-picker-thumb {
+      display: block;
+      width: 44px;
+      height: 44px;
+      border-radius: 7px;
+      object-fit: cover;
+      background: #0B0E14;
+    }
+
+    .source-picker-thumb[hidden] {
+      display: none;
+    }
+
+    .source-picker-text {
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .source-picker-button.has-source .source-picker-text {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .source-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 72px 72px;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .source-upload,
+    .source-clear {
+      min-height: 54px;
+    }
+
+    .source-clear {
+      border-color: rgba(240, 113, 120, .42);
+      color: #ffd6d6;
+    }
+
+    .source-clear[hidden] {
+      display: none;
+    }
+
+    .recommend-action {
+      width: 100%;
+      min-height: 44px;
+      margin-top: 8px;
+      border-color: rgba(230, 180, 80, .48);
+      background: rgba(230, 180, 80, .12);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .primary {
+      width: 100%;
+      min-height: 52px;
+      margin-top: 12px;
+      border-color: var(--accent-strong);
+      background: var(--accent-strong);
+      color: var(--on-accent);
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: 0 8px 24px rgba(230, 180, 80, .26);
+    }
+
+    .connection {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(240, 113, 120, .12);
+    }
+
+    .connection.connected .dot {
+      background: var(--accent-2);
+      box-shadow: 0 0 0 3px rgba(170, 217, 76, .14);
+    }
+
+    .connection.warning .dot {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(240, 113, 120, .12);
+    }
+
+    .health-link {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-height: 20px;
+      padding-left: 2px;
+      border: 0;
+      color: var(--accent);
+      background: transparent;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .health-link.visible {
+      display: inline-flex;
+    }
+
+    .status {
+      min-height: 20px;
+      margin: 10px 2px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .entry-detail {
+      margin: -4px 2px 10px;
+      color: #777B85;
+      font-size: 12px;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+
+    .entry-detail:empty {
+      display: none;
+    }
+
+    .job {
+      display: block;
+    }
+
+    .generation-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 58px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--photo-cols, 4), minmax(0, 1fr));
+      align-items: start;
+      gap: 8px;
+    }
+
+    .gallery-bar {
+      position: sticky;
+      top: 54px;
+      z-index: 8;
+      display: grid;
+      grid-template-columns: auto 1fr auto auto auto;
+      gap: 8px;
+      align-items: center;
+      margin: -12px -12px 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--nav);
+      backdrop-filter: saturate(180%) blur(18px);
+      -webkit-backdrop-filter: saturate(180%) blur(18px);
+    }
+
+    .gallery-media-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      width: 168px;
+      padding: 3px;
+      border: 1px solid var(--soft-line);
+      border-radius: 8px;
+      background: rgba(191, 189, 182, .06);
+    }
+
+    .gallery-media-tab {
+      min-height: 30px;
+      padding: 0 8px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .gallery-media-tab.active {
+      background: rgba(230, 180, 80, .18);
+      color: var(--text);
+    }
+
+    #waterfallPanel {
+      padding-top: 0;
+    }
+
+    #waterfallPanel .gallery-bar {
+      margin-bottom: 10px;
+    }
+
+    .gallery-count {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .gallery-action {
+      min-height: 36px;
+      padding: 0 12px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .gallery-action.active {
+      border-color: rgba(230, 180, 80, .62);
+      color: var(--accent);
+      background: rgba(230, 180, 80, .16);
+    }
+
+    .gallery-action.danger,
+    .viewer-action.danger {
+      border-color: rgba(240, 113, 120, .55);
+      color: var(--danger);
+    }
+
+    .viewer-action.active {
+      border-color: rgba(230, 180, 80, .62);
+      color: var(--accent);
+      background: rgba(230, 180, 80, .16);
+    }
+
+    .photo-item,
+    .video-item,
+    .thumb {
+      position: relative;
+      display: block;
+      width: 100%;
+      padding: 0;
+      border: 1px solid var(--soft-line);
+      border-radius: 7px;
+      overflow: hidden;
+      background: #0B0E14;
+    }
+
+    .photo-item.selected,
+    .video-item.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(230, 180, 80, .55);
+    }
+
+    .photo-item.selected::after,
+    .video-item.selected::after {
+      content: "✓";
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      display: grid;
+      place-items: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: var(--on-accent);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .photo-item .new-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 2;
+      display: block;
+      width: 10px;
+      height: 10px;
+      border: 2px solid rgba(170, 217, 76, .82);
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 1px 5px rgba(0, 0, 0, .78);
+      pointer-events: none;
+    }
+
+    .photo-item .favorite-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 2;
+      color: var(--accent);
+      font-size: 20px;
+      line-height: 20px;
+      text-shadow: 0 1px 5px rgba(0, 0, 0, .85);
+      pointer-events: none;
+    }
+
+    .photo-item img,
+    .video-item video,
+    .thumb img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .video-item {
+      aspect-ratio: 3 / 4;
+    }
+
+    .video-item video {
+      height: 100%;
+      object-fit: cover;
+      background: #0B0E14;
+      pointer-events: none;
+    }
+
+    .video-item::before {
+      content: "▶";
+      position: absolute;
+      left: 6px;
+      bottom: 5px;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, .62);
+      color: var(--text);
+      font-size: 12px;
+    }
+
+    .waterfall {
+      display: block;
+      touch-action: pan-y pinch-zoom;
+    }
+
+    .waterfall[hidden] {
+      display: none;
+    }
+
+    .empty {
+      padding: 42px 10px;
+      color: var(--muted);
+      text-align: center;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      background: rgba(191, 189, 182, .05);
+    }
+
+    .viewer {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      overflow-x: hidden;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, .96);
+      overscroll-behavior: contain;
+    }
+
+    .viewer.open {
+      display: block;
+    }
+
+    .viewer-image {
+      position: relative;
+      padding: 10px 10px 0;
+      overflow: hidden;
+      touch-action: pan-y;
+      user-select: none;
+      min-height: 0;
+    }
+
+    .viewer-image img {
+      display: block;
+      width: auto;
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto;
+      border-radius: 8px;
+      background: var(--bg);
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    .viewer-image video {
+      display: none;
+      width: 100%;
+      max-height: 72vh;
+      border-radius: 8px;
+      background: #0B0E14;
+    }
+
+    .viewer.video-mode .viewer-image {
+      overflow: visible;
+      touch-action: pan-y;
+    }
+
+    .viewer.video-mode .viewer-image img {
+      display: none;
+    }
+
+    .viewer.video-mode .viewer-image video {
+      display: block;
+    }
+
+    .viewer-image img.viewer-incoming {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: calc(100% - 20px);
+      opacity: 0;
+    }
+
+    .viewer-panel {
+      padding: 8px 14px calc(18px + env(safe-area-inset-bottom));
+      background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, .9) 26px);
+    }
+
+    .viewer-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      min-height: 44px;
+      margin-bottom: 8px;
+    }
+
+    .viewer-resolution {
+      flex: 1 1 88px;
+      min-width: 0;
+      color: var(--accent-2);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .viewer-action {
+      min-height: 38px;
+      padding: 0 14px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .viewer-count {
+      margin: 0 0 8px;
+      color: var(--accent-2);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .viewer-prompt {
+      margin: 0;
+      color: #BFBDB6;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-line;
+      word-break: break-word;
+    }
+
+    .viewer-prompt:empty::before {
+      content: "暂无提示词";
+      color: rgba(191, 189, 182, .55);
+    }
+
+    .confirm-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, .72);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .confirm-dialog.open {
+      display: flex;
+    }
+
+    .source-dialog.open {
+      align-items: flex-end;
+    }
+
+    .source-dialog .confirm-box {
+      width: min(720px, 100%);
+      max-height: 78vh;
+      overflow: hidden;
+    }
+
+    #promptDialog.open {
+      align-items: flex-start;
+      padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+    }
+
+    #promptDialog .confirm-box {
+      width: min(720px, 100%);
+      max-height: calc(100vh - max(16px, env(safe-area-inset-top)));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+
+    #promptDialog .custom-select-menu {
+      max-height: min(34vh, 260px);
+    }
+
+    #promptDialog .custom-select.open .custom-select-menu {
+      position: static;
+      margin-top: 6px;
+      max-height: min(38dvh, 320px);
+      box-shadow: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      max-height: 58vh;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .source-choice {
+      padding: 0;
+      border: 1px solid var(--line);
+      overflow: hidden;
+      background: #0B0E14;
+    }
+
+    .source-choice img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .confirm-box {
+      width: min(320px, 100%);
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #15181E;
+      box-shadow: var(--shadow);
+    }
+
+    .confirm-message {
+      margin: 0 0 16px;
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .confirm-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .prompt-dialog-textarea {
+      width: 100%;
+      min-height: min(56vh, 520px);
+      max-height: min(70vh, 680px);
+      margin-top: 8px;
+    }
+
+    .prompt-dialog-actions {
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+
+    .confirm-cancel,
+    .confirm-ok {
+      min-height: 42px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .confirm-cancel {
+      background: #1F2430;
+      color: var(--text);
+    }
+
+    .confirm-ok {
+      background: var(--danger);
+      color: white;
+    }
+
+    #customPromptOk {
+      border-color: var(--accent-strong);
+      background: var(--accent-strong);
+      color: var(--on-accent);
+      font-weight: 700;
+    }
+
+    @media (max-width: 430px) {
+      main {
+        padding: 14px 10px 28px;
+      }
+
+      .topbar {
+        margin: 0 -10px 12px;
+        padding: 2px 12px 10px;
+      }
+
+      .section {
+        padding: 12px;
+      }
+
+      button {
+        font-size: 14px;
+      }
+
+      .image-control-row {
+        gap: 5px;
+      }
+
+      .image-control-row .label {
+        font-size: 12px;
+      }
+
+      .image-control-row .custom-select-trigger,
+      .image-control-row .count-stepper {
+        height: 40px;
+        min-height: 40px;
+      }
+
+      .image-control-row .custom-select-trigger {
+        padding: 0 7px 0 8px;
+      }
+
+      .image-control-row .custom-select-trigger::after {
+        margin-left: 4px;
+      }
+
+      .image-control-row .count-stepper {
+        grid-template-columns: minmax(0, 1fr) 28px;
+      }
+
+      #promptDialog.open {
+        padding: max(6px, env(safe-area-inset-top)) 6px max(6px, env(safe-area-inset-bottom));
+      }
+
+      #promptDialog .confirm-box {
+        display: grid;
+        grid-template-rows: auto auto auto auto;
+        width: 100%;
+        max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)));
+        padding: 14px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+
+      .prompt-dialog-textarea {
+        min-height: 160px;
+        height: min(44dvh, 360px);
+        max-height: 48dvh;
+        resize: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <nav class="tabs" aria-label="页面切换">
+        <button class="tab active" type="button" data-tab="generate">生成界面</button>
+        <button class="tab" type="button" data-tab="waterfall">瀑布流</button>
+      </nav>
+      <div id="connection" class="connection">
+        <span class="dot"></span>
+        <span id="connectionText">未连接</span>
+        <a id="healthLink" class="health-link" href="/random_photo_prompt/local/status" target="_blank" rel="noopener">健康</a>
+      </div>
+    </div>
+
+    <section id="generatePanel" class="panel">
+      <div class="toolbar">
+        <section class="section">
+          <div class="mode-tabs" role="tablist" aria-label="生成类型">
+            <button class="mode-tab active" type="button" data-mode="image">图片</button>
+            <button class="mode-tab" type="button" data-mode="video">视频</button>
+          </div>
+          <div id="imageModePanel" class="mode-panel">
+            <div class="row image-control-row">
+              <label id="promptRuleField">
+                <div class="label">规则</div>
+                <select id="promptRule">
+                  <option value="standard" selected>项目默认规则</option>
+                  <option value="k2_sfw">K2 SFW 叙事规则</option>
+                </select>
+              </label>
+              <label id="scaleField">
+                <div class="label">档位</div>
+                <select id="scale">
+                  <option value="normal">一档</option>
+                  <option value="bold" selected>二档</option>
+                  <option value="bold_no_outfit">三档</option>
+                  <option value="nsfw">四档</option>
+                </select>
+              </label>
+              <label id="eraField">
+                <div class="label">年代</div>
+                <select id="era">
+                  <option value="modern" selected>现代</option>
+                  <option value="ancient">古装</option>
+                </select>
+              </label>
+              <label id="shotField" class="shot-field">
+                <div class="label">镜头</div>
+                <select id="shot">
+                  <option value="random" selected>随机</option>
+                  <option value="head_shot">头部</option>
+                  <option value="half_body">半身</option>
+                  <option value="full_body">全身</option>
+                </select>
+              </label>
+              <label>
+                <div class="label">张数</div>
+                <div class="count-stepper" role="group" aria-label="生成张数">
+                  <div id="countValue" class="count-value">1</div>
+                  <div class="count-arrows">
+                    <button id="countUp" class="count-arrow" type="button" aria-label="增加张数">▲</button>
+                    <button id="countDown" class="count-arrow" type="button" aria-label="减少张数">▼</button>
+                  </div>
+                </div>
+              </label>
+            </div>
+            <div id="sharedShotRow" class="shared-shot-row" hidden></div>
+            <div class="model-workflow-row">
+              <label>
+                <div class="label">工作流</div>
+                <select id="workflow">
+                  <option value="zit_single" selected>单采-ZIT</option>
+                  <option value="zib_single">单采-ZIB</option>
+                  <option value="zitb_double">双采-ZIT+ZIB</option>
+                  <option value="zimage_double_v2">新双采-ZIT+ZIB+Klein</option>
+                  <option value="redcraft_krea2">单采-Krea2</option>
+                  <option value="krea2_cc">单采-Krea2+CC</option>
+                </select>
+              </label>
+              <div id="modelSelectGroup" class="model-select-group">
+                <label id="zitModelField">
+                  <div class="label">ZIT模型</div>
+                  <select id="zitModel">
+                    <option value="" selected>加载中</option>
+                  </select>
+                </label>
+                <label id="zibModelField" hidden>
+                  <div class="label">ZIB模型</div>
+                  <select id="zibModel">
+                    <option value="" selected>加载中</option>
+                  </select>
+                </label>
+                <label id="krea2ModelField" hidden>
+                  <div class="label">Krea2模型</div>
+                  <select id="krea2Model">
+                    <option value="" selected>加载中</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div class="lora-controls">
+              <div id="loraList" class="lora-list"></div>
+              <button id="addLora" class="add-lora" type="button">添加 LoRA</button>
+            </div>
+            <label>
+              <div class="label">Seed</div>
+              <input id="imageSeed" type="text" inputmode="numeric" autocomplete="off" placeholder="留空随机；输入 Seed 可复刻">
+            </label>
+          </div>
+          <div id="videoModePanel" class="mode-panel" hidden>
+            <div class="row video-control-row">
+              <label>
+                <div class="label">模式</div>
+                <select id="videoInputMode">
+                  <option value="text" selected>文生视频</option>
+                  <option value="image">图生视频</option>
+                </select>
+              </label>
+              <label>
+                <div class="label">档位</div>
+                <select id="videoScale">
+                  <option value="normal">一档</option>
+                  <option value="bold" selected>二档</option>
+                  <option value="bold_no_outfit">三档</option>
+                  <option value="nsfw">四档</option>
+                </select>
+              </label>
+              <label>
+                <div class="label">视频数</div>
+                <div class="count-stepper" role="group" aria-label="生成视频数">
+                  <div id="videoCountValue" class="count-value">1</div>
+                  <div class="count-arrows">
+                    <button id="videoCountUp" class="count-arrow" type="button" aria-label="增加视频数">▲</button>
+                    <button id="videoCountDown" class="count-arrow" type="button" aria-label="减少视频数">▼</button>
+                  </div>
+                </div>
+              </label>
+              <label>
+                <div class="label">帧率</div>
+                <select id="videoFps" disabled aria-label="MiniMax H3 固定帧率">
+                  <option value="24" selected>24 FPS</option>
+                </select>
+              </label>
+              <label>
+                <div class="label">时长</div>
+                <select id="videoSeconds">
+                  <option value="4" selected>4秒</option>
+                  <option value="6">6秒</option>
+                  <option value="8">8秒</option>
+                  <option value="10">10秒</option>
+                  <option value="12">12秒</option>
+                  <option value="16">16秒</option>
+                  <option value="20">20秒</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <div class="label">动作描述</div>
+              <textarea id="videoAction" placeholder="先选择图片，再点击下方按钮随机生成本次图生视频动作提示词。"></textarea>
+              <button id="pregenerateAction" class="recommend-action" type="button">生成提示词</button>
+            </label>
+            <div id="videoSourceRow" class="source-row" hidden>
+              <label>
+                <div class="label">图片</div>
+                <button id="sourcePicker" class="source-picker-button" type="button">
+                  <img id="sourcePreview" class="source-picker-thumb" alt="" hidden>
+                  <span id="sourcePickerText" class="source-picker-text">从瀑布流选择</span>
+                </button>
+              </label>
+              <button id="sourceUpload" class="source-upload" type="button">上传</button>
+              <button id="sourceClear" class="source-clear" type="button" hidden>清除</button>
+              <input id="sourceUploadInput" type="file" accept="image/*" hidden>
+            </div>
+          </div>
+          <div class="prompt-action-row">
+            <button id="customPromptButton" class="custom-prompt-button" type="button">填入提示词</button>
+            <button id="copyCustomPrompt" class="custom-prompt-button" type="button" disabled>复制</button>
+            <button id="pregeneratePrompt" class="custom-prompt-button" type="button">生成提示词</button>
+          </div>
+          <button id="generate" class="primary">生成</button>
+        </section>
+      </div>
+
+      <div id="status" class="status"></div>
+      <div id="entryDetail" class="entry-detail"></div>
+      <div id="jobs" class="jobs"></div>
+    </section>
+
+    <section id="waterfallPanel" class="panel" hidden>
+      <div class="gallery-bar">
+        <div class="gallery-media-tabs" role="tablist" aria-label="瀑布流类型">
+          <button class="gallery-media-tab active" type="button" data-gallery-tab="images">图片</button>
+          <button class="gallery-media-tab" type="button" data-gallery-tab="videos">视频</button>
+          <button class="gallery-media-tab" type="button" data-gallery-tab="favorites">收藏</button>
+        </div>
+        <span id="galleryCount" class="gallery-count">0 张</span>
+        <button id="gallerySessionOnly" class="gallery-action" type="button">本次</button>
+        <button id="gallerySelectAll" class="gallery-action" type="button" hidden>全选</button>
+        <button id="galleryEdit" class="gallery-action" type="button">编辑</button>
+        <button id="galleryDelete" class="gallery-action danger" type="button" hidden>删除</button>
+      </div>
+      <div id="waterfall" class="waterfall"></div>
+      <div id="videoWaterfall" class="waterfall" hidden>
+        <div class="empty">生成后的视频会出现在这里。</div>
+      </div>
+    </section>
+  </main>
+
+  <div id="viewer" class="viewer" aria-hidden="true">
+    <div class="viewer-image">
+      <img id="viewerImage" alt="生成图片原图" />
+      <img id="viewerIncomingImage" class="viewer-incoming" alt="切换中的生成图片" />
+      <video id="viewerVideo" controls muted autoplay playsinline preload="metadata"></video>
+    </div>
+    <div class="viewer-panel">
+      <div class="viewer-actions">
+        <span id="viewerResolution" class="viewer-resolution"></span>
+        <button id="viewerQView" class="viewer-action" type="button" hidden>用 qView 打开</button>
+        <button id="viewerFavorite" class="viewer-action" type="button">收藏</button>
+        <button id="viewerCopyPrompt" class="viewer-action" type="button">复制提示词</button>
+        <button id="viewerCopySeed" class="viewer-action" type="button">复制 Seed</button>
+        <button id="viewerRecreate" class="viewer-action" type="button">复刻图片</button>
+        <button id="viewerRotate" class="viewer-action" type="button">旋转</button>
+        <button id="viewerDelete" class="viewer-action danger" type="button">删除</button>
+      </div>
+      <p id="viewerCount" class="viewer-count"></p>
+      <p id="viewerPrompt" class="viewer-prompt"></p>
+    </div>
+  </div>
+
+  <div id="confirmDialog" class="confirm-dialog" aria-hidden="true">
+    <div class="confirm-box" role="dialog" aria-modal="true" aria-labelledby="confirmMessage">
+      <p id="confirmMessage" class="confirm-message"></p>
+      <div class="confirm-actions">
+        <button id="confirmCancel" class="confirm-cancel" type="button">取消</button>
+        <button id="confirmOk" class="confirm-ok" type="button">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="sourceDialog" class="confirm-dialog source-dialog" aria-hidden="true">
+    <div class="confirm-box" role="dialog" aria-modal="true">
+      <p class="confirm-message">选择一张图片</p>
+      <div id="sourceGrid" class="source-grid"></div>
+      <div class="confirm-actions" style="margin-top: 12px;">
+        <button id="sourceCancel" class="confirm-cancel" type="button">取消</button>
+        <button class="confirm-ok" type="button" disabled>确认</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="promptDialog" class="confirm-dialog" aria-hidden="true">
+    <div class="confirm-box" role="dialog" aria-modal="true" aria-labelledby="promptDialogTitle">
+      <p id="promptDialogTitle" class="confirm-message">填入提示词</p>
+      <textarea id="customPromptText" class="prompt-dialog-textarea" placeholder="输入后将直接使用这段提示词生成图片，不再读取档位和镜头。"></textarea>
+      <label id="negativePromptField" class="negative-prompt-field prompt-dialog-negative" hidden>
+        <div class="label">负面提示词</div>
+        <textarea id="imageNegativePrompt" placeholder="留空时自动生成中文负面提示词"></textarea>
+      </label>
+      <label style="display: block; margin-top: 12px;">
+        <div class="label">分辨率</div>
+        <select id="customPromptResolution">
+          <option value="" selected>自动判断</option>
+          <option value="896x1920">896 × 1920</option>
+          <option value="1088x1920">1088 × 1920</option>
+          <option value="1280x1920">1280 × 1920</option>
+          <option value="1216x1664">1216 × 1664</option>
+          <option value="1344x1792">1344 × 1792</option>
+          <option value="1408x1856">1408 × 1856</option>
+          <option value="1536x1536">1536 × 1536（头部）</option>
+          <option value="1920x1280">1920 × 1280</option>
+          <option value="1920x1088">1920 × 1088</option>
+        </select>
+        <input id="customPromptResolutionInput" type="text" autocomplete="off" placeholder="自定义，例如 1536x1536" style="margin-top: 8px;">
+      </label>
+      <div class="confirm-actions prompt-dialog-actions" style="margin-top: 12px;">
+        <button id="customPromptCancel" class="confirm-cancel" type="button">取消</button>
+        <button id="customPromptClear" class="confirm-cancel" type="button">清除</button>
+        <button id="customPromptCopy" class="confirm-cancel" type="button">复制</button>
+        <button id="customPromptOk" class="confirm-ok" type="button">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      jobs: new Map(),
+      galleryImages: [],
+      galleryVideos: [],
+      favoriteImages: [],
+      selectedImages: new Set(),
+      selectedVideos: new Set(),
+      selectedFavorites: new Set(),
+      editMode: false,
+      timer: null,
+      tab: "generate",
+      mode: "image",
+      galleryTab: "images",
+      sessionOnly: false,
+      sessionStartedAt: Date.now(),
+      customPrompt: "",
+      customResolution: "",
+      customPromptSource: "",
+      sourceImage: null,
+      videoActionNonce: 0,
+      viewerVideoPlayTimer: null,
+      waterfallCols: 4,
+      nextBatchId: 1,
+      maxActiveJobs: 99,
+      clientId: "",
+      serialBatches: [],
+      serialSubmitting: false,
+      progressSocket: null,
+      progressReconnectTimer: null,
+      viewerMediaType: "image",
+      viewerIndex: 0,
+      viewerImageRecord: null,
+      viewerRotation: 0,
+      viewerScale: 1,
+      viewerLayoutScale: 1,
+      viewerOffsetX: 0,
+      viewerOffsetY: 0,
+      viewerBaseOffsetY: 0,
+      viewerRenderedWidth: 0,
+      viewerRenderedHeight: 0,
+      viewerViewportHeight: 0,
+      entryMode: "",
+      entryLabel: "",
+      entryDetail: "",
+      qviewAvailable: false
+    };
+
+    const tabs = document.querySelectorAll(".tab");
+    const generatePanel = document.querySelector("#generatePanel");
+    const waterfallPanel = document.querySelector("#waterfallPanel");
+    const connectionEl = document.querySelector("#connection");
+    const connectionText = document.querySelector("#connectionText");
+    const healthLink = document.querySelector("#healthLink");
+    const statusEl = document.querySelector("#status");
+    const entryDetail = document.querySelector("#entryDetail");
+    const jobsEl = document.querySelector("#jobs");
+    const waterfallEl = document.querySelector("#waterfall");
+    const videoWaterfallEl = document.querySelector("#videoWaterfall");
+    const galleryMediaTabs = document.querySelectorAll(".gallery-media-tab");
+    const galleryCount = document.querySelector("#galleryCount");
+    const gallerySessionOnly = document.querySelector("#gallerySessionOnly");
+    const gallerySelectAll = document.querySelector("#gallerySelectAll");
+    const galleryEdit = document.querySelector("#galleryEdit");
+    const galleryDelete = document.querySelector("#galleryDelete");
+    const generateBtn = document.querySelector("#generate");
+    const modeTabs = document.querySelectorAll(".mode-tab");
+    const imageModePanel = document.querySelector("#imageModePanel");
+    const videoModePanel = document.querySelector("#videoModePanel");
+    const sharedShotRow = document.querySelector("#sharedShotRow");
+    const viewer = document.querySelector("#viewer");
+    const viewerImageBox = document.querySelector(".viewer-image");
+    const viewerImage = document.querySelector("#viewerImage");
+    const viewerIncomingImage = document.querySelector("#viewerIncomingImage");
+    const viewerVideo = document.querySelector("#viewerVideo");
+    const viewerCount = document.querySelector("#viewerCount");
+    const viewerResolution = document.querySelector("#viewerResolution");
+    const viewerPrompt = document.querySelector("#viewerPrompt");
+    const viewerFavorite = document.querySelector("#viewerFavorite");
+    const viewerQView = document.querySelector("#viewerQView");
+    const viewerCopyPrompt = document.querySelector("#viewerCopyPrompt");
+    const viewerCopySeed = document.querySelector("#viewerCopySeed");
+    const viewerRecreate = document.querySelector("#viewerRecreate");
+    const viewerRotate = document.querySelector("#viewerRotate");
+    const viewerDelete = document.querySelector("#viewerDelete");
+    const confirmDialog = document.querySelector("#confirmDialog");
+    const confirmMessage = document.querySelector("#confirmMessage");
+    const confirmCancel = document.querySelector("#confirmCancel");
+    const confirmOk = document.querySelector("#confirmOk");
+    const imageControlRow = document.querySelector(".image-control-row");
+    const promptRuleSelect = document.querySelector("#promptRule");
+    const scaleField = document.querySelector("#scaleField");
+    const eraField = document.querySelector("#eraField");
+    const shotField = document.querySelector("#shotField");
+    const scaleSelect = document.querySelector("#scale");
+    const videoScaleSelect = document.querySelector("#videoScale");
+    const videoInputModeSelect = document.querySelector("#videoInputMode");
+    const eraSelect = document.querySelector("#era");
+    const shotSelect = document.querySelector("#shot");
+    const workflowSelect = document.querySelector("#workflow");
+    const modelSelectGroup = document.querySelector("#modelSelectGroup");
+    const zitModelField = document.querySelector("#zitModelField");
+    const zitModelSelect = document.querySelector("#zitModel");
+    const zibModelField = document.querySelector("#zibModelField");
+    const zibModelSelect = document.querySelector("#zibModel");
+    const krea2ModelField = document.querySelector("#krea2ModelField");
+    const krea2ModelSelect = document.querySelector("#krea2Model");
+    const loraList = document.querySelector("#loraList");
+    const addLoraButton = document.querySelector("#addLora");
+    const imageSeedInput = document.querySelector("#imageSeed");
+    const negativePromptField = document.querySelector("#negativePromptField");
+    const imageNegativePrompt = document.querySelector("#imageNegativePrompt");
+    const countValue = document.querySelector("#countValue");
+    const countUp = document.querySelector("#countUp");
+    const countDown = document.querySelector("#countDown");
+    const videoCountValue = document.querySelector("#videoCountValue");
+    const videoCountUp = document.querySelector("#videoCountUp");
+    const videoCountDown = document.querySelector("#videoCountDown");
+    const videoFpsSelect = document.querySelector("#videoFps");
+    const videoSecondsSelect = document.querySelector("#videoSeconds");
+    const customPromptButton = document.querySelector("#customPromptButton");
+    const copyCustomPrompt = document.querySelector("#copyCustomPrompt");
+    const pregeneratePrompt = document.querySelector("#pregeneratePrompt");
+    const promptDialog = document.querySelector("#promptDialog");
+    const customPromptText = document.querySelector("#customPromptText");
+    const customPromptResolution = document.querySelector("#customPromptResolution");
+    const customPromptResolutionInput = document.querySelector("#customPromptResolutionInput");
+    const customPromptCancel = document.querySelector("#customPromptCancel");
+    const customPromptClear = document.querySelector("#customPromptClear");
+    const customPromptCopy = document.querySelector("#customPromptCopy");
+    const customPromptOk = document.querySelector("#customPromptOk");
+    const videoActionInput = document.querySelector("#videoAction");
+    const pregenerateAction = document.querySelector("#pregenerateAction");
+    const sourcePicker = document.querySelector("#sourcePicker");
+    const sourcePreview = document.querySelector("#sourcePreview");
+    const sourcePickerText = document.querySelector("#sourcePickerText");
+    const sourceUpload = document.querySelector("#sourceUpload");
+    const sourceUploadInput = document.querySelector("#sourceUploadInput");
+    const sourceClear = document.querySelector("#sourceClear");
+    const videoSourceRow = document.querySelector("#videoSourceRow");
+    const sourceDialog = document.querySelector("#sourceDialog");
+    const sourceGrid = document.querySelector("#sourceGrid");
+    const sourceCancel = document.querySelector("#sourceCancel");
+    const settingsKey = "randomPhotoPrompt.mobile.settings";
+    const viewedImagesKey = "randomPhotoPrompt.mobile.viewedImages.v1";
+    const customSelects = new Map();
+    let availableLoras = [];
+    let pendingLoras = [];
+
+    function optionExists(select, value) {
+      return [...select.options].some(option => option.value === value);
+    }
+
+    function enhanceSelect(select) {
+      if (!select || customSelects.has(select)) return;
+      const wrapper = document.createElement("div");
+      wrapper.className = "custom-select";
+      const trigger = document.createElement("button");
+      trigger.className = "custom-select-trigger";
+      trigger.type = "button";
+      trigger.setAttribute("aria-haspopup", "listbox");
+      trigger.setAttribute("aria-expanded", "false");
+      const valueEl = document.createElement("span");
+      valueEl.className = "custom-select-value";
+      trigger.appendChild(valueEl);
+      const menu = document.createElement("div");
+      menu.className = "custom-select-menu";
+      menu.setAttribute("role", "listbox");
+      select.parentNode.insertBefore(wrapper, select);
+      wrapper.appendChild(select);
+      wrapper.appendChild(trigger);
+      wrapper.appendChild(menu);
+      select.classList.add("native-select-hidden");
+      customSelects.set(select, {wrapper, trigger, valueEl, menu});
+      trigger.addEventListener("click", event => {
+        event.stopPropagation();
+        toggleCustomSelect(select);
+      });
+      renderCustomSelect(select);
+    }
+
+    function renderCustomSelect(select) {
+      const custom = customSelects.get(select);
+      if (!custom) return;
+      const selectedOption = select.selectedOptions[0] || select.options[0];
+      custom.valueEl.textContent = selectedOption ? selectedOption.textContent : "";
+      custom.menu.innerHTML = "";
+      [...select.options].forEach(option => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "custom-select-option";
+        button.textContent = option.textContent;
+        button.dataset.value = option.value;
+        button.disabled = option.disabled;
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-selected", option.selected ? "true" : "false");
+        button.classList.toggle("selected", option.selected);
+        button.addEventListener("click", event => {
+          event.stopPropagation();
+          setSelectValue(select, option.value, true);
+          closeCustomSelect(select);
+        });
+        custom.menu.appendChild(button);
+      });
+    }
+
+    function setSelectValue(select, value, emitChange = false) {
+      if (optionExists(select, value)) {
+        select.value = value;
+      }
+      renderCustomSelect(select);
+      if (emitChange) {
+        select.dispatchEvent(new Event("change", {bubbles: true}));
+      }
+    }
+
+    function ensureSelectOption(select, value, label = "") {
+      const normalized = String(value || "").trim();
+      if (!normalized || optionExists(select, normalized)) return;
+      const option = document.createElement("option");
+      option.value = normalized;
+      option.textContent = label || normalized.replace(/x/i, " × ");
+      select.appendChild(option);
+    }
+
+    function updatePromptRuleControls() {
+      const k2Sfw = promptRuleSelect.value === "k2_sfw";
+      scaleField.hidden = k2Sfw;
+      eraField.hidden = k2Sfw;
+      shotField.hidden = k2Sfw;
+      imageControlRow.classList.toggle("k2-rule", k2Sfw);
+      renderCustomSelect(promptRuleSelect);
+    }
+
+    function closeCustomSelect(select) {
+      const custom = customSelects.get(select);
+      if (!custom) return;
+      custom.wrapper.classList.remove("open");
+      custom.trigger.setAttribute("aria-expanded", "false");
+    }
+
+    function closeAllCustomSelects(exceptSelect = null) {
+      customSelects.forEach((_custom, select) => {
+        if (select !== exceptSelect) closeCustomSelect(select);
+      });
+    }
+
+    function toggleCustomSelect(select) {
+      const custom = customSelects.get(select);
+      if (!custom) return;
+      const shouldOpen = !custom.wrapper.classList.contains("open");
+      closeAllCustomSelects(select);
+      custom.wrapper.classList.toggle("open", shouldOpen);
+      custom.trigger.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+    }
+
+    function saveSettings() {
+      try {
+        localStorage.setItem(settingsKey, JSON.stringify({
+          mode: state.mode,
+          promptRule: promptRuleSelect.value,
+          scale: scaleSelect.value,
+          videoScale: videoScaleSelect.value,
+          videoInputMode: videoInputModeSelect.value,
+          era: eraSelect.value,
+          shot: shotSelect.value,
+          workflow: workflowSelect.value,
+          zitModel: zitModelSelect.value,
+          zibModel: zibModelSelect.value,
+          krea2Model: krea2ModelSelect.value,
+          loras: selectedLoras(),
+          imageSeed: imageSeedInput.value.trim(),
+          imageNegativePrompt: imageNegativePrompt.value.trim(),
+          count: currentCount(),
+          videoCount: currentVideoCount(),
+          videoFps: videoFpsSelect.value,
+          videoSeconds: videoSecondsSelect.value,
+          customPrompt: state.customPromptSource === "manual" ? state.customPrompt : "",
+          customResolution: state.customPromptSource === "manual" ? state.customResolution : "",
+          customPromptSource: state.customPromptSource === "manual" ? "manual" : "",
+          videoAction: videoActionInput.value,
+          sourceFilename: state.sourceImage?.filename || ""
+        }));
+      } catch (error) {
+        // Local storage may be unavailable in strict privacy modes.
+      }
+    }
+
+    function restoreSettings() {
+      try {
+        const settings = JSON.parse(localStorage.getItem(settingsKey) || "{}");
+        switchMode(settings.mode === "video" ? "video" : "image", false);
+        if (optionExists(promptRuleSelect, settings.promptRule)) setSelectValue(promptRuleSelect, settings.promptRule);
+        if (optionExists(scaleSelect, settings.scale)) setSelectValue(scaleSelect, settings.scale);
+        updatePromptRuleControls();
+        if (optionExists(videoScaleSelect, settings.videoScale || settings.scale)) {
+          setSelectValue(videoScaleSelect, settings.videoScale || settings.scale);
+        }
+        if (optionExists(videoInputModeSelect, settings.videoInputMode)) setSelectValue(videoInputModeSelect, settings.videoInputMode);
+        if (optionExists(eraSelect, settings.era)) setSelectValue(eraSelect, settings.era);
+        const shotValue = normalizeStoredShot(settings.shot, settings.preset);
+        if (optionExists(shotSelect, shotValue)) setSelectValue(shotSelect, shotValue);
+        if (optionExists(workflowSelect, settings.workflow)) setSelectValue(workflowSelect, settings.workflow);
+        if (settings.zitModel) {
+          zitModelSelect.dataset.pendingValue = settings.zitModel;
+        }
+        if (settings.zibModel) {
+          zibModelSelect.dataset.pendingValue = settings.zibModel;
+        }
+        if (settings.krea2Model) {
+          krea2ModelSelect.dataset.pendingValue = settings.krea2Model;
+        }
+        if (Array.isArray(settings.loras)) {
+          pendingLoras = settings.loras.slice(0, 4);
+        }
+        if (settings.imageSeed) imageSeedInput.value = settings.imageSeed;
+        if (settings.imageNegativePrompt) imageNegativePrompt.value = settings.imageNegativePrompt;
+        if (settings.count) setCount(settings.count);
+        if (settings.videoCount) setVideoCount(settings.videoCount);
+        if (optionExists(videoFpsSelect, settings.videoFps)) setSelectValue(videoFpsSelect, settings.videoFps);
+        if (optionExists(videoSecondsSelect, settings.videoSeconds)) setSelectValue(videoSecondsSelect, settings.videoSeconds);
+        state.customPromptSource = settings.customPromptSource === "manual" ? "manual" : "";
+        state.customPrompt = state.customPromptSource === "manual" ? String(settings.customPrompt || "") : "";
+        state.customResolution = state.customPromptSource === "manual" ? String(settings.customResolution || "") : "";
+        updateCustomPromptButton();
+        if (settings.videoAction) videoActionInput.value = settings.videoAction;
+        if (settings.sourceFilename) {
+          state.sourceImage = {filename: settings.sourceFilename, url: ""};
+          updateSourcePicker();
+        }
+      } catch (error) {
+        saveSettings();
+      }
+    }
+
+    function updateCustomPromptButton() {
+      const hasPositivePrompt = Boolean(state.customPrompt.trim());
+      const hasNegativePrompt = ["zitb_double", "zimage_double_v2"].includes(workflowSelect.value) && Boolean(imageNegativePrompt.value.trim());
+      const active = hasPositivePrompt || hasNegativePrompt;
+      customPromptButton.classList.toggle("active", active);
+      const label = hasPositivePrompt
+        ? (state.customPromptSource === "pregenerated" ? "已生成提示词" : "已填入提示词")
+        : "已填入负面提示词";
+      customPromptButton.textContent = active ? `${label}${hasPositivePrompt && state.customResolution ? ` ${state.customResolution}` : ""}` : "填入提示词";
+      copyCustomPrompt.disabled = !hasPositivePrompt;
+    }
+
+    function openPromptDialog() {
+      customPromptText.value = state.customPrompt || "";
+      setSelectValue(customPromptResolution, state.customResolution || "");
+      customPromptResolutionInput.value = state.customResolution || "";
+      promptDialog.classList.add("open");
+      promptDialog.setAttribute("aria-hidden", "false");
+      window.setTimeout(() => customPromptText.focus(), 0);
+    }
+
+    function closePromptDialog() {
+      promptDialog.classList.remove("open");
+      promptDialog.setAttribute("aria-hidden", "true");
+    }
+
+    async function pregenerateImagePrompt() {
+      pregeneratePrompt.disabled = true;
+      const previousText = pregeneratePrompt.textContent;
+      pregeneratePrompt.textContent = "生成中...";
+      try {
+        const data = await requestJson("/random_photo_prompt/mobile/prompt", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            prompt_rule: promptRuleSelect.value,
+            scale: scaleSelect.value,
+            era: eraSelect.value,
+            shot: shotSelect.value,
+            seed: `${Date.now()}-${Math.random()}`
+          })
+        });
+        const prompt = String(data.prompt || "").trim();
+        if (!prompt) throw new Error("没有生成到提示词。");
+        const resolution = data.resolution || (data.width && data.height ? `${data.width}x${data.height}` : "");
+        state.customPrompt = prompt;
+        state.customResolution = String(resolution || "");
+        state.customPromptSource = "pregenerated";
+        customPromptText.value = prompt;
+        ensureSelectOption(customPromptResolution, state.customResolution);
+        setSelectValue(customPromptResolution, state.customResolution);
+        customPromptResolutionInput.value = state.customResolution;
+        updateCustomPromptButton();
+        saveSettings();
+        setStatus(resolution ? `已生成提示词 ${resolution}` : "已生成提示词");
+      } catch (error) {
+        setStatus(`生成提示词失败：${error.message}`, true);
+      } finally {
+        pregeneratePrompt.disabled = false;
+        pregeneratePrompt.textContent = previousText;
+      }
+    }
+
+    function normalizeStoredShot(shot, preset) {
+      if (optionExists(shotSelect, shot)) return shot;
+      if (shot === "full_body_portrait" || shot === "full_body_landscape") return "full_body";
+      if (shot === "half_body_portrait" || shot === "half_body_landscape") return "half_body";
+      if (shot === "head_shot_portrait" || shot === "head_shot_landscape") return "head_shot";
+      if (shot === "full_body" || shot === "全身") return "full_body";
+      if (shot === "half_body" || shot === "半身") return "half_body";
+      if (shot === "head_shot" || shot === "头部") return "head_shot";
+      return "random";
+    }
+
+    function currentCount() {
+      return Math.max(1, Math.min(64, Number(countValue.textContent) || 1));
+    }
+
+    function currentVideoCount() {
+      return Math.max(1, Math.min(64, Number(videoCountValue.textContent) || 1));
+    }
+
+    function hasActiveJobs() {
+      return [...state.jobs.values()].some(isActiveJob);
+    }
+
+    function updateGenerateButton() {
+      generateBtn.disabled = remainingActiveJobSlots() <= 0;
+    }
+
+    function setCount(value) {
+      const allowed = [1, 2, 4, 8, 16, 32, 64];
+      const parsed = Number(value);
+      const safeValue = allowed.includes(parsed)
+        ? parsed
+        : allowed.reduce((best, item) => Math.abs(item - parsed) < Math.abs(best - parsed) ? item : best, 1);
+      countValue.textContent = String(safeValue);
+    }
+
+    function setVideoCount(value) {
+      const allowed = [1, 2, 4, 8, 16, 32, 64];
+      const parsed = Number(value);
+      const safeValue = allowed.includes(parsed)
+        ? parsed
+        : allowed.reduce((best, item) => Math.abs(item - parsed) < Math.abs(best - parsed) ? item : best, 1);
+      videoCountValue.textContent = String(safeValue);
+    }
+
+    function stepCount(direction) {
+      const next = direction > 0 ? currentCount() * 2 : currentCount() / 2;
+      setCount(next);
+      saveSettings();
+    }
+
+    function stepVideoCount(direction) {
+      const next = direction > 0 ? currentVideoCount() * 2 : currentVideoCount() / 2;
+      setVideoCount(next);
+      saveSettings();
+    }
+
+    function switchMode(name, persist = true) {
+      state.mode = name === "video" ? "video" : "image";
+      modeTabs.forEach(tab => tab.classList.toggle("active", tab.dataset.mode === state.mode));
+      imageModePanel.hidden = state.mode !== "image";
+      videoModePanel.hidden = state.mode !== "video";
+      pregeneratePrompt.hidden = state.mode !== "image";
+      sharedShotRow.classList.toggle("video-mode", state.mode === "video");
+      updateVideoInputMode();
+      if (persist) saveSettings();
+      checkStatus();
+    }
+
+    function updateVideoInputMode() {
+      const isImageToVideo = videoInputModeSelect.value === "image";
+      videoSourceRow.hidden = !isImageToVideo;
+      videoActionInput.placeholder = isImageToVideo
+        ? "先选择图片，再生成本次图生视频动作提示词。"
+        : "描述画面、镜头运动和声音，或点击下方按钮生成提示词。";
+    }
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function setConnection(connected) {
+      connectionEl.classList.toggle("connected", connected);
+      connectionEl.classList.toggle("warning", !connected);
+      if (!state.entryLabel) {
+        connectionText.textContent = connected ? "入口已连" : "入口断开";
+      }
+    }
+
+    function updateEntryInfo(data = {}, ready = true) {
+      const mode = data.entry_mode || (location.port === "18199" ? "proxy" : "");
+      const label = data.entry_label || (mode === "proxy" ? "统一入口" : "检测入口");
+      const remote = data.remote || {};
+      const output = data.output || {};
+      const workflowLabel = data.workflow_label || data.workflow || "";
+      const templateName = data.template_name || "";
+      state.entryMode = mode;
+      state.entryLabel = label;
+      connectionText.textContent = label;
+      connectionEl.classList.toggle("warning", !ready);
+      healthLink.classList.toggle("visible", mode === "local");
+      const parts = [];
+      if (mode === "proxy") {
+        parts.push("手机入口：18199");
+      } else if (mode === "remote_direct") {
+        parts.push("内部远端入口");
+      } else if (mode === "local") {
+        parts.push("内部本机入口");
+      }
+      if (mode === "local" && workflowLabel) {
+        parts.push(`工作流：${workflowLabel}${templateName ? ` · ${templateName}` : ""}`);
+      }
+      if (output.dir) {
+        parts.push(`输出：${output.dir}`);
+      }
+      if (mode !== "local" && remote.enabled && remote.delete_output !== undefined) {
+        parts.push(`远端删除：${remote.delete_output ? "开启" : "关闭"}`);
+      }
+      state.entryDetail = "";
+      entryDetail.textContent = "";
+    }
+
+    async function requestJson(url, options) {
+      let response;
+      try {
+        response = await fetch(url, options);
+      } catch (error) {
+        throw new Error(friendlyNetworkError(url, error));
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const detail = readableError(data) || friendlyHttpError(url, response.status);
+        throw new Error(detail);
+      }
+      return data;
+    }
+
+    function friendlyNetworkError(url, error) {
+      if (url.includes("/random_photo_prompt/mobile/status")) {
+        return "手机页接口不可用。请确认 Mac 本机 8188 服务已启动。";
+      }
+      return error.message || "网络请求失败。";
+    }
+
+    function friendlyHttpError(url, status) {
+      if (url.includes("/random_photo_prompt/mobile/status")) {
+        if (status === 502 || status === 503 || status === 504) {
+          return "手机页接口暂时不可用。请检查 Mac 本机 8188 服务。";
+        }
+        if (status === 404 && location.port !== "8188") {
+          return "当前地址不是手机版入口。请打开 Mac 本机 8188 页面。";
+        }
+      }
+      return `请求失败（${status}）`;
+    }
+
+    function readableError(data) {
+      if (!data || typeof data !== "object") return "";
+      if (typeof data.error === "string" && data.error && data.error !== "0") return compactRemoteError(data.error);
+      if (typeof data.message === "string" && data.message && data.message !== "0") return compactRemoteError(data.message);
+      if (Array.isArray(data.errors) && data.errors.length) {
+        const first = data.errors[0];
+        if (first && typeof first === "object") {
+          return readableError(first) || JSON.stringify(first);
+        }
+        if (first) return String(first);
+      }
+      if (data.node_errors && Object.keys(data.node_errors).length) {
+        return `工作流校验失败，涉及 ${Object.keys(data.node_errors).length} 个节点，请检查模型或工作流配置。`;
+      }
+      if (data.detail && typeof data.detail === "object") {
+        return readableError(data.detail) || JSON.stringify(data.detail);
+      }
+      if (data.error && typeof data.error === "object") {
+        return data.error.message || data.error.type || JSON.stringify(data.error);
+      }
+      if (data.detail) return compactRemoteError(String(data.detail));
+      return "";
+    }
+
+    function compactRemoteError(message) {
+      const text = String(message || "");
+      if (!text) return "";
+      if (/Traceback|aiohttp|Cannot connect|Connection refused|connect call failed|remote_history|_remote_json|_mobile_image_urls/i.test(text)) {
+        return "远端无法连接。请检查远端 ComfyUI 是否启动、地址端口是否正确。";
+      }
+      return text.length > 180 ? `${text.slice(0, 177)}...` : text;
+    }
+
+    async function checkStatus() {
+      try {
+        const statusWorkflow = state.mode === "video" ? "minimax_h3" : workflowSelect.value;
+        const data = await requestJson(`/random_photo_prompt/mobile/status?workflow=${encodeURIComponent(statusWorkflow)}`);
+        state.qviewAvailable = data.qview_available === true;
+        viewerQView.hidden = !state.qviewAvailable || state.viewerMediaType !== "image";
+        updateZitModelOptions(data.zit_models || []);
+        updateZibModelOptions(data.zib_models || []);
+        updateKrea2ModelOptions(data.krea2_models || []);
+        updateLoraOptions(data.loras || []);
+        updateWorkflowModelVisibility();
+        const ready = state.mode === "video" ? data.video_workflow?.template_ready : data.template_ready;
+        updateEntryInfo(data, ready);
+        const output = data.output || {};
+        if (output.exists === false || output.writable === false) {
+          setConnection(false);
+          setStatus(`输出目录不可用：${output.dir || "未配置"}。请检查路径是否存在且可写。`, true);
+          generateBtn.disabled = true;
+          return;
+        }
+        if (ready) {
+          setConnection(true);
+          setStatus("");
+          updateGenerateButton();
+        } else {
+          setConnection(false);
+          setStatus(firstUseMessage(data), true);
+          generateBtn.disabled = true;
+        }
+      } catch (error) {
+        setConnection(false);
+        connectionText.textContent = state.entryLabel || "入口断开";
+        setStatus(error.message, true);
+        generateBtn.disabled = true;
+      }
+    }
+
+    function firstUseMessage(data = {}) {
+      const video = state.mode === "video";
+      const workflow = video ? data.video_workflow : (data.workflows || []).find(item => item.key === data.workflow);
+      const templateName = video ? data.video_workflow?.template_name : data.template_name;
+      const path = workflow?.path || data.template_path || "";
+      const message = workflow?.message || data.message || (templateName ? `缺少 ${templateName}。` : "请先准备工作流模板。");
+      const guidance = workflow?.guidance || data.guidance || "请在 ComfyUI 设置里打开开发者选项，然后使用“保存(API 格式)”重新导出。";
+      if (!path) return `${message} ${guidance}`;
+      return `${message} ${guidance} 保存路径：${path}`;
+    }
+
+    function updateSourcePicker() {
+      const sourceKey = imageKey(state.sourceImage);
+      const image = state.galleryImages.find(item => imageKey(item) === sourceKey) || state.sourceImage;
+      if (image?.url) {
+        sourcePreview.src = image.url;
+        sourcePreview.hidden = false;
+        sourcePicker.classList.add("has-source");
+        sourcePickerText.textContent = image.uploaded ? "已上传本地图片" : "已选择图片";
+        sourceClear.hidden = false;
+      } else if (image?.filename) {
+        sourcePreview.removeAttribute("src");
+        sourcePreview.hidden = true;
+        sourcePicker.classList.add("has-source");
+        sourcePickerText.textContent = image.uploaded ? "已上传本地图片" : "已选择图片";
+        sourceClear.hidden = false;
+      } else {
+        sourcePreview.removeAttribute("src");
+        sourcePreview.hidden = true;
+        sourcePicker.classList.remove("has-source");
+        sourcePickerText.textContent = "从瀑布流选择";
+        sourceClear.hidden = true;
+      }
+    }
+
+    function updateZitModelOptions(models) {
+      const previous = zitModelSelect.dataset.pendingValue || zitModelSelect.value || "";
+      const options = models.length
+        ? models.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+        : ['<option value="">无可用模型</option>'];
+      zitModelSelect.innerHTML = options.join("");
+      if (optionExists(zitModelSelect, previous)) {
+        setSelectValue(zitModelSelect, previous);
+      } else if (models.length) {
+        setSelectValue(zitModelSelect, models[0]);
+      } else {
+        renderCustomSelect(zitModelSelect);
+      }
+      delete zitModelSelect.dataset.pendingValue;
+    }
+
+    function updateZibModelOptions(models) {
+      const previous = zibModelSelect.dataset.pendingValue || zibModelSelect.value || "";
+      const options = models.length
+        ? models.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+        : ['<option value="">无可用模型</option>'];
+      zibModelSelect.innerHTML = options.join("");
+      if (optionExists(zibModelSelect, previous)) {
+        setSelectValue(zibModelSelect, previous);
+      } else if (models.length) {
+        setSelectValue(zibModelSelect, models[0]);
+      } else {
+        renderCustomSelect(zibModelSelect);
+      }
+      delete zibModelSelect.dataset.pendingValue;
+    }
+
+    function updateKrea2ModelOptions(models) {
+      const previous = krea2ModelSelect.dataset.pendingValue || krea2ModelSelect.value || "";
+      const options = models.length
+        ? models.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`)
+        : ['<option value="">无可用模型</option>'];
+      krea2ModelSelect.innerHTML = options.join("");
+      if (optionExists(krea2ModelSelect, previous)) {
+        setSelectValue(krea2ModelSelect, previous);
+      } else if (models.length) {
+        setSelectValue(krea2ModelSelect, models[0]);
+      } else {
+        renderCustomSelect(krea2ModelSelect);
+      }
+      delete krea2ModelSelect.dataset.pendingValue;
+    }
+
+    function updateWorkflowModelVisibility() {
+      const isDoubleWorkflow = ["zitb_double", "zimage_double_v2"].includes(workflowSelect.value) && state.mode === "image";
+      const showZit = ["zit_single", "zitb_double", "zimage_double_v2"].includes(workflowSelect.value) && state.mode === "image";
+      const showZib = ["zib_single", "zitb_double", "zimage_double_v2"].includes(workflowSelect.value) && state.mode === "image";
+      const showKrea2 = ["redcraft_krea2", "krea2_cc"].includes(workflowSelect.value) && state.mode === "image";
+      zitModelField.hidden = !showZit;
+      zibModelField.hidden = !showZib;
+      krea2ModelField.hidden = !showKrea2;
+      negativePromptField.hidden = !isDoubleWorkflow;
+      if (!isDoubleWorkflow) imageNegativePrompt.value = "";
+      updateCustomPromptButton();
+      modelSelectGroup.classList.toggle("double", (showZit && showZib) || showKrea2);
+      if (!showZit) setSelectValue(zitModelSelect, "");
+      if (!showZib) setSelectValue(zibModelSelect, "");
+      if (!showKrea2) setSelectValue(krea2ModelSelect, "");
+      closeCustomSelect(zitModelSelect);
+      closeCustomSelect(zibModelSelect);
+      closeCustomSelect(krea2ModelSelect);
+    }
+
+    function updateLoraSelectOptions(select, selected = "") {
+      select.innerHTML = "";
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "选择 LoRA";
+      placeholder.disabled = true;
+      placeholder.selected = !selected;
+      select.appendChild(placeholder);
+      availableLoras.forEach(name => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name.replace(/^Zimage[\\/]/, "");
+        option.selected = name === selected;
+        select.appendChild(option);
+      });
+      if (!optionExists(select, selected)) select.value = "";
+      renderCustomSelect(select);
+    }
+
+    function updateAddLoraButton() {
+      addLoraButton.disabled = !availableLoras.length || loraList.children.length >= 4;
+    }
+
+    function selectedLoras() {
+      return [...loraList.querySelectorAll(".lora-row")]
+        .map(row => ({
+          name: row.querySelector("select")?.value || "",
+          strength: row.querySelector("input")?.value || "0.8"
+        }))
+        .filter(lora => lora.name);
+    }
+
+    function addLoraRow(lora = {}) {
+      if (!availableLoras.length || loraList.children.length >= 4) return;
+      const row = document.createElement("div");
+      row.className = "lora-row";
+      const nameField = document.createElement("label");
+      const nameLabel = document.createElement("div");
+      nameLabel.className = "label";
+      nameLabel.textContent = "LoRA";
+      const select = document.createElement("select");
+      nameField.append(nameLabel, select);
+      const strengthField = document.createElement("label");
+      const strengthLabel = document.createElement("div");
+      strengthLabel.className = "label";
+      strengthLabel.textContent = "强度";
+      const strength = document.createElement("input");
+      strength.type = "number";
+      strength.min = "-2";
+      strength.max = "2";
+      strength.step = "0.05";
+      strength.value = String(lora.strength ?? "0.8");
+      strength.inputMode = "decimal";
+      strengthField.append(strengthLabel, strength);
+      const remove = document.createElement("button");
+      remove.className = "lora-remove";
+      remove.type = "button";
+      remove.textContent = "×";
+      remove.title = "删除 LoRA";
+      remove.setAttribute("aria-label", "删除 LoRA");
+      row.append(nameField, strengthField, remove);
+      loraList.appendChild(row);
+      updateLoraSelectOptions(select, lora.name || "");
+      enhanceSelect(select);
+      customSelects.get(select)?.wrapper.classList.add("lora-select-wide-menu");
+      select.addEventListener("change", () => {
+        renderCustomSelect(select);
+        saveSettings();
+      });
+      strength.addEventListener("input", saveSettings);
+      remove.addEventListener("click", () => {
+        row.remove();
+        updateAddLoraButton();
+        saveSettings();
+      });
+      updateAddLoraButton();
+    }
+
+    function updateLoraOptions(loras) {
+      availableLoras = Array.isArray(loras) ? loras : [];
+      if (pendingLoras.length) {
+        const savedLoras = pendingLoras;
+        pendingLoras = [];
+        savedLoras.forEach(lora => addLoraRow(lora));
+      } else {
+        loraList.querySelectorAll("select").forEach(select => {
+          updateLoraSelectOptions(select, select.value);
+        });
+      }
+      updateAddLoraButton();
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[char]);
+    }
+
+    function makeClientId() {
+      if (window.crypto?.randomUUID) return window.crypto.randomUUID().replace(/-/g, "");
+      return `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+    }
+
+    function ensureProgressSocket() {
+      if (!state.clientId) state.clientId = makeClientId();
+      if (state.progressSocket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(state.progressSocket.readyState)) return;
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const socket = new WebSocket(`${protocol}//${window.location.host}/ws?clientId=${encodeURIComponent(state.clientId)}`);
+      state.progressSocket = socket;
+      socket.addEventListener("message", event => {
+        let message = null;
+        try {
+          message = JSON.parse(event.data);
+        } catch (_error) {
+          return;
+        }
+        if (message?.type !== "progress") return;
+        const data = message.data || {};
+        if (data.type !== "node") return;
+        const promptId = String(data.prompt_id || "");
+        const job = promptId ? state.jobs.get(promptId) : null;
+        if (!job) return;
+        const value = Number(data.value || 0);
+        const max = Number(data.max || 0);
+        if (max > 0) {
+          job.progress = {
+            value: Math.max(0, Math.min(max, value)),
+            max,
+            percent: Math.max(0, Math.min(100, Math.round((value / max) * 100))),
+            node: data.node || ""
+          };
+          renderJobs();
+        }
+      });
+      socket.addEventListener("close", () => {
+        if (state.progressSocket !== socket) return;
+        state.progressSocket = null;
+        if (state.progressReconnectTimer) clearTimeout(state.progressReconnectTimer);
+        state.progressReconnectTimer = setTimeout(() => {
+          state.progressReconnectTimer = null;
+          if ([...state.jobs.values()].some(isActiveJob)) ensureProgressSocket();
+        }, 1500);
+      });
+      socket.addEventListener("error", () => {
+        try {
+          socket.close();
+        } catch (_error) {
+          // Ignore close races.
+        }
+      });
+    }
+
+    function currentStepText(progress) {
+      const value = Number(progress?.value || 0);
+      const max = Number(progress?.max || 0);
+      if (max > 0) {
+        const current = Math.max(0, Math.min(max, value));
+        return `步骤：${current}/${max}`;
+      }
+      return "步骤：等待";
+    }
+
+    function jobResultState(job) {
+      if (!job) return "idle";
+      if (job.pollError) return "error";
+      if (job.status === "failed") return "failed";
+      if (job.status === "completed") {
+        if ((job.images || []).length || (job.videos || []).length) return "ready";
+        return "missing";
+      }
+      if (job.progress?.max > 0) return "running";
+      if (job.status === "pending") return "pending";
+      if (job.status === "running") return "running";
+      return job.status || "waiting";
+    }
+
+    function jobDisplayText(job) {
+      const stateName = jobResultState(job);
+      if (stateName === "ready") return job.media_type === "video" ? "已完成，视频已入图库" : "已完成，图片已入图库";
+      if (stateName === "missing") return "已完成，但没有找到结果文件";
+      if (stateName === "failed") return compactRemoteError(job.error || job.statusText || "远端任务已结束，但没有找到结果文件");
+      if (stateName === "error") return compactRemoteError(job.pollError || "任务状态读取失败");
+      if (stateName === "stale") return "任务已中断，请查看瀑布流";
+      if (stateName === "unknown") return "等待结果";
+      if (stateName === "pending") {
+        const ahead = Math.max(0, Number(job.queueAhead ?? job.queue_ahead ?? 0));
+        return ahead ? `排队中，前方 ${ahead} 个任务` : "排队中，即将开始";
+      }
+      if (stateName === "receiving") return "正在接收结果";
+      if (stateName === "running") return "生成中";
+      return "等待结果";
+    }
+
+    function renderJobs() {
+      const allJobs = [...state.jobs.values()];
+      const pendingJobs = allJobs.filter(isActiveJob);
+      const active = pendingJobs.find(job => job.status === "running") || pendingJobs[0];
+      let text = "等待指令中";
+      if (active) {
+        const firstActiveBatchId = Math.min(...pendingJobs.map(job => Number(job.batchId) || 0));
+        const queueJobs = allJobs.filter(job => (Number(job.batchId) || 0) >= firstActiveBatchId && isCountableQueueJob(job));
+        const completedInQueue = queueJobs.filter(isCompletedResultJob).length;
+        const activeBatchTotal = Number(active.batchTotal || active.batch_total || 0);
+        const activeBatchIndex = Number(active.batchIndex || active.batch_index || 0);
+        const queuedTotal = state.maxActiveJobs - remainingActiveJobSlots();
+        const total = Math.max(activeBatchTotal, queuedTotal, queueJobs.length, pendingJobs.length, 1);
+        const current = Math.min(total, activeBatchIndex || completedInQueue + 1);
+        const progress = active.progress;
+        const progressText = currentStepText(progress);
+        const activeVideo = Array.isArray(active.videos) && active.videos.length ? active.videos[0] : null;
+        const width = activeVideo?.width || active.width || "";
+        const height = activeVideo?.height || active.height || "";
+        if (jobResultState(active) === "error") {
+          text = jobDisplayText(active);
+        } else {
+          text = `${width}x${height}  ${jobDisplayText(active)}（${current}/${total}） ${progressText}`;
+        }
+      } else if (allJobs.length) {
+        const latest = allJobs[allJobs.length - 1];
+        const width = latest.width || "";
+        const height = latest.height || "";
+        text = jobResultState(latest) === "error" ? jobDisplayText(latest) : `${width}x${height}  ${jobDisplayText(latest)}`;
+      }
+      jobsEl.innerHTML = `<div class="generation-state">${text.replace(/\n/g, "<br>")}</div>`;
+      generateBtn.textContent = (active || allJobs.length) ? text : "生成";
+      if (state.tab === "waterfall") loadGallery();
+    }
+
+    function isActiveJob(job) {
+      if (!job) return false;
+      if (job.status === "stale") return false;
+      if (job.status === "failed") return false;
+      if (job.status === "unknown") return false;
+      if (job.status !== "completed") return true;
+      return !((job.images || []).length || (job.videos || []).length || job.pollFinalized);
+    }
+
+    function isCompletedResultJob(job) {
+      return job?.status === "completed" && ((job.images || []).length || (job.videos || []).length);
+    }
+
+    function isCountableQueueJob(job) {
+      return isActiveJob(job) || isCompletedResultJob(job);
+    }
+
+    function activeQueueJobs() {
+      const allJobs = [...state.jobs.values()];
+      const pendingJobs = allJobs.filter(isActiveJob);
+      if (!pendingJobs.length) return [];
+      const firstActiveBatchId = Math.min(...pendingJobs.map(job => Number(job.batchId) || 0));
+      return allJobs.filter(job => (Number(job.batchId) || 0) >= firstActiveBatchId && isCountableQueueJob(job));
+    }
+
+    function remainingActiveJobSlots() {
+      const pendingCount = state.serialBatches.reduce(
+        (total, batch) => total + Math.max(0, Number(batch.total) - Number(batch.submitted)),
+        0
+      );
+      return Math.max(0, state.maxActiveJobs - activeQueueJobs().length - pendingCount);
+    }
+
+    function imageRecords() {
+      const images = state.sessionOnly
+        ? state.galleryImages.filter(isSessionMedia)
+        : state.galleryImages;
+      return images.map(image => ({image, job: {prompt: mediaPrompt(image)}, index: 0}));
+    }
+
+    function videoRecords() {
+      const videos = state.sessionOnly ? state.galleryVideos.filter(isSessionMedia) : state.galleryVideos;
+      return videos.map(video => ({video, prompt: mediaPrompt(video)}));
+    }
+
+    function sessionOutputPrefixes() {
+      return [...state.jobs.values()]
+        .filter(job => !job.restored)
+        .map(job => String(job.output_prefix || "").trim())
+        .filter(Boolean);
+    }
+
+    function matchesSessionOutputPrefix(filename) {
+      const value = String(filename || "").trim();
+      if (!value) return false;
+      return sessionOutputPrefixes().some(prefix => {
+        const normalized = String(prefix || "").trim().replace(/_+$/, "");
+        if (!normalized || ["mobile", "mobile_video", "remote_web", "remote_video"].includes(normalized)) return false;
+        return value === normalized || value.startsWith(`${normalized}_`);
+      });
+    }
+
+    function mediaMtimeMs(item) {
+      const raw = Number(item?.mtime || item?.createdAt || 0);
+      if (!Number.isFinite(raw) || raw <= 0) return 0;
+      return raw < 1000000000000 ? raw * 1000 : raw;
+    }
+
+    function isSessionMedia(item) {
+      const filename = String(item?.filename || "").trim();
+      if (!filename) return false;
+      if (mediaMtimeMs(item) >= state.sessionStartedAt - 2000) return true;
+      return matchesSessionOutputPrefix(filename);
+    }
+
+    function favoriteRecords() {
+      return state.favoriteImages.map(image => ({image, job: {prompt: mediaPrompt(image)}, index: 0}));
+    }
+
+    function waterfallImageRecords() {
+      const outputRecords = imageRecords();
+      if (!state.sessionOnly) return outputRecords;
+      const sessionFavorites = favoriteRecords().filter(record => isSessionFavoriteImage(record.image));
+      return outputRecords.concat(
+        sessionFavorites.filter(record => !outputRecords.some(output => favoriteMatchesOutput(record.image, output.image)))
+      );
+    }
+
+    function mediaPrompt(item) {
+      return String(item?.prompt || item?.display_prompt || item?.generation_prompt || item?.positive_prompt || "").trim();
+    }
+
+    function prepareVideoThumbnails(root) {
+      root.querySelectorAll("video").forEach(video => {
+        video.muted = true;
+        video.playsInline = true;
+        const seekPreview = () => {
+          if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+          try {
+            video.currentTime = Math.min(.08, Math.max(0, video.duration - .05));
+          } catch (_error) {
+            // Some mobile browsers delay seeking until the video is fully ready.
+          }
+        };
+        if (video.readyState >= 1) {
+          seekPreview();
+        } else {
+          video.addEventListener("loadedmetadata", seekPreview, {once: true});
+        }
+      });
+    }
+
+    function imageKey(image) {
+      if (!image) return "";
+      if (image.key) return image.key;
+      if (image.filename) {
+        const subfolder = String(image.subfolder || "").replace(/^\/+|\/+$/g, "");
+        return subfolder ? `${subfolder}/${image.filename}` : image.filename;
+      }
+      return image.url || "";
+    }
+
+    function viewedImageKey(image) {
+      return String(image?.source_key || imageKey(image) || "").trim();
+    }
+
+    function isNewImage(image) {
+      const key = viewedImageKey(image);
+      return Boolean(key) && image?.viewed !== true;
+    }
+
+    async function markImageViewed(image) {
+      const key = viewedImageKey(image);
+      if (!key || image?.viewed === true) return;
+      image.viewed = true;
+      if (state.galleryTab === "images") renderWaterfall();
+      try {
+        await requestJson("/random_photo_prompt/mobile/viewed", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({keys: [key]})
+        });
+      } catch (error) {
+        image.viewed = false;
+        if (state.galleryTab === "images") renderWaterfall();
+        setStatus(error.message || "保存查看记录失败。", true);
+      }
+    }
+
+    async function migrateViewedImageKeys() {
+      let stored;
+      try {
+        stored = JSON.parse(localStorage.getItem(viewedImagesKey) || "[]");
+      } catch (_error) {
+        return;
+      }
+      const keys = Array.isArray(stored) ? stored.filter(Boolean).map(String) : [];
+      if (!keys.length) return;
+      try {
+        await requestJson("/random_photo_prompt/mobile/viewed", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({keys})
+        });
+        localStorage.removeItem(viewedImagesKey);
+      } catch (_error) {
+        // Keep the legacy key for a later retry if the Mac service is unavailable.
+      }
+    }
+
+    function favoriteSourceKey(image) {
+      return String(image?.source_key || "").trim();
+    }
+
+    function favoriteMatchesOutput(favorite, output) {
+      const sourceKey = favoriteSourceKey(favorite);
+      if (sourceKey && sourceKey === imageKey(output)) return true;
+      if (sourceKey) return false;
+      const sourceName = String(favorite?.filename || "");
+      return Boolean(sourceName) && sourceName === String(output?.filename || "");
+    }
+
+    function isSessionFavoriteImage(image) {
+      const sourceKey = favoriteSourceKey(image);
+      const sourceImage = sourceKey
+        ? state.galleryImages.find(item => imageKey(item) === sourceKey)
+        : null;
+      if (sourceImage) return isSessionMedia(sourceImage);
+      if (sourceKey) {
+        const sourceName = sourceKey.split("/").pop();
+        if (matchesSessionOutputPrefix(sourceName)) return true;
+      }
+      return isSessionMedia(image);
+    }
+
+    function imageByKey(key) {
+      return state.galleryImages.find(image => imageKey(image) === key) || {filename: key};
+    }
+
+    function videoKey(video) {
+      return video && video.filename ? video.filename : "";
+    }
+
+    function activeImageRecords() {
+      return state.galleryTab === "favorites" ? favoriteRecords() : waterfallImageRecords();
+    }
+
+    function currentGalleryRecords() {
+      if (state.galleryTab === "videos") return videoRecords();
+      if (state.galleryTab === "favorites") return favoriteRecords();
+      return waterfallImageRecords();
+    }
+
+    function currentSelectedSet() {
+      if (state.galleryTab === "videos") return state.selectedVideos;
+      if (state.galleryTab === "favorites") return state.selectedFavorites;
+      return state.selectedImages;
+    }
+
+    async function loadFavorites() {
+      try {
+        const serverFavorites = await requestJson("/random_photo_prompt/mobile/favorites").catch(() => ({images: []}));
+        state.favoriteImages = (serverFavorites.images || [])
+          .filter(image => image && image.filename && image.url)
+          .map(image => ({
+            ...image,
+            prompt: mediaPrompt(image),
+            createdAt: Number(image.mtime || Date.now())
+          }))
+          .sort((a, b) => Number(b.createdAt || b.mtime || 0) - Number(a.createdAt || a.mtime || 0));
+      } catch (error) {
+        state.favoriteImages = [];
+        setStatus(error.message || "读取收藏失败。", true);
+      }
+    }
+
+    function isFavoriteImage(image) {
+      const key = imageKey(image);
+      const filename = String(image?.filename || "").trim();
+      return !!key && state.favoriteImages.some(item => imageKey(item) === key || (filename && item.filename === filename));
+    }
+
+    function isFavoriteKey(key) {
+      return !!key && state.favoriteImages.some(item => imageKey(item) === key);
+    }
+
+    function deletableImageRecords() {
+      return imageRecords();
+    }
+
+    function updateViewerFavoriteButton(record) {
+      if (!record || state.viewerMediaType === "video") {
+        viewerFavorite.hidden = true;
+        return;
+      }
+      viewerFavorite.hidden = false;
+      viewerFavorite.textContent = isFavoriteImage(record.image) ? "已收藏" : "收藏";
+      viewerFavorite.classList.toggle("active", isFavoriteImage(record.image));
+    }
+
+    async function setFavoriteImage(image, prompt, enabled) {
+      const key = imageKey(image);
+      if (!key) return;
+      if (!enabled) {
+        await requestJson("/random_photo_prompt/mobile/favorites/delete", {
+          method: "POST",
+          body: JSON.stringify({items: [{filename: image.filename || key}]})
+        });
+        await loadFavorites();
+        renderWaterfall();
+        return;
+      }
+      await requestJson("/random_photo_prompt/mobile/favorite/backup", {
+        method: "POST",
+        body: JSON.stringify({image})
+      });
+      await loadFavorites();
+      renderWaterfall();
+    }
+
+    async function toggleCurrentFavorite() {
+      if (state.viewerMediaType === "video") {
+        const videos = videoRecords();
+        const record = videos[state.viewerIndex];
+        if (!record) return;
+        try {
+          viewerFavorite.disabled = true;
+          viewerFavorite.textContent = "保存中";
+          await requestJson("/random_photo_prompt/mobile/video/favorite/backup", {
+            method: "POST",
+            body: JSON.stringify({video: record.video})
+          });
+          viewerFavorite.textContent = "已收藏";
+          viewerFavorite.classList.add("active");
+          setStatus("已保存到 Mac 本地 video 文件夹");
+        } catch (error) {
+          viewerFavorite.textContent = "收藏";
+          viewerFavorite.classList.remove("active");
+          setStatus(error.message || "视频收藏失败。", true);
+        } finally {
+          viewerFavorite.disabled = false;
+        }
+        return;
+      }
+      const images = activeImageRecords();
+      const record = images[state.viewerIndex];
+      if (!record) return;
+      const shouldFavorite = !isFavoriteImage(record.image);
+      try {
+        viewerFavorite.disabled = true;
+        viewerFavorite.textContent = shouldFavorite ? "保存中" : "取消中";
+        await setFavoriteImage(record.image, record.job.prompt || mediaPrompt(record.image), shouldFavorite);
+        const refreshed = activeImageRecords()[state.viewerIndex] || record;
+        updateViewerFavoriteButton(refreshed);
+        setStatus(shouldFavorite ? "已保存到手机本地收藏" : "已取消收藏");
+      } catch (error) {
+        updateViewerFavoriteButton(record);
+        setStatus(error.message || "收藏失败。", true);
+      } finally {
+        viewerFavorite.disabled = false;
+      }
+    }
+
+    function renderWaterfall() {
+      renderGalleryShell();
+      if (state.galleryTab === "videos") {
+        const videos = videoRecords();
+        videoWaterfallEl.style.setProperty("--photo-cols", String(Math.max(1, Math.min(10, Number(state.waterfallCols) || 4))));
+        galleryCount.textContent = `${videos.length} 个视频`;
+        galleryCount.textContent = state.editMode ? `已选 ${state.selectedVideos.size} / ${videos.length}` : `${videos.length} 个视频`;
+        gallerySelectAll.hidden = !state.editMode;
+        gallerySelectAll.textContent = state.selectedVideos.size === videos.length && videos.length > 0 ? "取消全选" : "全选";
+        gallerySelectAll.disabled = videos.length < 1;
+        galleryEdit.textContent = state.editMode ? "完成" : "编辑";
+        galleryDelete.hidden = !state.editMode;
+        galleryDelete.disabled = state.selectedVideos.size < 1;
+        if (!videos.length) {
+          videoWaterfallEl.innerHTML = `<div class="empty">${state.sessionOnly ? "本次生成的视频会出现在这里。" : "生成后的视频会出现在这里。"}</div>`;
+          return;
+        }
+        videoWaterfallEl.innerHTML = `
+          <div class="photo-grid">
+            ${videos.map(record => `
+              <button class="video-item ${state.selectedVideos.has(videoKey(record.video)) ? "selected" : ""}" type="button" data-filename="${record.video.filename}" aria-label="查看视频">
+                <video src="${record.video.url}" muted playsinline preload="metadata"></video>
+              </button>
+            `).join("")}
+          </div>
+        `;
+        window.requestAnimationFrame(() => prepareVideoThumbnails(videoWaterfallEl));
+        return;
+      }
+      const images = state.galleryTab === "favorites" ? favoriteRecords() : waterfallImageRecords();
+      const selectedImages = state.galleryTab === "favorites" ? state.selectedFavorites : state.selectedImages;
+      const selectableImages = state.galleryTab === "favorites" ? images : deletableImageRecords();
+      const emptyText = state.galleryTab === "favorites" ? "收藏的图片会出现在这里。" : (state.sessionOnly ? "本次生成的图片会出现在这里。" : "生成后的图片会出现在这里。");
+      const colCount = Math.max(1, Math.min(10, Number(state.waterfallCols) || 4));
+      waterfallEl.style.setProperty("--photo-cols", String(colCount));
+      galleryCount.textContent = state.editMode ? `已选 ${selectedImages.size} / ${selectableImages.length}` : `${images.length} 张`;
+      gallerySelectAll.hidden = !state.editMode;
+      gallerySelectAll.textContent = selectedImages.size === selectableImages.length && selectableImages.length > 0 ? "取消全选" : "全选";
+      gallerySelectAll.disabled = selectableImages.length < 1;
+      galleryEdit.textContent = state.editMode ? "完成" : "编辑";
+      galleryDelete.hidden = !state.editMode;
+      galleryDelete.disabled = selectedImages.size < 1;
+      if (!images.length) {
+        waterfallEl.innerHTML = `<div class="empty">${emptyText}</div>`;
+        return;
+      }
+      waterfallEl.innerHTML = `
+        <div class="photo-grid">
+          ${images.map(record => `
+            <button class="photo-item ${selectedImages.has(imageKey(record.image)) ? "selected" : ""}" type="button" data-filename="${escapeHtml(imageKey(record.image))}" aria-label="查看原图">
+              ${state.galleryTab === "images" && isFavoriteImage(record.image) ? '<span class="favorite-badge" aria-label="已收藏">★</span>' : ""}
+              ${state.galleryTab === "images" && isNewImage(record.image) ? '<span class="new-badge" role="img" aria-label="新图片"></span>' : ""}
+              <img src="${escapeHtml(record.image.url)}" alt="生成图片" loading="lazy">
+            </button>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    function renderGalleryShell() {
+      const isVideo = state.galleryTab === "videos";
+      const isFavorites = state.galleryTab === "favorites";
+      galleryMediaTabs.forEach(tab => tab.classList.toggle("active", tab.dataset.galleryTab === state.galleryTab));
+      waterfallEl.hidden = isVideo;
+      videoWaterfallEl.hidden = !isVideo;
+      gallerySessionOnly.hidden = isFavorites;
+      gallerySessionOnly.classList.toggle("active", state.sessionOnly && !isFavorites);
+      gallerySelectAll.hidden = !state.editMode;
+      galleryEdit.hidden = false;
+      galleryDelete.hidden = !state.editMode;
+      if (isVideo) galleryCount.textContent = "0 个视频";
+    }
+
+    function switchGalleryTab(name) {
+      state.galleryTab = ["images", "videos", "favorites"].includes(name) ? name : "images";
+      renderWaterfall();
+    }
+
+    async function loadGallery() {
+      try {
+        await loadFavorites();
+        const [imageData, videoData] = await Promise.all([
+          requestJson("/random_photo_prompt/mobile/gallery"),
+          requestJson("/random_photo_prompt/mobile/videos").catch(() => ({videos: []}))
+        ]);
+        state.galleryImages = imageData.images || [];
+        state.galleryVideos = videoData.videos || [];
+        const visibleImages = imageRecords().map(record => record.image);
+        const visibleVideos = videoRecords().map(record => record.video);
+        state.selectedImages = new Set([...state.selectedImages].filter(filename => visibleImages.some(image => imageKey(image) === filename)));
+        state.selectedVideos = new Set([...state.selectedVideos].filter(filename => visibleVideos.some(video => video.filename === filename)));
+        state.selectedFavorites = new Set([...state.selectedFavorites].filter(filename => state.favoriteImages.some(image => imageKey(image) === filename)));
+        if (state.sourceImage?.filename) {
+          const sourceKey = imageKey(state.sourceImage);
+          const fresh = state.galleryImages.find(image => imageKey(image) === sourceKey);
+          if (fresh) state.sourceImage = fresh;
+        }
+        updateSourcePicker();
+        renderWaterfall();
+      } catch (error) {
+        const target = state.galleryTab === "videos" ? videoWaterfallEl : waterfallEl;
+        target.innerHTML = `<div class="empty">${error.message}</div>`;
+      }
+    }
+
+    function switchTab(name) {
+      state.tab = name;
+      tabs.forEach(tab => tab.classList.toggle("active", tab.dataset.tab === name));
+      generatePanel.hidden = name !== "generate";
+      waterfallPanel.hidden = name !== "waterfall";
+      if (name === "waterfall") loadGallery();
+    }
+
+    async function openSourceDialog() {
+      await loadGallery();
+      if (!state.galleryImages.length) {
+        setStatus("瀑布流里还没有可选图片。", true);
+        return;
+      }
+      sourceGrid.innerHTML = state.galleryImages.map(image => `
+        <button class="source-choice" type="button" data-filename="${escapeHtml(imageKey(image))}" aria-label="选择图片">
+          <img src="${image.url}" alt="">
+        </button>
+      `).join("");
+      sourceDialog.classList.add("open");
+      sourceDialog.setAttribute("aria-hidden", "false");
+    }
+
+    function closeSourceDialog() {
+      sourceDialog.classList.remove("open");
+      sourceDialog.setAttribute("aria-hidden", "true");
+    }
+
+    function resolutionText(item) {
+      const width = Number(item?.width || 0);
+      const height = Number(item?.height || 0);
+      return width > 0 && height > 0 ? `${width} × ${height}` : "";
+    }
+
+    function updateViewerResolution(text = "") {
+      viewerResolution.textContent = text || "";
+    }
+
+    function imageSeedText(image) {
+      const seed = String(image?.seed ?? "").trim();
+      return /^\d+$/.test(seed) ? seed : "";
+    }
+
+    function updateViewerSeed(seed = "") {
+      viewerCopySeed.dataset.seed = seed;
+      viewerCopySeed.disabled = !seed;
+      viewerCopySeed.textContent = seed ? `Seed ${seed}` : "暂无 Seed";
+      viewerRecreate.disabled = !seed;
+    }
+
+    function recreateImage(record) {
+      const prompt = record?.job?.prompt || mediaPrompt(record?.image);
+      const seed = imageSeedText(record?.image);
+      if (!prompt || !seed) return;
+      switchMode("image");
+      state.customPrompt = prompt;
+      state.customPromptSource = "manual";
+      state.customResolution = resolutionText(record.image).replace(/\s/g, "").replace("×", "x");
+      imageSeedInput.value = seed;
+      updateCustomPromptButton();
+      saveSettings();
+      closeViewer();
+      switchTab("generate");
+      setStatus("已填入原提示词与 Seed。");
+    }
+
+    function showViewerImage(index) {
+      const images = activeImageRecords();
+      if (!images.length) return;
+      state.viewerMediaType = "image";
+      viewer.classList.remove("video-mode");
+      viewerRotate.hidden = false;
+      viewerCopyPrompt.hidden = false;
+      viewerCopySeed.hidden = false;
+      viewerRecreate.hidden = false;
+      resetViewerScroll();
+      state.viewerIndex = (index + images.length) % images.length;
+      const record = images[state.viewerIndex];
+      state.viewerImageRecord = record;
+      if (isNewImage(record.image)) void markImageViewed(record.image);
+      const prompt = record.job.prompt || mediaPrompt(record.image);
+      viewerVideo.pause();
+      viewerVideo.removeAttribute("src");
+      viewerImage.src = record.image.url;
+      viewerPrompt.textContent = prompt;
+      viewerCount.textContent = `${state.viewerIndex + 1} / ${images.length}`;
+      updateViewerResolution(resolutionText(record.image));
+      viewerDelete.dataset.filename = imageKey(record.image);
+      viewerCopyPrompt.dataset.prompt = prompt;
+      updateViewerSeed(imageSeedText(record.image));
+      updateViewerFavoriteButton(record);
+      viewerQView.hidden = !state.qviewAvailable;
+      state.viewerRotation = 0;
+      resetViewerLayout();
+      resetViewerImage();
+      resetViewerScroll();
+    }
+
+    function showViewerVideo(index) {
+      const videos = videoRecords();
+      if (!videos.length) return;
+      state.viewerMediaType = "video";
+      viewer.classList.add("video-mode");
+      viewerRotate.hidden = true;
+      viewerFavorite.hidden = false;
+      viewerQView.hidden = true;
+      viewerFavorite.classList.remove("active");
+      viewerFavorite.textContent = "收藏";
+      viewerCopyPrompt.hidden = false;
+      viewerCopySeed.hidden = true;
+      viewerRecreate.hidden = true;
+      resetViewerScroll();
+      state.viewerIndex = (index + videos.length) % videos.length;
+      const record = videos[state.viewerIndex];
+      state.viewerImageRecord = null;
+      viewerImage.removeAttribute("src");
+      viewerIncomingImage.removeAttribute("src");
+      viewerIncomingImage.removeAttribute("data-index");
+      viewerVideo.muted = true;
+      viewerVideo.autoplay = true;
+      viewerVideo.src = record.video.url;
+      // 手机浏览器只允许静音自动播放；延迟后启动，避免详情切换时的播放竞争。
+      window.clearTimeout(state.viewerVideoPlayTimer);
+      state.viewerVideoPlayTimer = window.setTimeout(() => {
+        if (state.viewerMediaType === "video" && viewer.classList.contains("open")) {
+          viewerVideo.play().catch(() => {});
+        }
+      }, 1000);
+      viewerPrompt.textContent = record.prompt || mediaPrompt(record.video);
+      viewerCount.textContent = `${state.viewerIndex + 1} / ${videos.length}`;
+      updateViewerResolution(resolutionText(record.video));
+      viewerDelete.dataset.filename = videoKey(record.video);
+      viewerCopyPrompt.dataset.prompt = record.prompt || mediaPrompt(record.video);
+      updateViewerSeed("");
+      state.viewerRotation = 0;
+      resetViewerLayout();
+      resetViewerScroll();
+    }
+
+    function resetViewerScroll() {
+      viewer.scrollTop = 0;
+      window.requestAnimationFrame(() => {
+        viewer.scrollTop = 0;
+      });
+    }
+
+    function currentViewerTransform(dx) {
+      const rotate = state.viewerRotation ? ` rotate(${state.viewerRotation}deg)` : "";
+      const scaleValue = state.viewerLayoutScale * state.viewerScale;
+      const scale = scaleValue !== 1 ? ` scale(${scaleValue})` : "";
+      const x = dx + state.viewerOffsetX;
+      const y = state.viewerBaseOffsetY + state.viewerOffsetY;
+      return `translate3d(${x}px, ${y}px, 0)${rotate}${scale}`;
+    }
+
+    function resetViewerLayout() {
+      state.viewerScale = 1;
+      state.viewerLayoutScale = 1;
+      state.viewerOffsetX = 0;
+      state.viewerOffsetY = 0;
+      state.viewerBaseOffsetY = 0;
+      state.viewerRenderedWidth = 0;
+      state.viewerRenderedHeight = 0;
+      state.viewerViewportHeight = 0;
+      viewerImage.style.width = "";
+      viewerImageBox.style.height = "";
+    }
+
+    function updateViewerLayout() {
+      const availableWidth = Math.max(1, viewerImageBox.clientWidth - 20);
+      const browserHeight = window.visualViewport?.height || viewer.clientHeight || window.innerHeight || 1;
+      const viewportHeight = Math.max(1, browserHeight - 20);
+      const naturalWidth = viewerImage.naturalWidth || viewerImage.clientWidth || availableWidth;
+      const naturalHeight = viewerImage.naturalHeight || viewerImage.clientHeight || availableWidth;
+      const rotatedSideways = state.viewerRotation % 180 !== 0;
+      const baseScale = Math.min(
+        1,
+        availableWidth / Math.max(1, naturalWidth),
+        viewportHeight / Math.max(1, naturalHeight)
+      );
+      const displayWidth = Math.max(1, Math.floor(naturalWidth * baseScale));
+      const renderedHeight = Math.max(1, Math.floor(naturalHeight * baseScale));
+      state.viewerLayoutScale = 1;
+      state.viewerBaseOffsetY = 0;
+      state.viewerOffsetX = 0;
+      state.viewerOffsetY = 0;
+      state.viewerRenderedWidth = displayWidth;
+      state.viewerRenderedHeight = renderedHeight;
+      state.viewerViewportHeight = viewportHeight;
+      viewerImage.style.width = `${displayWidth}px`;
+      if (rotatedSideways) {
+        state.viewerLayoutScale = Math.min(
+          1,
+          availableWidth / Math.max(1, renderedHeight),
+          viewportHeight / Math.max(1, displayWidth)
+        );
+        const visualHeight = displayWidth * state.viewerLayoutScale;
+        state.viewerBaseOffsetY = (visualHeight - renderedHeight) / 2;
+        state.viewerViewportHeight = Math.max(1, renderedHeight, visualHeight);
+        viewerImageBox.style.height = `${state.viewerViewportHeight + 4}px`;
+      } else {
+        state.viewerScale = 1;
+        state.viewerViewportHeight = Math.max(1, renderedHeight);
+        viewerImageBox.style.height = `${state.viewerViewportHeight + 4}px`;
+      }
+      viewerImage.style.transform = currentViewerTransform(0);
+    }
+
+    function setViewerImageOffset(dx, animated = false) {
+      const transition = animated ? "transform 180ms cubic-bezier(.2, .75, .2, 1)" : "none";
+      viewerImage.style.transition = transition;
+      viewerIncomingImage.style.transition = transition;
+      viewerImage.style.transform = currentViewerTransform(dx);
+    }
+
+    function resetViewerImage(animated = false) {
+      setViewerImageOffset(0, animated);
+      viewerIncomingImage.style.opacity = "0";
+      viewerIncomingImage.style.transform = "";
+      viewerIncomingImage.removeAttribute("data-index");
+    }
+
+    function previewViewerSwipe(dx) {
+      if (state.viewerMediaType === "video") return;
+      const images = activeImageRecords();
+      if (images.length < 2) {
+        setViewerImageOffset(dx, false);
+        return;
+      }
+      const width = viewer.clientWidth || window.innerWidth || 360;
+      const direction = dx < 0 ? 1 : -1;
+      const nextIndex = (state.viewerIndex + direction + images.length) % images.length;
+      const nextRecord = images[nextIndex];
+      if (viewerIncomingImage.dataset.index !== String(nextIndex)) {
+        viewerIncomingImage.src = nextRecord.image.url;
+        viewerIncomingImage.dataset.index = String(nextIndex);
+      }
+      viewerImage.style.transition = "none";
+      viewerIncomingImage.style.transition = "none";
+      viewerImage.style.transform = currentViewerTransform(dx);
+      viewerIncomingImage.style.opacity = "1";
+      viewerIncomingImage.style.transform = `translate3d(${direction * width + dx}px, 0, 0)`;
+    }
+
+    function animateViewerSwitch(direction) {
+      if (state.viewerMediaType === "video") return;
+      const images = activeImageRecords();
+      if (images.length < 2) return;
+      const width = viewer.clientWidth || window.innerWidth || 360;
+      const nextIndex = (state.viewerIndex + direction + images.length) % images.length;
+      viewerIncomingImage.src = images[nextIndex].image.url;
+      viewerIncomingImage.style.opacity = "1";
+      viewerImage.style.transition = "none";
+      viewerIncomingImage.style.transition = "none";
+      viewerIncomingImage.style.transform = `translate3d(${direction * width}px, 0, 0)`;
+      window.requestAnimationFrame(() => {
+        viewerImage.style.transition = "transform 180ms cubic-bezier(.2, .75, .2, 1)";
+        viewerIncomingImage.style.transition = "transform 180ms cubic-bezier(.2, .75, .2, 1)";
+        viewerImage.style.transform = currentViewerTransform(-direction * width);
+        viewerIncomingImage.style.transform = "translate3d(0, 0, 0)";
+      });
+      window.setTimeout(() => {
+        showViewerImage(nextIndex);
+        viewerIncomingImage.removeAttribute("src");
+        viewerIncomingImage.removeAttribute("data-index");
+        resetViewerImage(false);
+      }, 180);
+    }
+
+    function openViewer(index) {
+      viewer.classList.add("open");
+      viewer.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      resetViewerScroll();
+      showViewerImage(index);
+    }
+
+    function openVideoViewer(index) {
+      viewer.classList.add("open");
+      viewer.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      resetViewerScroll();
+      showViewerVideo(index);
+    }
+
+    function closeViewer() {
+      window.clearTimeout(state.viewerVideoPlayTimer);
+      state.viewerVideoPlayTimer = null;
+      viewer.classList.remove("open");
+      viewer.setAttribute("aria-hidden", "true");
+      viewer.classList.remove("video-mode");
+      viewerImage.removeAttribute("src");
+      viewerIncomingImage.removeAttribute("src");
+      viewerIncomingImage.removeAttribute("data-index");
+      viewerVideo.pause();
+      viewerVideo.removeAttribute("src");
+      viewerVideo.load();
+      viewerImage.style.transition = "";
+      viewerImage.style.transform = "";
+      viewerIncomingImage.style.transition = "";
+      viewerIncomingImage.style.transform = "";
+      viewerIncomingImage.style.opacity = "";
+      updateViewerResolution("");
+      state.viewerRotation = 0;
+      state.viewerMediaType = "image";
+      state.viewerImageRecord = null;
+      viewerFavorite.hidden = false;
+      viewerFavorite.classList.remove("active");
+      viewerFavorite.textContent = "收藏";
+      viewerCopyPrompt.hidden = false;
+      viewerCopySeed.hidden = false;
+      viewerRecreate.hidden = false;
+      viewerRotate.hidden = false;
+      updateViewerSeed("");
+      resetViewerScroll();
+      resetViewerLayout();
+      viewerDelete.removeAttribute("data-filename");
+      viewerCopyPrompt.removeAttribute("data-prompt");
+      document.body.style.overflow = "";
+    }
+
+    function askConfirm(message) {
+      confirmMessage.textContent = message;
+      confirmDialog.classList.add("open");
+      confirmDialog.setAttribute("aria-hidden", "false");
+      return new Promise(resolve => {
+        const cleanup = result => {
+          confirmDialog.classList.remove("open");
+          confirmDialog.setAttribute("aria-hidden", "true");
+          confirmCancel.removeEventListener("click", onCancel);
+          confirmOk.removeEventListener("click", onOk);
+          confirmDialog.removeEventListener("click", onBackdrop);
+          resolve(result);
+        };
+        const onCancel = () => cleanup(false);
+        const onOk = () => cleanup(true);
+        const onBackdrop = event => {
+          if (event.target === confirmDialog) cleanup(false);
+        };
+        confirmCancel.addEventListener("click", onCancel);
+        confirmOk.addEventListener("click", onOk);
+        confirmDialog.addEventListener("click", onBackdrop);
+      });
+    }
+
+    async function deleteImages(keys, allowFavorites = false) {
+      const uniqueKeys = [...new Set(keys.filter(Boolean))]
+        .filter(key => allowFavorites || !isFavoriteKey(key));
+      if (!uniqueKeys.length) return false;
+      const ok = await askConfirm(`删除 ${uniqueKeys.length} 张图片？`);
+      if (!ok) return false;
+      await requestJson("/random_photo_prompt/mobile/gallery/delete", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({items: uniqueKeys.map(key => ({...imageByKey(key), key}))})
+      });
+      uniqueKeys.forEach(key => {
+        state.selectedImages.delete(key);
+      });
+      await loadGallery();
+      return true;
+    }
+
+    async function deleteVideos(filenames) {
+      const unique = [...new Set(filenames.filter(Boolean))];
+      if (!unique.length) return false;
+      const ok = await askConfirm(`删除 ${unique.length} 个视频？`);
+      if (!ok) return false;
+      await requestJson("/random_photo_prompt/mobile/videos/delete", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({items: unique.map(filename => ({filename}))})
+      });
+      unique.forEach(filename => state.selectedVideos.delete(filename));
+      await loadGallery();
+      return true;
+    }
+
+    async function deleteFavorites(filenames) {
+      const unique = [...new Set(filenames.filter(Boolean))];
+      if (!unique.length) return false;
+      const ok = await askConfirm(`移除 ${unique.length} 张收藏？`);
+      if (!ok) return false;
+      await requestJson("/random_photo_prompt/mobile/favorites/delete", {
+        method: "POST",
+        body: JSON.stringify({items: unique.map(filename => ({filename}))})
+      });
+      unique.forEach(filename => state.selectedFavorites.delete(filename));
+      await loadFavorites();
+      renderWaterfall();
+      return true;
+    }
+
+    async function copyPromptText(text) {
+      const value = String(text || "").trim();
+      if (!value) {
+        setStatus("当前没有可复制的提示词。", true);
+        return;
+      }
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const textarea = document.createElement("textarea");
+          textarea.value = value;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          document.execCommand("copy");
+          textarea.remove();
+        }
+        setStatus("提示词已复制");
+      } catch (error) {
+        setStatus("复制失败，手机浏览器没有授权剪贴板。", true);
+      }
+    }
+
+    jobsEl.addEventListener("click", event => {
+      const button = event.target.closest(".thumb");
+      if (!button) return;
+      const images = imageRecords();
+      const index = images.findIndex(record => record.job.prompt_id === button.dataset.promptId && record.index === Number(button.dataset.imageIndex));
+      if (index >= 0) openViewer(index);
+    });
+
+    waterfallEl.addEventListener("click", event => {
+      if (state.galleryTab === "videos") return;
+      if (ignoreNextGalleryClick) {
+        ignoreNextGalleryClick = false;
+        return;
+      }
+      const button = event.target.closest(".photo-item");
+      if (!button) return;
+      const filename = button.dataset.filename;
+      if (state.editMode) {
+        toggleGalleryItem(button);
+        return;
+      }
+      const images = activeImageRecords();
+      const index = images.findIndex(record => imageKey(record.image) === filename);
+      if (index >= 0) openViewer(index);
+    });
+
+    videoWaterfallEl.addEventListener("click", event => {
+      if (state.galleryTab !== "videos") return;
+      if (ignoreNextGalleryClick) {
+        ignoreNextGalleryClick = false;
+        return;
+      }
+      const button = event.target.closest(".video-item");
+      if (!button) return;
+      const filename = button.dataset.filename;
+      if (state.editMode) {
+        toggleGalleryItem(button);
+        return;
+      }
+      const videos = videoRecords();
+      const index = videos.findIndex(record => videoKey(record.video) === filename);
+      if (index >= 0) openVideoViewer(index);
+    });
+
+    gallerySelectAll.addEventListener("click", () => {
+      if (state.galleryTab === "videos") {
+        const videos = videoRecords();
+        const allSelected = videos.length > 0 && state.selectedVideos.size === videos.length;
+        state.selectedVideos = allSelected ? new Set() : new Set(videos.map(record => videoKey(record.video)));
+        renderWaterfall();
+        return;
+      }
+      const images = activeImageRecords();
+      const selectableImages = state.galleryTab === "favorites" ? images : deletableImageRecords();
+      const selected = currentSelectedSet();
+      const allSelected = selectableImages.length > 0 && selected.size === selectableImages.length;
+      if (state.galleryTab === "favorites") {
+        state.selectedFavorites = allSelected ? new Set() : new Set(selectableImages.map(record => imageKey(record.image)));
+      } else {
+        state.selectedImages = allSelected ? new Set() : new Set(selectableImages.map(record => imageKey(record.image)));
+      }
+      renderWaterfall();
+    });
+
+    galleryEdit.addEventListener("click", () => {
+      state.editMode = !state.editMode;
+      if (!state.editMode) {
+        state.selectedImages.clear();
+        state.selectedVideos.clear();
+        state.selectedFavorites.clear();
+      }
+      renderWaterfall();
+    });
+
+    galleryDelete.addEventListener("click", () => {
+      if (state.galleryTab === "videos") {
+        deleteVideos([...state.selectedVideos]);
+        return;
+      }
+      if (state.galleryTab === "favorites") {
+        deleteFavorites([...state.selectedFavorites]);
+        return;
+      }
+      deleteImages([...state.selectedImages], true);
+    });
+
+    viewerFavorite.addEventListener("click", () => {
+      toggleCurrentFavorite();
+    });
+
+    viewerQView.addEventListener("click", async () => {
+      const record = state.viewerImageRecord;
+      if (!record || !state.qviewAvailable) return;
+      try {
+        viewerQView.disabled = true;
+        await requestJson("/random_photo_prompt/mobile/gallery/open-qview", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({image: record.image})
+        });
+        setStatus("已用 qView 打开");
+      } catch (error) {
+        setStatus(error.message || "qView 打开失败。", true);
+      } finally {
+        viewerQView.disabled = false;
+      }
+    });
+
+    viewerCopyPrompt.addEventListener("click", () => {
+      copyPromptText(viewerCopyPrompt.dataset.prompt || viewerPrompt.textContent || "");
+    });
+
+    viewerCopySeed.addEventListener("click", () => {
+      copyPromptText(viewerCopySeed.dataset.seed || "");
+    });
+
+    viewerRecreate.addEventListener("click", () => {
+      if (state.viewerMediaType !== "image") return;
+      recreateImage(activeImageRecords()[state.viewerIndex]);
+    });
+
+    viewerRotate.addEventListener("click", () => {
+      if (state.viewerMediaType === "video") return;
+      state.viewerRotation = (state.viewerRotation + 90) % 360;
+      viewerImage.style.transition = "transform 180ms cubic-bezier(.2, .75, .2, 1)";
+      updateViewerLayout();
+    });
+
+    viewerDelete.addEventListener("click", async () => {
+      const filename = viewerDelete.dataset.filename;
+      const deletedIndex = state.viewerIndex;
+      const currentImageRecord = state.viewerMediaType === "image" ? activeImageRecords()[deletedIndex] : null;
+      let deleted = false;
+      if (state.viewerMediaType === "video") {
+        deleted = await deleteVideos([filename]);
+        if (!deleted) return;
+        const videos = videoRecords();
+        if (!videos.length) {
+          closeViewer();
+          return;
+        }
+        showViewerVideo(Math.min(deletedIndex, videos.length - 1));
+      } else if (state.galleryTab === "favorites" || currentImageRecord?.image?.type === "favorite_backup") {
+        deleted = await deleteFavorites([filename]);
+        if (!deleted) return;
+        const images = activeImageRecords();
+        if (!images.length) {
+          closeViewer();
+          return;
+        }
+        showViewerImage(Math.min(deletedIndex, images.length - 1));
+      } else {
+        deleted = await deleteImages([filename], true);
+        if (!deleted) return;
+        const images = activeImageRecords();
+        if (!images.length) {
+          closeViewer();
+          return;
+        }
+        showViewerImage(Math.min(deletedIndex, images.length - 1));
+      }
+    });
+
+    viewerImage.addEventListener("load", () => {
+      if (!viewerResolution.textContent && viewerImage.naturalWidth && viewerImage.naturalHeight) {
+        updateViewerResolution(`${viewerImage.naturalWidth} × ${viewerImage.naturalHeight}`);
+      }
+      updateViewerLayout();
+    });
+
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => switchTab(tab.dataset.tab));
+    });
+
+    galleryMediaTabs.forEach(tab => {
+      tab.addEventListener("click", () => switchGalleryTab(tab.dataset.galleryTab));
+    });
+
+    gallerySessionOnly.addEventListener("click", () => {
+      state.sessionOnly = !state.sessionOnly;
+      state.selectedImages.clear();
+      state.selectedVideos.clear();
+      renderWaterfall();
+    });
+
+    [promptRuleSelect, scaleSelect, videoScaleSelect, videoInputModeSelect, eraSelect, shotSelect, workflowSelect, zitModelSelect, zibModelSelect, krea2ModelSelect, videoFpsSelect, videoSecondsSelect, customPromptResolution].forEach(enhanceSelect);
+    document.addEventListener("click", () => closeAllCustomSelects());
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeAllCustomSelects();
+    });
+
+    countUp.addEventListener("click", () => stepCount(1));
+    countDown.addEventListener("click", () => stepCount(-1));
+    videoCountUp.addEventListener("click", () => stepVideoCount(1));
+    videoCountDown.addEventListener("click", () => stepVideoCount(-1));
+    modeTabs.forEach(tab => {
+      tab.addEventListener("click", () => switchMode(tab.dataset.mode));
+    });
+    [scaleSelect, videoScaleSelect, eraSelect, shotSelect].forEach(select => {
+      select.addEventListener("change", () => {
+        renderCustomSelect(select);
+        saveSettings();
+      });
+    });
+    customPromptButton.addEventListener("click", openPromptDialog);
+    copyCustomPrompt.addEventListener("click", () => copyPromptText(state.customPrompt));
+    pregeneratePrompt.addEventListener("click", pregenerateImagePrompt);
+    customPromptCancel.addEventListener("click", closePromptDialog);
+    promptDialog.addEventListener("click", event => {
+      if (event.target === promptDialog) closePromptDialog();
+    });
+    customPromptClear.addEventListener("click", () => {
+      state.customPrompt = "";
+      state.customResolution = "";
+      state.customPromptSource = "";
+      customPromptText.value = "";
+      imageNegativePrompt.value = "";
+      setSelectValue(customPromptResolution, "");
+      customPromptResolutionInput.value = "";
+      updateCustomPromptButton();
+      saveSettings();
+      closePromptDialog();
+    });
+    customPromptCopy.addEventListener("click", () => copyPromptText(customPromptText.value || state.customPrompt));
+    customPromptResolution.addEventListener("change", () => {
+      customPromptResolutionInput.value = customPromptResolution.value;
+    });
+    customPromptOk.addEventListener("click", () => {
+      state.customPrompt = customPromptText.value.trim();
+      state.customResolution = customPromptResolutionInput.value.trim() || customPromptResolution.value;
+      state.customPromptSource = state.customPrompt ? "manual" : "";
+      updateCustomPromptButton();
+      saveSettings();
+      closePromptDialog();
+    });
+    workflowSelect.addEventListener("change", () => {
+      renderCustomSelect(workflowSelect);
+      updateWorkflowModelVisibility();
+      saveSettings();
+      checkStatus();
+    });
+    promptRuleSelect.addEventListener("change", () => {
+      updatePromptRuleControls();
+      saveSettings();
+    });
+    scaleSelect.addEventListener("change", () => {
+      updatePromptRuleControls();
+      saveSettings();
+    });
+    zitModelSelect.addEventListener("change", () => {
+      renderCustomSelect(zitModelSelect);
+      saveSettings();
+    });
+    zibModelSelect.addEventListener("change", () => {
+      renderCustomSelect(zibModelSelect);
+      saveSettings();
+    });
+    krea2ModelSelect.addEventListener("change", () => {
+      renderCustomSelect(krea2ModelSelect);
+      saveSettings();
+    });
+    addLoraButton.addEventListener("click", () => addLoraRow());
+    imageSeedInput.addEventListener("change", saveSettings);
+    imageNegativePrompt.addEventListener("input", () => {
+      updateCustomPromptButton();
+      saveSettings();
+    });
+    [videoFpsSelect, videoSecondsSelect].forEach(select => {
+      select.addEventListener("change", () => {
+        renderCustomSelect(select);
+        saveSettings();
+      });
+    });
+    videoActionInput.addEventListener("input", saveSettings);
+    async function refreshVideoActionForSource() {
+      if (!state.sourceImage?.filename) {
+        setStatus("请先选择一张图片。", true);
+        return;
+      }
+      state.videoActionNonce += 1;
+      pregenerateAction.disabled = true;
+      try {
+        const data = await requestJson("/random_photo_prompt/mobile/video/action", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            source_filename: imageKey(state.sourceImage),
+            scale: videoScaleSelect.value,
+            seconds: videoSecondsSelect.value,
+            previous_action: videoActionInput.value,
+            nonce: `${state.videoActionNonce}-${Date.now()}-${Math.random()}`
+          })
+        });
+        videoActionInput.value = data.action || "";
+        saveSettings();
+        setStatus("");
+      } catch (error) {
+        setStatus(error.message, true);
+      } finally {
+        pregenerateAction.disabled = false;
+      }
+    }
+    pregenerateAction.addEventListener("click", refreshVideoActionForSource);
+    sourcePicker.addEventListener("click", openSourceDialog);
+    sourceUpload.addEventListener("click", () => {
+      sourceUploadInput.click();
+    });
+    sourceUploadInput.addEventListener("change", async () => {
+      const file = sourceUploadInput.files && sourceUploadInput.files[0];
+      sourceUploadInput.value = "";
+      if (!file) return;
+      sourceUpload.disabled = true;
+      try {
+        const formData = new FormData();
+        formData.append("image", file);
+        const data = await requestJson("/random_photo_prompt/mobile/video/source/upload", {
+          method: "POST",
+          body: formData
+        });
+        state.sourceImage = {
+          filename: data.source_filename || data.filename,
+          url: data.url || "",
+          width: data.width || 0,
+          height: data.height || 0,
+          uploaded: true
+        };
+        videoActionInput.value = "";
+        updateSourcePicker();
+        saveSettings();
+        setStatus("");
+        refreshVideoActionForSource();
+      } catch (error) {
+        setStatus(error.message, true);
+      } finally {
+        sourceUpload.disabled = false;
+      }
+    });
+    sourceClear.addEventListener("click", () => {
+      if (state.sourceImage?.filename) {
+        state.sourceImage = null;
+        videoActionInput.value = "";
+        updateSourcePicker();
+        saveSettings();
+        setStatus("");
+      }
+    });
+    sourceCancel.addEventListener("click", closeSourceDialog);
+    sourceDialog.addEventListener("click", event => {
+      if (event.target === sourceDialog) closeSourceDialog();
+    });
+    sourceGrid.addEventListener("click", event => {
+      const button = event.target.closest(".source-choice");
+      if (!button) return;
+      const image = state.galleryImages.find(item => imageKey(item) === button.dataset.filename);
+      if (!image) return;
+      state.sourceImage = image;
+      videoActionInput.value = "";
+      updateSourcePicker();
+      saveSettings();
+      closeSourceDialog();
+      setStatus("");
+      refreshVideoActionForSource();
+    });
+
+    let pinchStartDistance = 0;
+    let pinchStartCols = 4;
+    let gallerySelecting = false;
+    let gallerySelectCandidate = false;
+    let gallerySelectionMode = "add";
+    let galleryTouchStartX = 0;
+    let galleryTouchStartY = 0;
+    let ignoreNextGalleryClick = false;
+    let viewerTouchStartX = 0;
+    let viewerTouchStartY = 0;
+    let viewerTouchDx = 0;
+    let viewerSwiping = false;
+    let viewerPinching = false;
+    let viewerDragging = false;
+    let viewerSwipeZone = false;
+    let viewerSuppressClick = false;
+    let viewerStartScale = 1;
+    let viewerStartOffsetX = 0;
+    let viewerStartOffsetY = 0;
+    let viewerPinchStartDistance = 0;
+
+    function touchDistance(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    }
+
+    function clampViewerScale(value) {
+      return Math.max(1, Math.min(5, value));
+    }
+
+    function clampViewerOffsets() {
+      const visualScale = state.viewerLayoutScale * state.viewerScale;
+      const visualWidth = Math.max(1, state.viewerRenderedWidth || viewerImage.clientWidth || viewerImageBox.clientWidth - 20) * visualScale;
+      const visualHeight = Math.max(1, state.viewerRenderedHeight || viewerImage.clientHeight || viewerImageBox.clientHeight - 10) * visualScale;
+      const boxWidth = Math.max(1, viewerImageBox.clientWidth - 20);
+      const boxHeight = Math.max(1, state.viewerViewportHeight || viewerImageBox.clientHeight - 10);
+      const extraX = Math.max(0, (visualWidth - boxWidth) / 2);
+      const extraY = Math.max(0, (visualHeight - boxHeight) / 2);
+      if (state.viewerScale <= 1.01 && extraY <= 1) {
+        state.viewerScale = 1;
+        state.viewerOffsetX = 0;
+        state.viewerOffsetY = 0;
+        return;
+      }
+      if (state.viewerScale <= 1.01) {
+        state.viewerScale = 1;
+        state.viewerOffsetX = 0;
+      }
+      state.viewerOffsetX = Math.max(-extraX, Math.min(extraX, state.viewerOffsetX));
+      state.viewerOffsetY = Math.max(-extraY, Math.min(extraY, state.viewerOffsetY));
+    }
+
+    function applyViewerZoom(animated = false) {
+      clampViewerOffsets();
+      viewerImage.style.transition = animated ? "transform 160ms cubic-bezier(.2, .75, .2, 1)" : "none";
+      viewerImage.style.transform = currentViewerTransform(0);
+    }
+
+    function isViewerSwipeZone(touch) {
+      return true;
+    }
+
+    function canDragViewerImage() {
+      return state.viewerScale > 1.01;
+    }
+
+    function setWaterfallCols(cols) {
+      state.waterfallCols = Math.max(1, Math.min(10, Math.round(cols)));
+      renderWaterfall();
+    }
+
+    function galleryItemSelector() {
+      return state.galleryTab === "videos" ? ".video-item" : ".photo-item";
+    }
+
+    function galleryItemContainer() {
+      return state.galleryTab === "videos" ? videoWaterfallEl : waterfallEl;
+    }
+
+    function setGalleryItemSelected(button, selectedState) {
+      const filename = button.dataset.filename;
+      const selected = currentSelectedSet();
+      if (!filename) return;
+      if (selectedState) {
+        selected.add(filename);
+        button.classList.add("selected");
+      } else {
+        selected.delete(filename);
+        button.classList.remove("selected");
+      }
+      const total = state.galleryTab === "images" ? deletableImageRecords().length : currentGalleryRecords().length;
+      galleryCount.textContent = `已选 ${selected.size} / ${total}`;
+      galleryDelete.disabled = selected.size < 1;
+    }
+
+    function toggleGalleryItem(button) {
+      const filename = button.dataset.filename;
+      if (!filename) return;
+      setGalleryItemSelected(button, !currentSelectedSet().has(filename));
+    }
+
+    function selectPhotoFromPoint(x, y) {
+      const element = document.elementFromPoint(x, y);
+      const button = element && element.closest ? element.closest(galleryItemSelector()) : null;
+      if (!button || !galleryItemContainer().contains(button)) return;
+      setGalleryItemSelected(button, gallerySelectionMode !== "remove");
+    }
+
+    waterfallPanel.addEventListener("touchstart", event => {
+      if (state.editMode && event.touches.length === 1) {
+        const touch = event.touches[0];
+        const button = event.target.closest(galleryItemSelector());
+        if (!button) return;
+        gallerySelectCandidate = true;
+        gallerySelecting = false;
+        gallerySelectionMode = currentSelectedSet().has(button.dataset.filename) ? "remove" : "add";
+        galleryTouchStartX = touch.clientX;
+        galleryTouchStartY = touch.clientY;
+        return;
+      }
+      if (event.touches.length !== 2) return;
+      pinchStartDistance = touchDistance(event.touches);
+      pinchStartCols = state.waterfallCols;
+    }, {passive: false});
+
+    waterfallPanel.addEventListener("touchmove", event => {
+      if (gallerySelecting && event.touches.length === 1) {
+        event.preventDefault();
+        const touch = event.touches[0];
+        selectPhotoFromPoint(touch.clientX, touch.clientY);
+        return;
+      }
+      if (gallerySelectCandidate && event.touches.length === 1) {
+        const touch = event.touches[0];
+        const dx = touch.clientX - galleryTouchStartX;
+        const dy = touch.clientY - galleryTouchStartY;
+        const distance = Math.hypot(dx, dy);
+        if (distance < 10) return;
+        if (Math.abs(dy) > Math.abs(dx) * 1.15) {
+          gallerySelectCandidate = false;
+          galleryTouchStartX = 0;
+          galleryTouchStartY = 0;
+          return;
+        }
+        event.preventDefault();
+        gallerySelectCandidate = false;
+        gallerySelecting = true;
+        selectPhotoFromPoint(galleryTouchStartX, galleryTouchStartY);
+        selectPhotoFromPoint(touch.clientX, touch.clientY);
+        return;
+      }
+      if (event.touches.length !== 2 || !pinchStartDistance) return;
+      event.preventDefault();
+      const ratio = touchDistance(event.touches) / pinchStartDistance;
+      setWaterfallCols(pinchStartCols / ratio);
+    }, {passive: false});
+
+    waterfallPanel.addEventListener("touchend", event => {
+      if (gallerySelecting && event.touches.length < 1) {
+        gallerySelecting = false;
+        ignoreNextGalleryClick = true;
+        renderWaterfall();
+      }
+      if (gallerySelectCandidate && event.touches.length < 1) {
+        const changed = event.changedTouches[0];
+        const dx = changed ? changed.clientX - galleryTouchStartX : 0;
+        const dy = changed ? changed.clientY - galleryTouchStartY : 0;
+        if (Math.hypot(dx, dy) < 10) {
+          const button = document.elementFromPoint(galleryTouchStartX, galleryTouchStartY)?.closest?.(galleryItemSelector());
+          if (button && galleryItemContainer().contains(button)) {
+            toggleGalleryItem(button);
+            ignoreNextGalleryClick = true;
+          }
+        }
+        gallerySelectCandidate = false;
+        galleryTouchStartX = 0;
+        galleryTouchStartY = 0;
+      }
+      if (event.touches.length < 2) pinchStartDistance = 0;
+    }, {passive: true});
+
+    waterfallPanel.addEventListener("touchcancel", () => {
+      gallerySelecting = false;
+      gallerySelectCandidate = false;
+      galleryTouchStartX = 0;
+      galleryTouchStartY = 0;
+      pinchStartDistance = 0;
+      renderWaterfall();
+    }, {passive: true});
+
+    viewerImageBox.addEventListener("click", event => {
+      if (state.viewerMediaType === "video" && event.target === viewerVideo) return;
+      if (viewerSuppressClick) {
+        viewerSuppressClick = false;
+        return;
+      }
+      closeViewer();
+    });
+    viewer.addEventListener("click", event => {
+      if (event.target === viewer) closeViewer();
+    });
+    viewerPrompt.addEventListener("click", () => {
+      if (state.viewerMediaType === "video") closeViewer();
+    });
+    function resetViewerTouchState() {
+      viewerTouchStartX = 0;
+      viewerTouchStartY = 0;
+      viewerTouchDx = 0;
+      viewerSwiping = false;
+      viewerPinching = false;
+      viewerDragging = false;
+      viewerSwipeZone = false;
+      viewerPinchStartDistance = 0;
+      viewerIncomingImage.removeAttribute("data-index");
+    }
+
+    function handleViewerTouchStart(event) {
+      if (state.viewerMediaType === "video") return;
+      if (event.touches.length === 2) {
+        if (!viewerImageBox.contains(event.target)) return;
+        event.preventDefault();
+        viewerPinching = true;
+        viewerDragging = false;
+        viewerSwipeZone = false;
+        viewerSwiping = false;
+        viewerPinchStartDistance = touchDistance(event.touches);
+        viewerStartScale = state.viewerScale;
+        viewerStartOffsetX = state.viewerOffsetX;
+        viewerStartOffsetY = state.viewerOffsetY;
+        viewerImage.style.transition = "none";
+        return;
+      }
+      if (event.touches.length !== 1) return;
+      viewerTouchStartX = event.touches[0].clientX;
+      viewerTouchStartY = event.touches[0].clientY;
+      viewerTouchDx = 0;
+      viewerSwiping = false;
+      viewerSwipeZone = isViewerSwipeZone(event.touches[0]);
+      viewerDragging = canDragViewerImage() && !viewerSwipeZone;
+      viewerStartOffsetX = state.viewerOffsetX;
+      viewerStartOffsetY = state.viewerOffsetY;
+      viewerImage.style.transition = "none";
+    }
+
+    function handleViewerTouchMove(event) {
+      if (state.viewerMediaType === "video") return;
+      if (viewerPinching && event.touches.length === 2 && viewerPinchStartDistance) {
+        event.preventDefault();
+        const ratio = touchDistance(event.touches) / viewerPinchStartDistance;
+        state.viewerScale = clampViewerScale(viewerStartScale * ratio);
+        state.viewerOffsetX = viewerStartOffsetX;
+        state.viewerOffsetY = viewerStartOffsetY;
+        applyViewerZoom(false);
+        return;
+      }
+      if (!viewerTouchStartX || event.touches.length !== 1) return;
+      const dx = event.touches[0].clientX - viewerTouchStartX;
+      const dy = event.touches[0].clientY - viewerTouchStartY;
+      if (viewerDragging) {
+        if (state.viewerScale > 1.01) event.preventDefault();
+        state.viewerOffsetX = viewerStartOffsetX + dx;
+        state.viewerOffsetY = viewerStartOffsetY + dy;
+        applyViewerZoom(false);
+        return;
+      }
+      if (!viewerSwiping && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        viewerSwiping = true;
+      }
+      if (!viewerSwiping) return;
+      event.preventDefault();
+      viewerTouchDx = dx;
+      previewViewerSwipe(dx);
+    }
+
+    function handleViewerTouchEnd(event) {
+      if (state.viewerMediaType === "video") return;
+      if (viewerPinching) {
+        if (event.touches.length >= 2) return;
+        viewerPinching = false;
+        viewerPinchStartDistance = 0;
+        viewerSuppressClick = true;
+        applyViewerZoom(true);
+        return;
+      }
+      if (!viewerTouchStartX || !event.changedTouches.length) return;
+      const dx = viewerTouchDx || (event.changedTouches[0].clientX - viewerTouchStartX);
+      const dy = event.changedTouches[0].clientY - viewerTouchStartY;
+      viewerTouchStartX = 0;
+      viewerTouchStartY = 0;
+      viewerTouchDx = 0;
+      const swipeZone = viewerSwipeZone;
+      viewerSwipeZone = false;
+      if (viewerDragging) {
+        viewerDragging = false;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) viewerSuppressClick = true;
+        applyViewerZoom(true);
+        return;
+      }
+      const images = activeImageRecords();
+      const threshold = Math.min(72, (viewer.clientWidth || window.innerWidth || 360) * .14);
+      if (!swipeZone || !viewerSwiping || images.length < 2 || Math.abs(dx) < threshold || Math.abs(dx) < Math.abs(dy) * 1.15) {
+        viewerSwiping = false;
+        resetViewerImage(true);
+        return;
+      }
+      viewerSwiping = false;
+      viewerSuppressClick = true;
+      animateViewerSwitch(dx < 0 ? 1 : -1);
+    }
+
+    function handleViewerTouchCancel() {
+      resetViewerTouchState();
+      resetViewerImage(true);
+    }
+
+    [viewerImageBox, viewerPrompt].forEach(element => {
+      element.addEventListener("touchstart", handleViewerTouchStart, {passive: false});
+      element.addEventListener("touchmove", handleViewerTouchMove, {passive: false});
+      element.addEventListener("touchend", handleViewerTouchEnd, {passive: true});
+      element.addEventListener("touchcancel", handleViewerTouchCancel, {passive: true});
+    });
+    function isTypingTarget(element) {
+      const tag = String(element?.tagName || "").toLowerCase();
+      return tag === "input" || tag === "textarea" || tag === "select" || Boolean(element?.isContentEditable);
+    }
+
+    function switchViewerByKeyboard(direction) {
+      if (!viewer.classList.contains("open")) return false;
+      if (state.viewerMediaType === "video") {
+        const videos = videoRecords();
+        if (videos.length < 2) return false;
+        showViewerVideo(state.viewerIndex + direction);
+        return true;
+      }
+      if (activeImageRecords().length < 2) return false;
+      showViewerImage(state.viewerIndex + direction);
+      return true;
+    }
+
+    window.addEventListener("keydown", event => {
+      if (isTypingTarget(event.target)) return;
+      if (event.key === "Escape") closeViewer();
+      if (event.key === "ArrowLeft" && switchViewerByKeyboard(-1)) event.preventDefault();
+      if (event.key === "ArrowRight" && switchViewerByKeyboard(1)) event.preventDefault();
+    });
+    window.addEventListener("resize", () => {
+      if (viewer.classList.contains("open")) updateViewerLayout();
+    });
+    document.addEventListener("gesturestart", event => {
+      event.preventDefault();
+    });
+
+    generatePanel.addEventListener("touchmove", event => {
+      if (event.touches.length > 1) event.preventDefault();
+    }, {passive: false});
+
+    function statusText(status) {
+      if (status === "completed") return "已完成";
+      if (status === "running") return "生成中";
+      if (status === "pending") return "排队中";
+      if (status === "receiving") return "正在接收结果";
+      if (status === "failed") return "未找到结果文件";
+      if (status === "stale") return "任务已中断";
+      if (status === "unknown") return "等待结果";
+      return "等待结果";
+    }
+
+    async function syncServerJobs() {
+      const data = await requestJson("/random_photo_prompt/mobile/jobs");
+      const serverIds = new Set((data.jobs || []).map(job => String(job.prompt_id || "")));
+      let changed = false;
+      for (const job of state.jobs.values()) {
+        if (!job?.prompt_id || !isActiveJob(job) || serverIds.has(String(job.prompt_id))) continue;
+        if (job.status !== "receiving") {
+          job.status = "receiving";
+          job.statusText = "正在接收结果";
+          changed = true;
+        }
+      }
+      return changed;
+    }
+
+    async function pollJobs() {
+      const active = [...state.jobs.values()].filter(isActiveJob);
+      if (!active.length) {
+        await submitNextSerialJobIfReady();
+        if ([...state.jobs.values()].some(isActiveJob)) {
+          renderJobs();
+          updateGenerateButton();
+          return;
+        }
+        clearInterval(state.timer);
+        state.timer = null;
+        updateGenerateButton();
+        return;
+      }
+      let shouldRefreshGallery = false;
+      try {
+        if (await syncServerJobs()) {
+          shouldRefreshGallery = true;
+        }
+      } catch (_error) {
+        // 单个任务查询仍会继续给出更具体状态。
+      }
+      if (!active.some(isActiveJob)) {
+        renderJobs();
+        clearInterval(state.timer);
+        state.timer = null;
+        updateGenerateButton();
+        return;
+      }
+      for (const job of active) {
+        if (!isActiveJob(job)) continue;
+        try {
+          const wasCompleted = job.status === "completed";
+          delete job.pollError;
+          const data = await requestJson(`/random_photo_prompt/mobile/job/${job.prompt_id}`);
+          job.status = data.status;
+          job.error = data.error || "";
+          job.statusText = data.error || statusText(data.status);
+          job.images = data.images || [];
+          job.videos = data.videos || [];
+          if (data.progress?.max > 0) {
+            job.progress = data.progress;
+          }
+          if (data.status === "completed") {
+            const max = job.progress?.max || 1;
+            job.progress = {value: max, max, percent: 100, node: job.progress?.node || ""};
+            job.pollFinalized = Boolean(job.images.length || job.videos.length);
+            if (!wasCompleted && (job.images.length || job.videos.length)) {
+              shouldRefreshGallery = true;
+            }
+          }
+          const video = job.videos[0];
+          if (video?.width && video?.height) {
+            job.width = video.width;
+            job.height = video.height;
+          }
+        } catch (error) {
+          job.pollError = error.message;
+          job.statusText = error.message;
+        }
+      }
+      renderJobs();
+      if (shouldRefreshGallery) {
+        await loadGallery();
+        active.forEach(job => {
+          if (job.status === "completed" && ((job.images || []).length || (job.videos || []).length)) {
+            job.pollFinalized = true;
+          }
+        });
+        renderJobs();
+      }
+      if (![...state.jobs.values()].some(isActiveJob)) {
+        await submitNextSerialJobIfReady();
+      }
+      updateGenerateButton();
+    }
+
+    function startPolling() {
+      if (state.timer) return;
+      ensureProgressSocket();
+      state.timer = setInterval(pollJobs, 2500);
+      pollJobs();
+    }
+
+    function buildGeneratePayload(isVideoMode, count) {
+      return isVideoMode
+        ? {
+            client_id: state.clientId,
+            scale: videoScaleSelect.value,
+            video_mode: videoInputModeSelect.value,
+            source_filename: imageKey(state.sourceImage),
+            action_text: videoActionInput.value.trim(),
+            fps: videoFpsSelect.value,
+            seconds: videoSecondsSelect.value,
+            count
+          }
+        : {
+            client_id: state.clientId,
+            prompt_rule: promptRuleSelect.value,
+            scale: scaleSelect.value,
+            era: eraSelect.value,
+            shot: shotSelect.value,
+            workflow: workflowSelect.value,
+            zit_model: ["zit_single", "zitb_double", "zimage_double_v2"].includes(workflowSelect.value) ? zitModelSelect.value : "",
+            zib_model: ["zib_single", "zitb_double", "zimage_double_v2"].includes(workflowSelect.value) ? zibModelSelect.value : "",
+            krea2_model: ["redcraft_krea2", "krea2_cc"].includes(workflowSelect.value) ? krea2ModelSelect.value : "",
+            loras: selectedLoras(),
+            seed: imageSeedInput.value.trim(),
+            negative_prompt: ["zitb_double", "zimage_double_v2"].includes(workflowSelect.value) ? imageNegativePrompt.value.trim() : "",
+            custom_prompt_source: state.customPromptSource,
+            custom_prompt: ["manual", "pregenerated"].includes(state.customPromptSource) ? state.customPrompt.trim() : "",
+            custom_resolution: ["manual", "pregenerated"].includes(state.customPromptSource) ? state.customResolution : "",
+            count
+          };
+    }
+
+    async function submitNextSerialJobIfReady() {
+      if (state.serialSubmitting || hasActiveJobs()) return;
+      while (state.serialBatches.length && state.serialBatches[0].submitted >= state.serialBatches[0].total) {
+        state.serialBatches.shift();
+      }
+      const batch = state.serialBatches[0];
+      if (!batch) return;
+      state.serialSubmitting = true;
+      try {
+        ensureProgressSocket();
+        const nextIndex = batch.submitted + 1;
+        const payload = {
+          ...batch.payload,
+          count: 1,
+          _batch_id: batch.batchId,
+          _batch_index: nextIndex,
+          _batch_total: batch.total
+        };
+        const data = await requestJson(batch.url, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const jobs = data.jobs || [];
+        if (!jobs.length) throw new Error(data.errors?.[0]?.error || "任务没有提交成功。");
+        jobs.forEach(job => {
+          const index = Number(job.batch_index || job.batchIndex || nextIndex);
+          const total = Number(job.batch_total || job.batchTotal || batch.total);
+          state.jobs.set(job.prompt_id, {
+            ...job,
+            batchId: batch.batchId,
+            batchIndex: index,
+            batchTotal: total,
+            status: "pending",
+            statusText: "排队中",
+            progress: Number(job.node_total || 0) > 0 ? {value: 0, max: Number(job.node_total), percent: 0, node: "", type: "node"} : null,
+            images: [],
+            videos: []
+          });
+          batch.submitted = index;
+        });
+        if (data.errors && data.errors.length) {
+          setStatus("有任务没有排进去，请检查电脑端工作流。", true);
+        } else {
+          setStatus("");
+        }
+        if (batch.submitted >= batch.total) {
+          state.serialBatches.shift();
+        }
+        renderJobs();
+        startPolling();
+        if (batch.isVideoMode) switchGalleryTab("videos");
+      } catch (error) {
+        state.serialBatches.shift();
+        setStatus(error.message, true);
+        window.alert(error.message);
+      } finally {
+        state.serialSubmitting = false;
+        updateGenerateButton();
+      }
+    }
+
+    async function restoreSessionJobs() {
+      try {
+        const data = await requestJson("/random_photo_prompt/mobile/jobs");
+        const jobs = data.jobs || [];
+        const batchId = state.nextBatchId++;
+        jobs.forEach((job, index) => {
+          state.jobs.set(job.prompt_id, {
+            ...job,
+            restored: true,
+            batchId,
+            batchIndex: Number(job.batch_index || job.batchIndex || index + 1),
+            batchTotal: Number(job.batch_total || job.batchTotal || jobs.length),
+            statusText: statusText(job.status),
+            progress: job.progress || null,
+            images: job.images || [],
+            videos: job.videos || []
+          });
+        });
+        renderJobs();
+        if (jobs.length) startPolling();
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    }
+
+    generateBtn.addEventListener("click", async () => {
+      const isVideoMode = state.mode === "video";
+      const count = isVideoMode ? currentVideoCount() : currentCount();
+      saveSettings();
+      if (isVideoMode && videoInputModeSelect.value === "image" && !state.sourceImage?.filename) {
+        setStatus("请先选择一张图片。", true);
+        return;
+      }
+      if (count > 8 && !(await askConfirm(`确认一次生成 ${count} ${isVideoMode ? "个视频" : "张图片"}？`))) {
+        return;
+      }
+      const remaining = remainingActiveJobSlots();
+      if (count > remaining) {
+        setStatus(`最多排列 ${state.maxActiveJobs} 个任务，当前还能添加 ${remaining} 个。`, true);
+        updateGenerateButton();
+        return;
+      }
+      try {
+        const url = isVideoMode ? "/random_photo_prompt/mobile/video/generate" : "/random_photo_prompt/mobile/generate";
+        state.serialBatches.push({
+          batchId: state.nextBatchId++,
+          total: count,
+          submitted: 0,
+          url,
+          payload: buildGeneratePayload(isVideoMode, 1),
+          isVideoMode
+        });
+        setStatus(`已添加 ${count} 个任务。`);
+        renderJobs();
+        startPolling();
+        await submitNextSerialJobIfReady();
+      } catch (error) {
+        setStatus(error.message, true);
+        window.alert(error.message);
+      } finally {
+        await checkStatus();
+      }
+    });
+
+    restoreSettings();
+    videoInputModeSelect.addEventListener("change", () => {
+      updateVideoInputMode();
+      saveSettings();
+    });
+    updateVideoInputMode();
+    checkStatus();
+    restoreSessionJobs();
+    migrateViewedImageKeys().finally(() => loadGallery());
+  </script>
+</body>
+</html>

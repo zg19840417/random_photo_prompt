@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>远程文生图</title>
+  <style>
+    :root { color-scheme: light; --bg:#f4f5f2; --surface:#fff; --line:#d7dad4; --text:#20231f; --muted:#687066; --accent:#176b4d; --accent-hover:#10563d; --danger:#c73f3f; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    header { border-bottom:1px solid var(--line); background:var(--surface); }
+    header>div, main { width:min(1120px,calc(100% - 32px)); margin:0 auto; }
+    header>div { min-height:64px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .header-actions { display:flex; align-items:center; gap:12px; }
+    h1 { margin:0; font-size:20px; letter-spacing:0; }
+    h2 { margin:0; font-size:16px; letter-spacing:0; }
+    #connection { color:var(--muted); font-size:13px; }
+    main { padding:24px 0 48px; display:grid; grid-template-columns:minmax(320px,440px) minmax(0,1fr); gap:28px; align-items:start; }
+    section { min-width:0; }
+    .form-grid { margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .field { display:grid; gap:7px; min-width:0; }
+    .field.wide { grid-column:1/-1; }
+    label { color:#3e443d; font-size:13px; font-weight:600; }
+    input,select,textarea { width:100%; border:1px solid var(--line); border-radius:4px; background:var(--surface); color:var(--text); font:inherit; padding:10px 11px; outline:none; }
+    input:focus,select:focus,textarea:focus { border-color:var(--accent); box-shadow:0 0 0 2px rgba(23,107,77,.12); }
+    textarea { min-height:190px; resize:vertical; line-height:1.55; }
+    textarea.negative { min-height:84px; }
+    button { min-height:40px; border:0; border-radius:4px; padding:0 16px; background:var(--accent); color:#fff; font:inherit; font-weight:700; cursor:pointer; }
+    button:hover { background:var(--accent-hover); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    button.secondary { border:1px solid var(--line); background:var(--surface); color:var(--text); }
+    button.secondary:hover { background:#eceee9; }
+    button.compact { min-height:34px; padding:0 12px; font-size:13px; }
+    .actions { display:flex; align-items:center; gap:12px; margin-top:18px; }
+    .status { min-height:22px; margin-top:14px; color:var(--muted); font-size:14px; line-height:1.55; }
+    .status.error { color:var(--danger); }
+    progress { width:100%; height:8px; margin-top:10px; accent-color:var(--accent); }
+    .result { border-left:1px solid var(--line); padding-left:28px; }
+    .tabs { display:flex; gap:20px; border-bottom:1px solid var(--line); margin-bottom:16px; }
+    .tab { min-height:42px; padding:0 2px; border-radius:0; border-bottom:2px solid transparent; background:transparent; color:var(--muted); }
+    .tab:hover { background:transparent; color:var(--text); }
+    .tab.active { color:var(--text); border-bottom-color:var(--accent); }
+    .empty { color:var(--muted); font-size:14px; }
+    .gallery-bar { min-height:36px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .gallery-count { color:var(--muted); font-size:13px; }
+    .gallery-actions { display:flex; gap:8px; }
+    .gallery-actions button { min-height:32px; padding:0 10px; font-size:13px; }
+    .danger { color:#fff!important; background:var(--danger)!important; border-color:var(--danger)!important; }
+    .photo-grid { columns:3; column-gap:10px; }
+    .photo-item { position:relative; display:block; width:100%; min-height:0; margin:0 0 10px; padding:0; break-inside:avoid; border:2px solid transparent; background:#e7e9e4; overflow:hidden; }
+    .photo-item:hover { background:#e7e9e4; border-color:var(--accent); }
+    .photo-item.selected { border-color:var(--danger); }
+    .photo-item.selected::after { content:"✓"; position:absolute; top:7px; right:7px; display:grid; place-items:center; width:24px; height:24px; border-radius:50%; color:#fff; background:var(--danger); }
+    .photo-item img { display:block; width:100%; height:auto; }
+    .viewer { position:fixed; inset:0; z-index:30; display:none; overflow:auto; background:rgba(0,0,0,.96); color:#fff; }
+    .viewer.open { display:grid; grid-template-rows:minmax(0,1fr) auto; }
+    .viewer-stage { position:relative; min-height:0; display:grid; place-items:center; padding:18px 64px; overflow:hidden; }
+    .viewer-stage img { display:block; max-width:100%; max-height:calc(100vh - 150px); object-fit:contain; transform:rotate(var(--rotation,0deg)); transition:transform .18s ease; }
+    .viewer-nav { position:absolute; top:50%; width:44px; height:56px; min-height:0; padding:0; border:1px solid rgba(255,255,255,.25); background:rgba(0,0,0,.48); font-size:30px; }
+    .viewer-prev { left:10px; }
+    .viewer-next { right:10px; }
+    .viewer-close { position:absolute; top:10px; right:10px; width:42px; min-height:38px; padding:0; background:rgba(0,0,0,.55); font-size:24px; }
+    .viewer-panel { padding:12px 18px 18px; background:#111; border-top:1px solid #333; }
+    .viewer-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .viewer-actions button { min-height:34px; padding:0 12px; font-size:13px; }
+    .viewer-resolution,.viewer-count { color:#bbb; font-size:13px; }
+    .viewer-prompt { max-height:110px; margin:10px 0 0; overflow:auto; color:#ddd; font-size:13px; line-height:1.55; white-space:pre-wrap; }
+    dialog { width:min(520px,calc(100% - 28px)); border:1px solid var(--line); border-radius:6px; padding:0; color:var(--text); box-shadow:0 18px 60px rgba(0,0,0,.2); }
+    dialog::backdrop { background:rgba(20,24,21,.45); }
+    .dialog-body { padding:22px; }
+    .dialog-body p { margin:12px 0 18px; color:var(--muted); line-height:1.6; }
+    .folder-row { min-height:46px; padding:10px 12px; border:1px solid var(--line); background:var(--bg); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    #folder-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .dialog-actions { margin-top:18px; display:flex; justify-content:flex-end; gap:10px; }
+    [hidden] { display:none!important; }
+    @media(max-width:780px) { main{grid-template-columns:1fr}.result{border-left:0;border-top:1px solid var(--line);padding:24px 0 0}.photo-grid{columns:3}.viewer-stage{padding:12px 48px} }
+    @media(max-width:480px) { header>div,main{width:min(100% - 20px,1120px)}.form-grid{grid-template-columns:1fr}.field.wide{grid-column:auto}.photo-grid{columns:2}#connection{display:none} }
+  </style>
+</head>
+<body>
+  <header><div><h1>远程文生图</h1><div class="header-actions"><span id="connection">连接中</span><button id="settings" class="secondary compact" type="button">设置</button></div></div></header>
+  <main>
+    <section aria-labelledby="generate-title">
+      <h2 id="generate-title">生成设置</h2>
+      <div class="form-grid">
+        <div class="field wide"><label for="workflow">工作流</label><select id="workflow"></select></div>
+        <div class="field" id="zit-field"><label for="zit-model">ZIT 模型</label><select id="zit-model"></select></div>
+        <div class="field" id="zib-field" hidden><label for="zib-model">ZIB 模型</label><select id="zib-model"></select></div>
+        <div class="field wide" id="krea2-field" hidden><label for="krea2-model">Krea2 模型</label><select id="krea2-model"></select></div>
+        <div class="field wide"><label for="prompt">正向提示词</label><textarea id="prompt" required placeholder="必须填写完整的画面描述"></textarea></div>
+        <div class="field wide" id="negative-field" hidden><label for="negative">负向提示词</label><textarea id="negative" class="negative" placeholder="双采可选"></textarea></div>
+        <div class="field"><label for="width">最终宽度</label><input id="width" type="number" min="64" max="4096" step="8" value="1024"></div>
+        <div class="field"><label for="height">最终高度</label><input id="height" type="number" min="64" max="4096" step="8" value="1312"></div>
+      </div>
+      <div class="actions"><button id="generate" type="button" disabled>生成图片</button></div>
+      <progress id="progress" value="0" max="1" hidden></progress>
+      <div id="status" class="status"></div>
+    </section>
+    <section class="result">
+      <div class="tabs" role="tablist">
+        <button id="result-tab" class="tab active" type="button" role="tab">本次结果</button>
+        <button id="history-tab" class="tab" type="button" role="tab">生成记录</button>
+      </div>
+      <div class="gallery-bar">
+        <span id="gallery-count" class="gallery-count">0 张</span>
+        <div class="gallery-actions">
+          <button id="gallery-select-all" class="secondary" type="button" hidden>全选</button>
+          <button id="gallery-delete" class="danger" type="button" hidden>删除</button>
+          <button id="gallery-edit" class="secondary" type="button">编辑</button>
+        </div>
+      </div>
+      <div id="gallery"></div>
+      <div id="gallery-empty" class="empty">当前没有图片</div>
+    </section>
+  </main>
+  <dialog id="settings-dialog">
+    <div class="dialog-body">
+      <h2>基础配置</h2>
+      <p>生成结果和生成记录均使用当前电脑选择的文件夹。</p>
+      <div class="folder-row"><span id="folder-name">尚未选择保存文件夹</span><button id="choose-folder" class="secondary compact" type="button">选择文件夹</button></div>
+      <div class="dialog-actions"><button id="close-settings" class="secondary" type="button">关闭</button></div>
+    </div>
+  </dialog>
+  <div id="viewer" class="viewer" aria-hidden="true">
+    <div class="viewer-stage">
+      <button id="viewer-close" class="viewer-close" type="button" aria-label="关闭">×</button>
+      <button id="viewer-prev" class="viewer-nav viewer-prev" type="button" aria-label="上一张">‹</button>
+      <img id="viewer-image" alt="生成图片原图">
+      <button id="viewer-next" class="viewer-nav viewer-next" type="button" aria-label="下一张">›</button>
+    </div>
+    <div class="viewer-panel">
+      <div class="viewer-actions">
+        <span id="viewer-resolution" class="viewer-resolution"></span>
+        <button id="viewer-copy" class="secondary" type="button">复制提示词</button>
+        <button id="viewer-rotate" class="secondary" type="button">旋转</button>
+        <button id="viewer-delete" class="danger" type="button">删除</button>
+        <span id="viewer-count" class="viewer-count"></span>
+      </div>
+      <p id="viewer-prompt" class="viewer-prompt"></p>
+    </div>
+  </div>
+  <script>
+    const GENERATED_PREFIX = "rpp_manual_";
+    const DB_NAME = "rpp-manual-client";
+    const STORE_NAME = "settings";
+    const els = Object.fromEntries([
+      "workflow","zit-model","zib-model","krea2-model","prompt","negative","width","height","generate","progress","status","connection","zit-field","zib-field","krea2-field","negative-field","settings","settings-dialog","choose-folder","close-settings","folder-name","result-tab","history-tab","gallery","gallery-empty","gallery-count","gallery-edit","gallery-select-all","gallery-delete","viewer","viewer-image","viewer-close","viewer-prev","viewer-next","viewer-resolution","viewer-copy","viewer-rotate","viewer-delete","viewer-count","viewer-prompt"
+    ].map(id => [id,document.getElementById(id)]));
+    let activePromptId = "";
+    let directoryHandle = null;
+    let workflowsReady = false;
+    let historyUrls = [];
+    let galleryRecords = [];
+    let activeGalleryRecords = [];
+    let sessionFilenames = new Set();
+    let selectedFilenames = new Set();
+    let galleryMode = "result";
+    let editMode = false;
+    let viewerIndex = -1;
+    let viewerRotation = 0;
+    let activeGenerationMetadata = null;
+    let socket = null;
+    let clientId = crypto.randomUUID();
+    let activeOutputPrefix = "";
+    let activeNodeTotal = 1;
+    let executedNodes = new Set();
+    let executionFinished = false;
+    let imageSaved = false;
+
+    function openDb() {
+      return new Promise((resolve,reject) => {
+        const request = indexedDB.open(DB_NAME,1);
+        request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function readSetting(key) {
+      const db = await openDb();
+      return new Promise((resolve,reject) => {
+        const request = db.transaction(STORE_NAME).objectStore(STORE_NAME).get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    async function writeSetting(key,value) {
+      const db = await openDb();
+      return new Promise((resolve,reject) => {
+        const transaction = db.transaction(STORE_NAME,"readwrite");
+        transaction.objectStore(STORE_NAME).put(value,key);
+        transaction.oncomplete = resolve;
+        transaction.onerror = () => reject(transaction.error);
+      });
+    }
+
+    function setOptions(select,values,formatter=value=>value) {
+      select.innerHTML = values.map(value => `<option value="${String(value).replaceAll('"','&quot;')}">${formatter(value)}</option>`).join("");
+    }
+
+    function updateModelFields() {
+      const workflow = els.workflow.value;
+      els["zit-field"].hidden = !["zit_single","zitb_double","zimage_double_v2"].includes(workflow);
+      els["zib-field"].hidden = !["zib_single","zitb_double","zimage_double_v2"].includes(workflow);
+      els["krea2-field"].hidden = workflow !== "redcraft_krea2";
+      els["negative-field"].hidden = workflow !== "zitb_double";
+      if (workflow !== "zitb_double") els.negative.value = "";
+    }
+
+    function setStatus(text,error=false) {
+      els.status.textContent = text;
+      els.status.classList.toggle("error",error);
+    }
+
+    function updateGenerateState() {
+      els.generate.disabled = !workflowsReady || !directoryHandle || Boolean(activePromptId);
+    }
+
+    async function requestJson(url,options) {
+      const response = await fetch(url,options);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `请求失败：${response.status}`);
+      return data;
+    }
+
+    async function hasFolderPermission(handle) {
+      return handle && await handle.queryPermission({mode:"readwrite"}) === "granted";
+    }
+
+    async function chooseFolder() {
+      if (!window.isSecureContext || typeof window.showDirectoryPicker !== "function") {
+        throw new Error("当前入口没有本地文件夹权限，请使用项目提供的本地启动脚本打开网页。");
+      }
+      const handle = await window.showDirectoryPicker({mode:"readwrite",id:"rpp-manual-output"});
+      if (await handle.requestPermission({mode:"readwrite"}) !== "granted") throw new Error("未获得文件夹读写权限。");
+      directoryHandle = handle;
+      await writeSetting("outputDirectory",handle);
+      els["folder-name"].textContent = handle.name;
+      updateGenerateState();
+      await loadHistory();
+    }
+
+    async function restoreFolder() {
+      try {
+        const handle = await readSetting("outputDirectory");
+        if (await hasFolderPermission(handle)) {
+          directoryHandle = handle;
+          els["folder-name"].textContent = handle.name;
+          await loadHistory();
+        }
+      } catch (error) {
+        setStatus(`读取本地配置失败：${error.message}`,true);
+      }
+      updateGenerateState();
+      if (!directoryHandle) els["settings-dialog"].showModal();
+    }
+
+    async function loadStatus() {
+      try {
+        const data = await requestJson("/random_photo_prompt/manual/status");
+        const workflows = (data.workflows || []).filter(item => item.template_ready);
+        setOptions(els.workflow,workflows.map(item=>item.key),key=>workflows.find(item=>item.key===key)?.label || key);
+        setOptions(els["zit-model"],data.zit_models || []);
+        setOptions(els["zib-model"],data.zib_models || []);
+        setOptions(els["krea2-model"],data.krea2_models || []);
+        els.connection.textContent = "远端 4090 已连接";
+        workflowsReady = workflows.length > 0;
+        updateModelFields();
+        updateGenerateState();
+      } catch (error) {
+        els.connection.textContent = "连接失败";
+        setStatus(error.message,true);
+      }
+    }
+
+    function connectSocket() {
+      if (socket && socket.readyState <= WebSocket.OPEN) return;
+      const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+      socket = new WebSocket(`${protocol}//${location.host}/ws?clientId=${encodeURIComponent(clientId)}`);
+      socket.binaryType = "arraybuffer";
+      socket.addEventListener("message",handleSocketMessage);
+      socket.addEventListener("close",()=>{ socket=null; if (activePromptId) setStatus("与远程生成服务的连接已断开。",true); });
+    }
+
+    async function socketReady() {
+      connectSocket();
+      if (socket.readyState === WebSocket.OPEN) return;
+      await new Promise((resolve,reject) => {
+        const timer = setTimeout(()=>reject(new Error("远程 WebSocket 连接超时。")),8000);
+        socket.addEventListener("open",()=>{ clearTimeout(timer); resolve(); },{once:true});
+        socket.addEventListener("error",()=>{ clearTimeout(timer); reject(new Error("远程 WebSocket 连接失败。")); },{once:true});
+      });
+    }
+
+    async function handleSocketMessage(event) {
+      if (event.data instanceof ArrayBuffer) {
+        if (!activePromptId || event.data.byteLength <= 8) return;
+        const view = new DataView(event.data);
+        if (view.getUint32(0) !== 1) return;
+        const imageType = view.getUint32(4);
+        const extension = imageType === 1 ? ".jpg" : ".png";
+        const blob = new Blob([event.data.slice(8)],{type:imageType === 1 ? "image/jpeg" : "image/png"});
+        try {
+          const filename = await saveResultBlob(blob,`${activeOutputPrefix}_00001${extension}`);
+          imageSaved = true;
+          setStatus(`已保存到 ${directoryHandle.name}/${filename}`);
+          completeIfReady();
+        } catch (error) {
+          setStatus(error.message,true);
+          finishJob();
+        }
+        return;
+      }
+      let message;
+      try { message = JSON.parse(event.data); } catch { return; }
+      const data = message.data || {};
+      const promptId = String(data.prompt_id || "");
+      if (activePromptId && promptId && promptId !== activePromptId) return;
+      if (message.type === "executing") {
+        if (data.node) executedNodes.add(String(data.node));
+        els.progress.hidden = false;
+        els.progress.max = activeNodeTotal;
+        els.progress.value = Math.min(executedNodes.size,activeNodeTotal);
+        if (data.node === null && promptId === activePromptId) {
+          executionFinished = true;
+          completeIfReady();
+        } else if (activePromptId) {
+          setStatus(`生成中 · 步骤 ${Math.min(executedNodes.size,activeNodeTotal)}/${activeNodeTotal}`);
+        }
+      }
+      if (message.type === "execution_error" && promptId === activePromptId) {
+        setStatus(data.exception_message || "任务执行失败。",true);
+        finishJob();
+      }
+    }
+
+    function payload() {
+      const prompt = els.prompt.value.trim();
+      if (!prompt) throw new Error("必须填写正向提示词。");
+      if (!directoryHandle) throw new Error("请先在设置中选择保存文件夹。");
+      const width = Number(els.width.value);
+      const height = Number(els.height.value);
+      if (!Number.isInteger(width) || !Number.isInteger(height) || width < 64 || height < 64) throw new Error("宽高必须是大于等于 64 的整数。");
+      const workflow = els.workflow.value;
+      return {
+        workflow,
+        custom_prompt_source:"manual",
+        custom_prompt:prompt,
+        negative_prompt:workflow === "zitb_double" ? els.negative.value.trim() : "",
+        custom_resolution:`${width}x${height}`,
+        client_id:clientId,
+        zit_model:["zit_single","zitb_double","zimage_double_v2"].includes(workflow) ? els["zit-model"].value : "",
+        zib_model:["zib_single","zitb_double","zimage_double_v2"].includes(workflow) ? els["zib-model"].value : "",
+        krea2_model:workflow === "redcraft_krea2" ? els["krea2-model"].value : "",
+        scale:"normal",
+        shot:"full_body",
+        era:"modern"
+      };
+    }
+
+    async function saveResultBlob(blob,filename) {
+      if (!await hasFolderPermission(directoryHandle)) throw new Error("保存文件夹权限已失效，请在设置中重新选择。");
+      if (!filename.startsWith(GENERATED_PREFIX)) throw new Error("生成文件名不符合本程序规则。");
+      const fileHandle = await directoryHandle.getFileHandle(filename,{create:true});
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      await writeMetadata(filename,activeGenerationMetadata || {});
+      sessionFilenames.add(filename);
+      await loadHistory();
+      return filename;
+    }
+
+    async function writeMetadata(filename,metadata) {
+      const handle = await directoryHandle.getFileHandle(`${filename}.json`,{create:true});
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify({version:1,filename,...metadata},null,2));
+      await writable.close();
+    }
+
+    async function readMetadata(filename) {
+      try {
+        const handle = await directoryHandle.getFileHandle(`${filename}.json`);
+        return JSON.parse(await (await handle.getFile()).text());
+      } catch {
+        return {};
+      }
+    }
+
+    function completeIfReady() {
+      if (!executionFinished || !imageSaved) return;
+      els.progress.value = activeNodeTotal;
+      showTab("result");
+      finishJob();
+    }
+
+    function finishJob() {
+      activePromptId = "";
+      activeOutputPrefix = "";
+      activeGenerationMetadata = null;
+      updateGenerateState();
+    }
+
+    async function generate() {
+      try {
+        const body = payload();
+        if (!await hasFolderPermission(directoryHandle)) {
+          els["settings-dialog"].showModal();
+          throw new Error("请重新授权保存文件夹。");
+        }
+        await socketReady();
+        els.progress.hidden = false;
+        els.progress.value = 0;
+        els.progress.max = 1;
+        activeGenerationMetadata = {
+          prompt:body.custom_prompt,
+          negative_prompt:body.negative_prompt,
+          workflow:body.workflow,
+          workflow_label:els.workflow.selectedOptions[0]?.textContent || body.workflow,
+          zit_model:body.zit_model,
+          zib_model:body.zib_model,
+          krea2_model:body.krea2_model,
+          width:Number(els.width.value),
+          height:Number(els.height.value),
+          created_at:Date.now()
+        };
+        setStatus("正在提交任务");
+        const data = await requestJson("/random_photo_prompt/manual/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+        const job = data.jobs?.[0];
+        if (!job?.prompt_id) throw new Error(data.errors?.[0]?.error || "任务没有提交成功。");
+        activePromptId = job.prompt_id;
+        activeOutputPrefix = job.output_prefix;
+        activeNodeTotal = Math.max(1,Number(job.node_total || 1));
+        executedNodes = new Set();
+        executionFinished = false;
+        imageSaved = false;
+        updateGenerateState();
+        setStatus("任务已提交");
+      } catch (error) {
+        setStatus(error.message.trim(),true);
+        finishJob();
+      }
+    }
+
+    async function loadHistory() {
+      historyUrls.forEach(URL.revokeObjectURL);
+      historyUrls = [];
+      galleryRecords = [];
+      if (!directoryHandle || !await hasFolderPermission(directoryHandle)) {
+        renderGallery();
+        return;
+      }
+      const files = [];
+      for await (const entry of directoryHandle.values()) {
+        if (entry.kind !== "file" || !entry.name.startsWith(GENERATED_PREFIX) || !/\.(png|jpe?g|webp)$/i.test(entry.name)) continue;
+        const file = await entry.getFile();
+        files.push(file);
+      }
+      files.sort((a,b)=>b.lastModified-a.lastModified);
+      for (const file of files) {
+        const url = URL.createObjectURL(file);
+        historyUrls.push(url);
+        const metadata = await readMetadata(file.name);
+        let width = Number(metadata.width || 0);
+        let height = Number(metadata.height || 0);
+        if (!width || !height) {
+          try {
+            const bitmap = await createImageBitmap(file);
+            width = bitmap.width;
+            height = bitmap.height;
+            bitmap.close();
+          } catch {}
+        }
+        galleryRecords.push({file,url,metadata,width,height});
+      }
+      selectedFilenames = new Set([...selectedFilenames].filter(name=>galleryRecords.some(record=>record.file.name===name)));
+      renderGallery();
+    }
+
+    function renderGallery() {
+      activeGalleryRecords = galleryMode === "result" ? galleryRecords.filter(record=>sessionFilenames.has(record.file.name)) : [...galleryRecords];
+      els.gallery.innerHTML = "";
+      els["gallery-empty"].hidden = activeGalleryRecords.length > 0;
+      els["gallery-empty"].textContent = galleryMode === "result" ? "本次生成的图片会出现在这里" : "保存目录中还没有生成记录";
+      els["gallery-count"].textContent = editMode ? `已选 ${selectedFilenames.size} / ${activeGalleryRecords.length}` : `${activeGalleryRecords.length} 张`;
+      els["gallery-edit"].textContent = editMode ? "完成" : "编辑";
+      els["gallery-select-all"].hidden = !editMode;
+      els["gallery-delete"].hidden = !editMode;
+      els["gallery-delete"].disabled = selectedFilenames.size < 1;
+      els["gallery-select-all"].textContent = selectedFilenames.size === activeGalleryRecords.length && activeGalleryRecords.length ? "取消全选" : "全选";
+      if (!activeGalleryRecords.length) return;
+      const grid = document.createElement("div");
+      grid.className = "photo-grid";
+      for (const record of activeGalleryRecords) {
+        const button = document.createElement("button");
+        button.className = `photo-item${selectedFilenames.has(record.file.name) ? " selected" : ""}`;
+        button.type = "button";
+        button.dataset.filename = record.file.name;
+        button.setAttribute("aria-label","查看原图");
+        const image = document.createElement("img");
+        image.src = record.url;
+        image.alt = "生成图片";
+        image.loading = "lazy";
+        button.appendChild(image);
+        grid.appendChild(button);
+      }
+      els.gallery.appendChild(grid);
+    }
+
+    function showTab(name) {
+      const history = name === "history";
+      galleryMode = history ? "history" : "result";
+      editMode = false;
+      selectedFilenames.clear();
+      els["result-tab"].classList.toggle("active",!history);
+      els["history-tab"].classList.toggle("active",history);
+      renderGallery();
+    }
+
+    function openViewer(index) {
+      if (!activeGalleryRecords.length) return;
+      viewerIndex = (index + activeGalleryRecords.length) % activeGalleryRecords.length;
+      viewerRotation = 0;
+      renderViewer();
+      els.viewer.classList.add("open");
+      els.viewer.setAttribute("aria-hidden","false");
+      document.body.style.overflow = "hidden";
+    }
+
+    function renderViewer() {
+      const record = activeGalleryRecords[viewerIndex];
+      if (!record) return;
+      els["viewer-image"].src = record.url;
+      els["viewer-image"].style.setProperty("--rotation",`${viewerRotation}deg`);
+      els["viewer-resolution"].textContent = record.width && record.height ? `${record.width} × ${record.height}` : "";
+      els["viewer-count"].textContent = `${viewerIndex + 1} / ${activeGalleryRecords.length}`;
+      els["viewer-prompt"].textContent = record.metadata.prompt || "";
+    }
+
+    function closeViewer() {
+      els.viewer.classList.remove("open");
+      els.viewer.setAttribute("aria-hidden","true");
+      els["viewer-image"].removeAttribute("src");
+      document.body.style.overflow = "";
+      viewerIndex = -1;
+    }
+
+    function moveViewer(delta) {
+      if (!activeGalleryRecords.length) return;
+      viewerIndex = (viewerIndex + delta + activeGalleryRecords.length) % activeGalleryRecords.length;
+      viewerRotation = 0;
+      renderViewer();
+    }
+
+    async function deleteFiles(filenames) {
+      for (const filename of filenames) {
+        await directoryHandle.removeEntry(filename);
+        try { await directoryHandle.removeEntry(`${filename}.json`); } catch {}
+        sessionFilenames.delete(filename);
+        selectedFilenames.delete(filename);
+      }
+      await loadHistory();
+    }
+
+    async function copyCurrentPrompt() {
+      const prompt = String(activeGalleryRecords[viewerIndex]?.metadata.prompt || "").trim();
+      if (!prompt) {
+        setStatus("当前图片没有提示词记录。",true);
+        return;
+      }
+      await navigator.clipboard.writeText(prompt);
+      setStatus("提示词已复制");
+    }
+
+    els.workflow.addEventListener("change",updateModelFields);
+    els.generate.addEventListener("click",generate);
+    els.settings.addEventListener("click",()=>els["settings-dialog"].showModal());
+    els["close-settings"].addEventListener("click",()=>els["settings-dialog"].close());
+    els["choose-folder"].addEventListener("click",async()=>{ try { await chooseFolder(); els["settings-dialog"].close(); setStatus(""); } catch(error) { setStatus(error.message,true); } });
+    els["result-tab"].addEventListener("click",()=>showTab("result"));
+    els["history-tab"].addEventListener("click",()=>showTab("history"));
+    els.gallery.addEventListener("click",event=>{
+      const button = event.target.closest(".photo-item");
+      if (!button) return;
+      const index = activeGalleryRecords.findIndex(record=>record.file.name===button.dataset.filename);
+      if (index < 0) return;
+      if (editMode) {
+        if (selectedFilenames.has(button.dataset.filename)) selectedFilenames.delete(button.dataset.filename);
+        else selectedFilenames.add(button.dataset.filename);
+        renderGallery();
+      } else {
+        openViewer(index);
+      }
+    });
+    els["gallery-edit"].addEventListener("click",()=>{
+      editMode = !editMode;
+      selectedFilenames.clear();
+      renderGallery();
+    });
+    els["gallery-select-all"].addEventListener("click",()=>{
+      if (selectedFilenames.size === activeGalleryRecords.length) selectedFilenames.clear();
+      else selectedFilenames = new Set(activeGalleryRecords.map(record=>record.file.name));
+      renderGallery();
+    });
+    els["gallery-delete"].addEventListener("click",async()=>{
+      const names = [...selectedFilenames];
+      if (!names.length || !window.confirm(`删除 ${names.length} 张图片？`)) return;
+      try { await deleteFiles(names); editMode=false; renderGallery(); setStatus("图片已删除"); }
+      catch(error) { setStatus(`删除失败：${error.message}`,true); }
+    });
+    els["viewer-close"].addEventListener("click",closeViewer);
+    els["viewer-prev"].addEventListener("click",()=>moveViewer(-1));
+    els["viewer-next"].addEventListener("click",()=>moveViewer(1));
+    els["viewer-copy"].addEventListener("click",()=>copyCurrentPrompt().catch(error=>setStatus(`复制失败：${error.message}`,true)));
+    els["viewer-rotate"].addEventListener("click",()=>{ viewerRotation=(viewerRotation+90)%360; renderViewer(); });
+    els["viewer-delete"].addEventListener("click",async()=>{
+      const record = activeGalleryRecords[viewerIndex];
+      if (!record || !window.confirm("删除这张图片？")) return;
+      const nextIndex = viewerIndex;
+      try {
+        await deleteFiles([record.file.name]);
+        if (!activeGalleryRecords.length) closeViewer();
+        else { viewerIndex=Math.min(nextIndex,activeGalleryRecords.length-1); viewerRotation=0; renderViewer(); }
+        setStatus("图片已删除");
+      } catch(error) { setStatus(`删除失败：${error.message}`,true); }
+    });
+    document.addEventListener("keydown",event=>{
+      if (!els.viewer.classList.contains("open")) return;
+      if (event.key === "ArrowLeft") moveViewer(-1);
+      else if (event.key === "ArrowRight") moveViewer(1);
+      else if (event.key === "Escape") closeViewer();
+    });
+    connectSocket();
+    Promise.all([loadStatus(),restoreFolder()]);
+  </script>
+</body>
+</html>
