@@ -128,43 +128,13 @@ def _trim_part_to(parts: dict[str, str], name: str, target_len: int) -> None:
 
 
 def enforce_part_budgets(parts: dict[str, str], budgets: dict[str, int] | None = None, scale: str = "") -> dict[str, str]:
-    budgets = budgets or (NSFW_PART_LENGTH_BUDGETS if scale == "nsfw" else PART_LENGTH_BUDGETS)
-    compacted = dict(parts)
-    for name, budget in budgets.items():
-        text = str(compacted.get(name) or "")
-        if len(text) <= budget:
-            continue
-        clauses = _clauses(text)
-        # 所有维度一律从末尾裁剪，保证循环必然收敛：
-        # 原实现把 pop 包在 if name in ("character","outfit","pose_expression") 内，
-        # 当超限维度为 scene_light/makeup/camera/quality 等非列表内维度时 clauses 不被修改，
-        # while 条件恒真 → 死循环（重档位特定种子下会卡死 / OOM）。
-        safety = 0
-        while len(clauses) > 2 and len("，".join(clauses)) > budget and safety < 1000:
-            clauses.pop(-1)  # 保留开头，从末尾裁剪
-            safety += 1
-        compacted[name] = "，".join(clauses) if clauses else text[:budget]
-    return compacted
+    """Length budgets disabled: return parts unchanged (no clause trimming)."""
+    return dict(parts)
 
 
 def enforce_prompt_length(parts: dict[str, str], max_length: int = MAX_POSITIVE_PROMPT_LENGTH, scale: str = "") -> dict[str, str]:
-    compacted = enforce_part_budgets(parts, scale=scale)
-    if _parts_length(compacted) <= max_length:
-        return compacted
-
-    # Remove format-like tails before touching visual content.
-    compacted["quality"] = ""
-    if _parts_length(compacted) <= max_length:
-        return compacted
-
-    for name in TRIMMABLE_PARTS:
-        if name == "quality":
-            continue
-        _trim_part_to(compacted, name, max_length)
-        if _parts_length(compacted) <= max_length:
-            return compacted
-
-    return compacted
+    """Prompt length trimming disabled: return parts unchanged."""
+    return dict(parts)
 
 
 def _text_has_any(text: str, markers: tuple[str, ...]) -> bool:
