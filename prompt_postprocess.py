@@ -1,3 +1,1 @@
-from __future__ import annotations
-
-# FILE TOO LARGE - see artifacts
+RESTORE_FROM_ARTIFACTS_prompt_postprocess_py
