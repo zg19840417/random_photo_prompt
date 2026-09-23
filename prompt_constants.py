@@ -7,7 +7,6 @@ RESOLUTIONS = {
     "full_body": (1024, 1536),
 }
 
-MAX_POSITIVE_PROMPT_LENGTH = 99999  # 不再限制提示词长度
 PROMPT_PART_ORDER = (
     "director_plan",
     "camera",
@@ -18,14 +17,12 @@ PROMPT_PART_ORDER = (
     "quality",
 )
 VISIBLE_PROMPT_PARTS = set(PROMPT_PART_ORDER)
-TRIMMABLE_PARTS = ("quality", "scene_light", "outfit", "camera", "pose_expression")
 WHITE_EDGE_REPLACEMENTS = (
     ("纯白背景", "浅彩背景"),
     ("纯白侧边", "彩色环境侧边"),
     ("空白侧边", "环境色侧边"),
     ("白色边框", "自然环境边缘"),
     ("白边", "环境边缘"),
-    ("白底", "浅彩背景"),
     ("黑边", "场景内容边缘"),
     ("黑色侧边", "横向场景内容"),
     ("暗色侧边", "横向场景内容"),
@@ -241,26 +238,6 @@ NEGATIVE_PROMPT_RULES = {
         "overexposed",
         "washed out",
     ),
-}
-
-PART_LENGTH_BUDGETS = {
-    "camera": 74,
-    "character": 200,
-    "makeup": 74,
-    "outfit": 130,
-    "pose_expression": 220,
-    "scene_light": 210,
-    "quality": 130,
-}
-
-NSFW_PART_LENGTH_BUDGETS = {
-    "camera": 90,
-    "character": 180,
-    "makeup": 60,
-    "outfit": 0,
-    "pose_expression": 160,
-    "scene_light": 140,
-    "quality": 120,
 }
 
 SHOT_ALIASES = {

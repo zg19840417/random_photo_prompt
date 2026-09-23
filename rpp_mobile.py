@@ -463,13 +463,19 @@ def _mobile_prompt_for_gallery_file(filename):
 
 
 def _mobile_prompt_for_video_file(filename):
-    prompt = MOBILE_VIDEO_PROMPT_BY_FILENAME.get(filename, "")
+    _ensure_mobile_session_jobs_loaded()
+    key = _mobile_output_file_key(filename, MOBILE_VIDEO_OUTPUT_SUBFOLDER)
+    prompt = _load_mobile_prompt_index().get(key, {}).get("prompt", "")
     if prompt:
         return prompt
     for job in MOBILE_SESSION_JOBS:
+        if job.get("media_type") != "video":
+            continue
         prefix = str(job.get("output_prefix") or "")
         if prefix and filename.startswith(f"{prefix}_"):
-            return job.get("prompt", "")
+            prompt = str(job.get("generation_prompt") or "")
+            _remember_mobile_prompt_file(filename, prompt, MOBILE_VIDEO_OUTPUT_SUBFOLDER, job.get("seed"))
+            return prompt
     return ""
 
 
@@ -703,12 +709,6 @@ def _mobile_favorite_backup_images():
 
 
 def _mobile_gallery_videos():
-    prompt_by_filename = dict(MOBILE_VIDEO_PROMPT_BY_FILENAME)
-    for job in MOBILE_SESSION_JOBS:
-        for video in _mobile_video_urls_sync(str(job.get("prompt_id", ""))):
-            if video.get("subfolder") == MOBILE_VIDEO_OUTPUT_SUBFOLDER and video.get("filename"):
-                prompt_by_filename[video["filename"]] = job.get("prompt", "")
-                MOBILE_VIDEO_PROMPT_BY_FILENAME[video["filename"]] = job.get("prompt", "")
     items = []
     for path in _mobile_video_output_dir().iterdir():
         if not path.is_file() or path.suffix.lower() not in MOBILE_VIDEO_EXTENSIONS:
@@ -724,7 +724,7 @@ def _mobile_gallery_videos():
                 "size": stat.st_size,
                 "width": dimensions.get("width", 0),
                 "height": dimensions.get("height", 0),
-                "prompt": prompt_by_filename.get(path.name, "") or _mobile_prompt_for_video_file(path.name),
+                "video_prompt": _mobile_prompt_for_video_file(path.name),
                 "url": _mobile_video_view_url(path.name),
             }
         )
@@ -733,7 +733,8 @@ def _mobile_gallery_videos():
 
 
 def _copy_mobile_gallery_image_to_input(filename):
-    source = _mobile_output_file(filename)
+    source = (_mobile_favorite_backup_file(filename.removeprefix("favorite_backup/"))
+              if filename.startswith("favorite_backup/") else _mobile_output_file(filename))
     if not source.is_file() or source.suffix.lower() not in MOBILE_GALLERY_EXTENSIONS:
         raise ValueError("没有找到可用于视频的图片。")
     safe_name = f"video_src_{uuid.uuid4().hex[:12]}_{source.name}"
@@ -749,6 +750,9 @@ def _mobile_video_source_path(filename):
     safe_name = Path(raw_name).name
     if not safe_name:
         raise ValueError("没有找到可用于视频的图片。")
+    if raw_name.startswith("favorite_backup/"):
+        source, image_load_name = _copy_mobile_gallery_image_to_input(raw_name)
+        return source, image_load_name, True
     if raw_name.startswith(f"{MOBILE_VIDEO_INPUT_SUBFOLDER}/"):
         source = (_mobile_video_input_dir() / safe_name).resolve()
         if source.parent == _mobile_video_input_dir() and source.is_file() and source.suffix.lower() in MOBILE_GALLERY_EXTENSIONS:

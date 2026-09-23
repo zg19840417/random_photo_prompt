@@ -36,7 +36,6 @@ from prompt_postprocess import (
     clean_global_prompt_text,
     clean_prompt_text,
     clean_sentence,
-    enforce_prompt_length,
     enrich_visual_finish,
     ensure_sentence,
     feedback_tags,
@@ -183,8 +182,8 @@ def _reduce_full_body_foot_deformation_risk(parts: dict[str, str], scale: str, s
     combined = "，".join(str(reduced.get(name) or "") for name in ("camera", "pose_expression", "scene_light"))
     if any(term in combined for term in _FULL_BODY_FOOT_RISK_TERMS):
         reduced["pose_expression"] = (
-            "人物与环境支撑面形成互动，双腿保持自然弯曲或错开，整只脚自然落地，"
-            "脚趾放松不朝向镜头，手扶住身旁支撑面，头部回望镜头"
+            "人物双腿自然错开，一只脚平稳落地，脚趾放松，"
+            "一只手停在腰侧，头部回望镜头"
         )
     reduced["foot_deformation_guard"] = "1"
     return reduced
@@ -270,17 +269,14 @@ _SCENE_CATEGORY_MARKERS = {
     "bathroom": ("浴室", "镜面", "镜台", "水汽", "瓷砖"),
     "pool": ("泳池", "池边", "池水", "水面", "遮阳伞"),
     "garden": ("庭院", "花园", "森林", "木栈道", "植物", "竹林", "树影"),
-    "cafe": ("咖啡馆", "甜品店", "更衣间", "商店", "美术馆"),
+    "cafe": ("咖啡馆", "甜品店", "书店", "更衣间", "商店", "美术馆"),
     "beach": ("海边", "海岸", "沙滩", "湖边", "湖面"),
     "ancient": ("古代", "宫苑", "画舫", "书房", "屏风", "铜镜", "民国", "苗疆", "敦煌"),
 }
 
 
 def _scene_category(parts: dict[str, str]) -> str:
-    text = "，".join(
-        str(parts.get(name) or "")
-        for name in ("scene_light", "theme_name", "theme_scene_keywords", "pose_expression", "camera")
-    )
+    text = str(parts.get("scene_light") or "")
     for category, markers in _SCENE_CATEGORY_MARKERS.items():
         if any(marker in text for marker in markers):
             return category
@@ -741,11 +737,53 @@ def _theme_blueprint_value(blueprint: dict[str, object], key: str, shot: str, va
     return str(value or "")
 
 
+def _outfit_visible_details(outfit: str, shot: str) -> str:
+    """沿用母题服装，只补该服装自身可见的材质与结构，不另选一套衣服。"""
+    details = []
+    if "蕾丝" in outfit:
+        details.append("蕾丝花纹在领缘由密变疏，镂空处透出底层衣料")
+    elif "薄纱" in outfit or "网纱" in outfit:
+        details.append("轻薄纱层在肩侧交叠，透光处能看见细密网纹")
+    elif "缎面" in outfit:
+        details.append("缎面随转身形成柔亮细褶，折痕处留下窄窄的高光")
+    elif "绣边" in outfit or "刺绣" in outfit:
+        details.append("衣缘的细密绣线在侧光下有高低起伏")
+    elif "牛仔" in outfit:
+        details.append("牛仔斜纹在翻折处明暗分明，布边有细小的车缝线")
+    elif "针织" in outfit:
+        details.append("针织罗纹顺着肩头转弯，贴近光的针脚有柔软阴影")
+    if "短外套" in outfit and "袖窿" not in outfit:
+        details.append("外套前襟留出内搭的领口，肩部硬挺衣片在袖窿处收成清楚的接缝")
+    elif "开衫" in outfit and "罗纹" not in outfit:
+        details.append("开襟两侧露出内搭，衣摆在上腰处收成柔软的窄边")
+    elif "短袖上衣" in outfit and "袖口" not in outfit:
+        details.append("袖口的滚边贴住上臂，前片沿肩线向胸前自然垂落")
+    if "宽肩带" in outfit:
+        details.append("宽肩带与领缘的接缝压线清楚，肩头布面微微起伏")
+    elif "细带" in outfit or "肩带" in outfit or "挂脖" in outfit:
+        details.append("细带沿颈侧斜向肩头，连接处有一小截清晰的接缝压线")
+    elif "翻领" in outfit or "立领" in outfit:
+        details.append("领缘沿肩线折出清楚的夹角，内外两层衣料的厚薄有别")
+    elif "披帛" in outfit:
+        details.append("披帛在肩头自然堆起一折，边缘顺着衣领垂落")
+    if shot == "head_shot":
+        details = [detail for detail in details if not any(word in detail for word in ("腰", "裙摆", "脚"))]
+    details = [detail for detail in details if detail not in outfit]
+    return "，".join((outfit, *details)) if details else outfit
+
+
 def _apply_theme_blueprint(parts: dict[str, str], scale: str, shot: str, aspect: str, era: str) -> dict[str, str]:
     theme_name = str(parts.get("theme_name") or "")
     blueprint = _theme_blueprint_for(theme_name, era)
     if not blueprint:
         return parts
+    # 场景一旦选定，旧主题不能把另一地点的动作、衣着和调色盖上去。
+    scene = str(parts.get("scene_light") or "")
+    blueprint_scene = _theme_blueprint_value(blueprint, "scene", shot)
+    if scene and blueprint_scene:
+        theme_category = _scene_category({"scene_light": blueprint_scene})
+        if theme_category != "other" and theme_category != _scene_category({"scene_light": scene}):
+            return parts
     locked = dict(parts)
     variant_seed = str(parts.get("variant_seed") or "")
     pose = _theme_blueprint_value(blueprint, "pose", shot, variant_seed)
@@ -756,8 +794,8 @@ def _apply_theme_blueprint(parts: dict[str, str], scale: str, shot: str, aspect:
     if skips_outfit(scale) or scale == "bold_no_outfit":
         locked["outfit"] = ""
     elif outfit:
-        locked["outfit"] = outfit
-    if quality_tail and scale != "normal":
+        locked["outfit"] = _outfit_visible_details(outfit, shot)
+    if quality_tail and scale != "normal" and _is_ancient_era(era):
         base_quality = "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝"
         locked["quality"] = f"{base_quality}，{quality_tail}"
     locked["theme_blueprint_locked"] = "1"
@@ -848,12 +886,12 @@ _ENVIRONMENT_ANCHOR_POSES = (
             ),
             "full_body": (
                 "人物侧身抱住树干，前腿弯曲贴近树根，后腿沿湿地面拉长，手臂绕过树身边缘，头部从肩侧回望镜头",
-                "人物蹲在树影和灌木旁，一只手扶住低垂枝叶，另一只手停在大腿上，裸足踩在湿润木板或草叶边缘，头部俯视镜头",
+                "人物蹲在树影和灌木旁，一只手扶住低垂枝叶，另一只手停在大腿上，裸足踩在草叶覆盖的地面，头部俯视镜头",
             ),
         },
     },
     {
-        "markers": ("泳池", "池边", "水面", "遮阳棚"),
+        "markers": ("泳池", "池边", "池水"),
         "shots": {
             "half_body": (
                 "人物坐在泳池边缘，手掌撑住池边瓷砖，半身向镜头前倾，水面反光只贴着手臂和腰线",
@@ -881,11 +919,11 @@ _ENVIRONMENT_ANCHOR_POSES = (
         },
     },
     {
-        "markers": ("吧台", "酒杯"),
+        "markers": ("吧台", "吧椅"),
         "shots": {
             "half_body": (
-                "人物侧坐在吧台高脚椅上，前臂压住黑色吧台边缘，另一只手举着酒杯停在脸侧，肩膀转向镜头，头部回望",
-                "人物半身趴近吧台边缘，手指扣住吧台反光边，酒杯停在画面一侧虚化，眼神从吧台上方向镜头看去",
+                "人物侧坐在吧台高脚椅上，前臂压住黑色吧台边缘，另一只手停在脸侧，肩膀转向镜头，头部回望",
+                "人物半身趴近吧台边缘，手指扣住吧台反光边，吧台反光留在画面一侧虚化，眼神从吧台上方向镜头看去",
             ),
             "full_body": (
                 "人物坐在吧椅前缘，一只脚踩住吧椅横档，另一条腿向画面下方伸长，左手扶住吧台边缘，右手停在大腿上，头部回望镜头",
@@ -894,21 +932,21 @@ _ENVIRONMENT_ANCHOR_POSES = (
         },
     },
     {
-        "markers": ("沙发", "丝绒"),
+        "markers": ("沙发",),
         "shots": {
             "half_body": (
-                "人物坐在丝绒沙发前缘，上身向镜头前倾，一只手压住沙发扶手，另一只手停在腰侧，头部侧偏直视镜头",
+                "人物坐在沙发前缘，上身向镜头前倾，一只手压住沙发扶手，另一只手停在腰侧，头部侧偏直视镜头",
                 "人物半身斜靠在沙发靠背上，手指抓住丝绒边缘，肩线侧转，眼神从暗红背景前看向镜头",
             ),
             "full_body": (
-                "人物坐在丝绒沙发前缘，上身后靠，左手撑住沙发坐垫，右手停在大腿上，一条腿弯曲贴近沙发，另一条腿斜向伸长",
-                "人物侧身倚在沙发扶手旁，髋部贴近坐垫边缘，前腿沿地毯伸向画面下方，手掌压住丝绒扶手，头部回望镜头",
+                "人物坐在沙发前缘，上身后靠，左手撑住沙发坐垫，右手停在大腿上，一条腿弯曲贴近沙发，另一条腿斜向伸长",
+                "人物侧身倚在沙发扶手旁，髋部贴近坐垫边缘，前腿沿地毯伸向画面下方，手掌压住沙发扶手，头部回望镜头",
                 "人物坐在沙发前的地毯上，双膝弯曲向两侧打开成宽大的M形坐姿，双脚靠近身体，左手撑住沙发坐垫边缘，右手停在大腿上，半侧面面对镜头",
             ),
         },
     },
     {
-        "markers": ("镜面", "浴室", "水汽", "雾面镜"),
+        "markers": ("浴室", "雾面镜"),
         "shots": {
             "head_shot": (
                 "头部贴近雾面镜边缘，指尖停在镜面水汽旁，眼神越过镜中暗光看向镜头，嘴唇微开",
@@ -925,7 +963,7 @@ _ENVIRONMENT_ANCHOR_POSES = (
         },
     },
     {
-        "markers": ("纱帘", "卧室", "床头灯"),
+        "markers": ("卧室床",),
         "shots": {
             "head_shot": (
                 "头部靠近半透明纱帘，手指轻轻勾住帘边，眼神从纱影后看向镜头，嘴唇微开",
@@ -953,13 +991,13 @@ _ENVIRONMENT_ANCHOR_POSES = (
                 "人物半身倚在木窗旁，手指扣住窗棂边缘，肩颈从窗影里转向镜头",
             ),
             "full_body": (
-                "人物坐在窗框旁的低台边缘，一只手扶住窗棂，双腿沿地面斜向延展，身体侧身向镜头前倾，头部回望",
+                "人物站在窗框旁，一只手扶住窗棂，双腿自然错开，身体侧身向镜头前倾，头部回望",
                 "人物站在纸拉门或木窗旁，一只手扶住门框，另一只手停在腰侧，一腿承重一腿向侧前方点地，头部从窗影里看向镜头",
             ),
         },
     },
     {
-        "markers": ("低案", "酒案", "卷轴", "妆台", "铜镜", "桌"),
+        "markers": ("低案", "酒案", "妆台", "桌"),
         "shots": {
             "head_shot": (
                 "头部靠近桌案边缘，手指停在卷轴或铜镜旁，眼神从低处抬向镜头，嘴角轻轻上扬",
@@ -983,10 +1021,7 @@ def _apply_environment_anchor_pose(parts: dict[str, str], scale: str, shot: str,
     if scale == "nsfw":
         return parts
     shot = normalize_shot(shot)
-    context = "，".join(
-        str(parts.get(name) or "")
-        for name in ("scene_light", "theme_scene_keywords", "theme_name")
-    )
+    context = str(parts.get("scene_light") or "")
     if not context:
         return parts
     for group in _ENVIRONMENT_ANCHOR_POSES:
@@ -1045,20 +1080,7 @@ _ENVIRONMENT_INTERACTION_TERMS = (
     "栏杆",
     "地毯",
     "地面反光",
-    "支撑面",
 )
-
-_GENERIC_ENVIRONMENT_ANCHOR_POSES = {
-    "half_body": (
-        "人物半身靠近场景边缘，前臂压住身前支撑面，另一只手停在腰侧，肩颈向镜头前倾，头部回望镜头",
-        "人物侧身倚住身旁支撑物，一只手扣住边缘，另一只手停在大腿上，身体从环境阴影里转向镜头",
-    ),
-    "full_body": (
-        "人物坐在场景边缘的支撑面上，双手撑住身侧边缘，一条腿弯曲贴近支撑面，另一条腿斜向画面下方延展，头部回望镜头",
-        "人物跪坐在场景前缘，左手扶住身旁支撑物，右手停在大腿上，双腿沿地面反光错开，头部抬眼看向镜头",
-    ),
-}
-
 
 def _enforce_environment_interaction_pose(parts: dict[str, str], scale: str, shot: str, aspect: str) -> dict[str, str]:
     scale = normalize_scale(scale)
@@ -1073,14 +1095,7 @@ def _enforce_environment_interaction_pose(parts: dict[str, str], scale: str, sho
     if any(term in anchored_pose for term in _ENVIRONMENT_INTERACTION_TERMS):
         anchored["environment_interaction_enforced"] = "1"
         return anchored
-    options = _GENERIC_ENVIRONMENT_ANCHOR_POSES.get(shot)
-    if not options:
-        return parts
-    digest = sum(ord(ch) for ch in f"{parts.get('scene_light') or ''}|{parts.get('variant_seed') or ''}|{shot}|{aspect}")
-    enforced = dict(parts)
-    enforced["pose_expression"] = options[digest % len(options)]
-    enforced["environment_interaction_enforced"] = "1"
-    return enforced
+    return parts
 
 
 _SEDUCTIVE_FACE_BY_SHOT = {
@@ -1103,7 +1118,7 @@ _SEDUCTIVE_FACE_BY_SHOT = {
     ),
     "full_body": (
         "头部微低，抬眼看镜头，眼尾斜斜上挑，下眼睑收紧，嘴唇轻启不露齿，唇角一侧微微抬起，眉梢放松、唇角保持抬起",
-        "头部从环境支撑物旁回望镜头，视线先越过肩线再压回镜头，狐狸眼半眯而黏着，眉尾微微上挑，唇角轻挑，呼吸让锁骨和肩颈有轻微起伏",
+        "头部侧转回望镜头，视线先越过肩线再压回镜头，狐狸眼半眯而黏着，眉尾微微上挑，唇角轻挑，呼吸让锁骨和肩颈有轻微起伏",
         "下巴轻轻抬起，眼神从上眼睑下方俯视镜头，薄唇微开，唇峰带小面积高光，嘴角一侧向上挑起，眉梢放松、唇角保持向上挑起",
         "头部大幅仰起并微微歪向一侧，狐狸眼半眯盯住镜头，眼尾上挑，眉尾微微上挑，嘴角明显上扬，眉梢上挑、唇角保持上扬",
         "头部仰起并歪向一侧，狐狸眼轻微对眼，眼神迷离虚浮但仍盯住镜头，眼尾上扬，嘴角明显上扬，眉梢放松、唇角保持上扬",
@@ -1122,7 +1137,7 @@ _NORMAL_FACE_BY_SHOT = {
     ),
     "full_body": (
         "头部微低，抬眼看镜头，眼神清亮，嘴唇轻闭，唇角带克制笑意，肩颈自然放松",
-        "头部从环境支撑物旁回望镜头，视线稳定，嘴角轻轻上扬，表情自然但有镜头感",
+        "头部侧转回望镜头，视线稳定，嘴角轻轻上扬，表情自然但有镜头感",
     ),
 }
 
@@ -1140,6 +1155,16 @@ def _apply_emotional_seduction_expression(parts: dict[str, str], scale: str, sho
         return parts
     digest = sum(ord(ch) for ch in f"{pose}|{parts.get('scene_light') or ''}|{parts.get('variant_seed') or ''}|{scale}|{shot}|{aspect}")
     face = options[digest % len(options)]
+    # 已有动作和头部方向是主句，只补缺失的眼神/嘴角，避免另一套表情覆盖原动作。
+    if scale == "normal":
+        additions = []
+        if not any(word in pose for word in ("眼神", "视线", "目光", "抬眼", "抬眸", "眼尾", "直视")):
+            additions.append(("眼神清亮地看向镜头", "视线从侧面缓缓转回镜头")[digest % 2])
+        if not any(word in pose for word in ("嘴", "唇", "笑")):
+            additions.append(("嘴唇轻闭，唇角有浅淡笑意", "嘴唇放松，嘴角轻轻上扬")[digest % 2])
+        if not additions:
+            return parts
+        face = "，".join(additions)
     expressive = dict(parts)
     expressive["pose_expression"] = f"{pose}，{face}"
     expressive["emotional_expression_locked"] = "1"
@@ -1151,26 +1176,31 @@ _REFERENCE_STYLE_POSE_BY_SHOT = {
         "极近距离怼脸特写，画面几乎被脸部占满，头部微微后仰，下巴抬起形成俯视镜头的角度，狐狸眼半眯，上眼睑压住瞳孔，眉尾高高挑起，左侧嘴角单独上提露出一点上齿，眉梢放松、唇角保持上提",
         "正面近距离肖像，左手停在肩线下方衣料边缘，舌尖若隐若现地贴近唇缝边缘，狐狸眼轻微向内对视但视线仍钉住镜头，眼尾微微上挑，眼神迷离虚浮却很锋利，右侧嘴角挑出清冷上扬的笑",
         "脸部贴近镜头前缘，冷白皮肤和毛孔细节清楚，头部向一侧轻歪后抬起下巴，一只手停在肩头衣料边缘，狐狸眼从睫毛阴影下半眯看向镜头，眼尾上扬，薄唇微开露出一点上齿，嘴角偏向一侧，眉梢放松、唇角保持偏向一侧",
-        "侧脸靠近窗框或镜边，眼神先从侧光暗部偏开半寸再压回镜头，眼尾被窄光勾亮，下眼睑微微收紧，一只手扶住环境边缘，黑色指甲只作为小面积亮点，嘴唇轻启，唇角一侧挑起，眉梢放松、唇角保持挑起",
+        "侧脸微微侧转，眼神先从侧光暗部偏开半寸再压回镜头，眼尾被窄光勾亮，下眼睑微微收紧，一只手拨开耳侧发丝，黑色指甲只作为小面积亮点，嘴唇轻启，唇角一侧挑起，眉梢放松、唇角保持挑起",
         "头部贴近肩线，颈侧被窄光勾亮，一只手搭在肩头或衣领边缘，指尖停在肩线下方，眼尾斜看镜头，上眼睑压低，唇角单侧上提，薄唇保持微开，眉梢放松、唇角保持微开",
         "头部大幅后仰后又用眼尾向下俯视镜头，一只手停在肩头衣料边缘，黑色指甲清楚，狐狸眼虚着眼睛，视线黏在镜头上不移开，嘴唇微张，唇峰和下唇有湿润高光，嘴角一侧明显上挑，眉梢上挑、唇角保持上挑",
         "脸颊贴近肩线暗部，黑色亮面指甲停在胸前衣料边缘，下眼睑收紧，狐狸眼斜斜压向镜头，左侧嘴角轻轻挑起，唇釉高光清楚",
         "头部微微侧偏，耳侧发丝落在脸颊边，发丝自然从脸侧分开，眼神从发丝缝隙里直直看向镜头，眼尾高挑，下唇轻轻放松，嘴角轻轻上扬，眉梢放松、视线锐利",
         "下巴微低，缓慢抬眼，镜头只看见脸和肩线，狐狸眼半睁半闭，睫毛阴影压住眼下，薄唇轻启，舌尖只在唇缝里露出一点，黑色指甲停在胸前衣料边缘，嘴角一侧挑起，整张脸贴近到有呼吸感",
-        "头部靠近镜面或窗边暗部，冷光切过眼尾和唇峰，一只手停在身前支撑面边缘，视线从镜头下方抬起后锁住镜头，眼神湿润迷离，右侧嘴角慢慢挑起，眉梢放松、唇角保持挑起",
+        "头部微微侧偏，冷光切过眼尾和唇峰，一只手轻触下颌边缘，视线从镜头下方抬起后锁住镜头，眼神湿润迷离，右侧嘴角慢慢挑起，眉梢放松、唇角保持挑起",
     ),
     "half_body": (
-        "人物半身靠近镜头，头部大幅后仰，下巴抬高后仍用狐狸眼直视镜头，一只手横放在锁骨下方，另一只手扣住腰侧，眉尾高高挑起，嘴角明显向上扬起，露出一抹冷笑，眉梢上挑、唇角保持上扬",
-        "人物上身略微后仰，肩颈和锁骨被窄光勾亮，一只手搭在肩头，另一只手按住腰侧，狐狸眼半垂却死死望向镜头，眉尾挑起，薄唇微开，嘴角上扬成冷笑，眉梢上挑、唇角保持上扬",
-        "人物半身向镜头压近，肩膀前倾，左手横在胸前，右手扣住腰侧，黑色指甲只作为手部小面积亮点，下巴微抬，半垂眼俯视镜头，嘴角明显上扬，下巴微抬、唇角放松上扬",
-        "人物半身微微侧转，一只手搭在肩头，另一只手按住腰侧，狐狸眼斜看镜头，瞳孔湿润明亮，眉尾高挑，眼尾上扬，嘴角微微上勾成清冷的笑，眉梢放松、唇角保持上勾",
+        "人物半身靠近镜头，肩膀略向一侧转开，右手指尖停在锁骨下方，左手扣住腰侧，下巴微抬，狐狸眼从上眼睑下直视镜头，嘴唇轻启，单侧嘴角扬起一点冷笑",
+        "人物上身略微后仰，肩颈舒展，左手搭在肩头，右手停在腰侧，头部向右轻歪，半垂的眼睛从侧面望向镜头，薄唇微开，唇角有一抹克制的笑",
+        "人物半身前倾，肩线一高一低，左手轻触自己的颈侧，右手扶住腰侧，下巴微收后抬眼看镜头，半垂的眼睑带一点挑衅，嘴唇轻抿，嘴角微微扬起",
+        "人物半身微微侧转，右手沿腰线停在侧腰，左手轻拢耳后发丝，头部回望镜头，眼尾收紧而视线明亮，嘴唇微开，单侧嘴角挑出克制的笑",
+        "人物站直后将一侧肩头转向镜头，右手指尖搭在颈侧，左手自然贴住上腰，下巴微收再抬眼直视镜头，眼睑半垂，唇角轻轻上扬",
+        "人物坐姿保持上身挺直，肩膀斜向镜头，左手拢住垂在胸前的发尾，右手按在上腰，下巴侧偏，视线从发丝旁看向镜头，嘴唇微抿成浅笑",
+        "人物上身向侧前方倾斜，一只手扶住自己的腰侧，另一只手顺着颈侧停在锁骨上缘，头部微歪，半眯的眼睛直视镜头，嘴唇轻启，笑意只落在一侧嘴角",
+        "人物肩背稍向后展，双臂自然错开，一只手贴着肩头，另一只手停在腰前，头部侧转后回望镜头，眼尾微挑，嘴角轻抿成冷淡的笑",
+        "人物半身正对镜头，肩线轻轻倾斜，左手把发丝拨到肩后，右手扶住腰侧，下巴低垂而眼神向上望来，嘴唇微开，唇角带一点若有若无的笑",
     ),
     "full_body": (
-        "人物坐在环境支撑面前缘，一条腿弯曲贴近身体，另一条腿沿地面斜向伸出形成不对称腿部张力，前脚整只脚自然落在画面下缘，脚趾放松不朝向镜头，上身后仰，一只手撑住身后边缘，另一只手停在锁骨下方，头部大幅后仰后用狐狸眼俯视镜头",
-        "人物低坐在支撑面前缘，双膝向两侧打开成宽大的M形坐姿，双脚自然靠近身体并平稳落地，脚趾放松避开正对镜头，腰线自然形成S形，手掌撑住身旁支撑面，头部仰起并歪向一侧，狐狸眼半眯盯住镜头，嘴角带轻俏上扬的笑弧",
-        "人物侧身倚住支撑面，髋部贴近支撑边缘，前腿沿地面伸向画面下方，整只脚自然落地只作为画面下缘稳定落点，肩颈后仰，手指停在胸前或大腿上，眼尾上挑，狐狸眼俯视镜头，嘴角轻轻挑起",
-        "人物跪坐在支撑面前缘，双腿沿地面错开，前脚自然落在画面下缘，脚背不过度弯折，左手扶住支撑边缘，右手从大腿滑到腰侧，上身后仰后扭向镜头，头部高高抬起，狐狸眼压低视线，嘴角带上扬的笑弧",
-        "人物斜坐在支撑面边缘，一条腿屈起压近身体，另一条腿沿地面斜向伸出，小腿斜向伸到画面下缘，脚踝侧面朝向镜头，手掌压住身侧支撑面，肩颈后仰，眼尾微挑，嘴角带弧度看向镜头",
+        "人物坐在地面，一条腿弯曲贴近身体，另一条腿沿地面斜向伸出形成不对称腿部张力，前脚整只脚自然落在画面下缘，脚趾放松不朝向镜头，上身后仰，一只手撑在身后地面，另一只手停在锁骨下方，头部稍向肩侧转回，狐狸眼越过肩线看向镜头，唇角轻轻挑起",
+        "人物低坐在地面，双膝向两侧打开成宽大的M形坐姿，双脚自然靠近身体并平稳落地，脚趾放松避开正对镜头，腰线自然形成S形，手掌撑在身旁地面，头部仰起并歪向一侧，狐狸眼半眯盯住镜头，嘴角带轻俏上扬的笑弧",
+        "人物侧身站立，髋部朝向镜头一侧转出，前腿沿地面伸向画面下方，整只脚自然落地只作为画面下缘稳定落点，肩颈后仰，手指停在胸前或大腿上，眼尾上挑，狐狸眼俯视镜头，嘴角轻轻挑起",
+        "人物跪坐在地面，双腿沿地面错开，前脚自然落在画面下缘，脚背不过度弯折，左手撑在身侧地面，右手从大腿滑到腰侧，上身后仰后扭向镜头，头部高高抬起，狐狸眼压低视线，嘴角带上扬的笑弧",
+        "人物斜坐在地面，一条腿屈起压近身体，另一条腿沿地面斜向伸出，小腿斜向伸到画面下缘，脚踝侧面朝向镜头，手掌撑在身侧地面，肩颈后仰，眼尾微挑，视线看向镜头，单侧唇角轻轻上扬",
     ),
 }
 
@@ -1525,7 +1555,6 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     cleaned = _reduce_full_body_foot_deformation_risk(cleaned, scale, shot)
     cleaned = clean_global_prompt_text(cleaned, shot, scale)
     cleaned = _apply_visual_director_plan(cleaned, scale, shot, aspect, era)
-    cleaned = enforce_prompt_length(cleaned, scale=scale)
     # 妆容与最终场景氛围对齐：scene_light 经过多步改写后可能与初始选择时不一致，
     # 这里用最终定稿的 scene_light 复核，若白天场景误配了夜系妆则按最终场景重选。
     _final_scene = cleaned.get("scene_light", "")
@@ -1537,9 +1566,8 @@ def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portr
     return cleaned
 
 
-def build_prompt(parts: dict[str, str], enforce_limit: bool = True) -> str:
-    source = enforce_prompt_length(parts, scale=parts.get("scale")) if enforce_limit else parts
-    return _build_human_prompt(source)
+def build_prompt(parts: dict[str, str]) -> str:
+    return _build_human_prompt(parts)
 
 
 def _strip_dimension_labels(text: str) -> str:
@@ -1769,16 +1797,6 @@ def _human_clauses(text: str) -> list[str]:
     ]
 
 
-def _first_human_clause(clauses: list[str], markers: tuple[str, ...], used: set[str]) -> str:
-    for clause in clauses:
-        if clause in used:
-            continue
-        if any(marker in clause for marker in markers):
-            used.add(clause)
-            return clause
-    return ""
-
-
 def _human_camera(parts: dict[str, str]) -> str:
     camera = clean_prompt_text(parts.get("camera", ""))
     shot = str(parts.get("shot_key") or "")
@@ -1791,10 +1809,14 @@ def _human_camera(parts: dict[str, str]) -> str:
             shot = "half_body"
     if shot == "head_shot":
         scope = "肩部以上近景"
-    elif shot == "full_body":
-        scope = "从头到脚的竖向全身构图"
     else:
-        scope = "大腿以上的竖向半身构图"
+        direction = "横向" if parts.get("aspect") == "landscape" else "竖向"
+        if shot == "full_body":
+            scope = f"从头到脚的{direction}全身构图"
+        elif shot == "half_body":
+            scope = f"腰部以上的{direction}半身构图"
+        else:
+            scope = f"大腿以上的{direction}半身构图"
     if any(marker in camera for marker in ("低于下巴", "脸部下方", "从下向上", "仰拍")):
         return ensure_sentence(f"镜头位于她的脸部下方，从低处拍摄，{scope}")
     if any(marker in camera for marker in ("低机位", "略低机位")):
@@ -1809,35 +1831,8 @@ def _human_pose(parts: dict[str, str]) -> str:
     clauses = _human_clauses(raw)
     if not clauses:
         return ""
-    used: set[str] = set()
-    # 身体姿态（站坐倚靠、低头仰头、侧身前倾等）
-    body = _first_human_clause(
-        clauses,
-        ("站", "坐", "跪", "躺", "侧身", "转身", "后仰", "前倾", "身体", "上身", "双腿", "腰背",
-         "倚", "靠", "扶", "走", "低头", "仰头", "偏头", "歪头", "探身", "凑近", "靠前", "把脸", "把下巴"),
-        used,
-    )
-    # 手部与环境互动
-    hands = _first_human_clause(clauses, ("左手", "右手", "双手", "手掌", "手指", "指尖", "手"), used)
-    # 眼神 / 表情
-    face = _first_human_clause(
-        clauses,
-        ("抬眼", "眼神", "狐狸眼", "眼尾", "嘴唇", "嘴角", "下巴", "微笑", "冷笑", "看镜头", "睨", "望", "睁", "盯"),
-        used,
-    )
-    # 情绪基调
-    emotion = _first_human_clause(
-        clauses,
-        ("神情", "表情", "松弛", "慵懒", "挑逗", "玩味", "俏皮", "从容", "专注", "犹豫", "得意", "坏笑", "笑意", "温柔", "亲近"),
-        used,
-    )
-    chosen = [item.replace("人物", "她") for item in (body, hands, face, emotion) if item]
-    if not chosen:
-        chosen = [clauses[0].replace("人物", "她")]
+    chosen = [clause.replace("人物", "她") for clause in clauses]
     text = "，".join(chosen)
-    text = text.replace("环境支撑面前缘", "身旁的低台边缘")
-    text = text.replace("环境支撑面", "身旁的低台")
-    text = text.replace("扶住环境边缘", "扶在身旁的墙边")
     text = re.sub(r"，{2,}", "，", text).strip("，。 ")
     return ensure_sentence(text)
 
@@ -1848,6 +1843,7 @@ def _human_outfit(parts: dict[str, str]) -> str:
         return ""
     text = re.sub(r"，?(?:整体配色|阳光鲜艳配色)[^，。]+", "", text).strip("，。 ")
     text = text.replace("的透明袖口靠近肩侧", "，透明袖口落在肩侧")
+    text = text.replace("领口出现在画面下缘", "，领口在画面下缘露出一小段")
     replacements = (
         ("深V领口压出利落线条", "深V领露出锁骨下方的皮肤"),
         ("腰侧只有细窄收省线", "腰侧有两条细竖缝"),
@@ -1874,7 +1870,7 @@ def _human_outfit(parts: dict[str, str]) -> str:
 
 
 def _human_scene(parts: dict[str, str]) -> str:
-    clauses = _human_clauses(parts.get("scene_light", ""))
+    clauses = [clause for clause in _human_clauses(parts.get("scene_light", "")) if clause != "肩部以上近景"]
     # 去掉与人物/服装重复的身体部位描述，保留环境、氛围、光影、感官细节
     clauses = [
         clause
@@ -1883,7 +1879,7 @@ def _human_scene(parts: dict[str, str]) -> str:
     ]
     if not clauses:
         return ""
-    text = "，".join(clauses[:5])
+    text = "，".join(clauses)
     replacements = (
         ("构成安静背景", "摆在身后"),
         ("在背景里", "在身后"),
@@ -1921,18 +1917,40 @@ def _build_human_prompt(parts: dict[str, str]) -> str:
     outfit = _human_outfit(parts)
     makeup = _human_makeup(parts)
     quality = _human_quality(parts)
-    # 主体特征前置：绘画模型对 prompt 越靠前越主导主体，长文本切块后靠后段被稀释。
-    # 原顺序把 character 排在第 4 段且首段无主语，导致主体漂移、难画。
-    # 新顺序：主体 → 姿态动作（带主语“她”）→ 场景 → 妆容 → 衣着 → 画质（末尾风格修饰）。
-    ordered = [
-        character,
-        "".join((camera, pose)),
-        scene,
-        makeup,
-        outfit,
-        quality,
-    ]
+    ordered = [pose, scene, quality, camera, character, outfit, makeup]
     return "\n\n".join(part for part in ordered if part)
+
+
+_POSE_SCENE_OBJECTS = (
+    ("沙发", ("沙发",)), ("木栈道", ("木栈道", "栈道")),
+    ("镜前", ("镜",)), ("镜中", ("镜",)),
+    ("窗台", ("窗",)), ("窗框", ("窗",)), ("门框", ("门",)),
+    ("高脚凳", ("凳",)), ("高凳", ("凳",)), ("凳面", ("凳",)),
+    ("天台", ("天台", "屋顶")), ("栏杆", ("栏杆",)),
+    ("低台", ("低台",)), ("椅背", ("椅",)), ("椅面", ("椅",)),
+    ("电影院", ("电影院",)), ("床沿", ("床",)),
+)
+
+
+def _pose_names_unseen_object(pose: str, scene: str) -> bool:
+    return any(name in pose and not any(cue in scene for cue in cues) for name, cues in _POSE_SCENE_OBJECTS)
+
+
+def _reselect_normal_pose_for_scene(parts: dict[str, str], shot: str, aspect: str, era: str, rng: random.Random) -> dict[str, str]:
+    if _is_ancient_era(era) or not _pose_names_unseen_object(parts.get("pose_expression", ""), parts.get("scene_light", "")):
+        return parts
+    scene = parts.get("scene_light", "")
+    options = [
+        option for option in pose_expression_options_by_aspect("normal", shot, aspect)
+        if not _pose_names_unseen_object(option, scene)
+        and (shot != "full_body" or any(cue in option for cue in ("脚", "足")))
+    ]
+    if not options:
+        raise ValueError(f"没有与实际场景相容的 {shot} 姿势选项")
+    corrected = dict(parts)
+    corrected["pose_expression"] = choose(options, rng)
+    corrected = _apply_emotional_seduction_expression(corrected, "normal", shot, aspect)
+    return clean_global_prompt_text(corrected, shot, "normal")
 
 
 def generate_candidate_parts(scale: str, shot: str, rng: random.Random, aspect: str, era: str = "modern", attempts: int = 6) -> dict[str, str]:
@@ -1979,14 +1997,15 @@ def generate_candidate_parts(scale: str, shot: str, rng: random.Random, aspect: 
             parts = _reduce_full_body_foot_deformation_risk(parts, scale, shot)
             parts = clean_global_prompt_text(parts, shot, scale)
             parts = _apply_visual_director_plan(parts, scale, shot, aspect, era)
-            parts = enforce_prompt_length(parts, scale=scale)
             parts["prompt_score"] = str(score_prompt_parts(parts, scale, shot, aspect))
         if not scene_time:
             parts = _enforce_ancient_outfit(parts, scale, shot, aspect, era, rng)
             parts = _enforce_ancient_barefoot(parts, era)
             parts = clean_global_prompt_text(parts, shot, scale)
             parts = _apply_visual_director_plan(parts, scale, shot, aspect, era)
-            parts = enforce_prompt_length(parts, scale=scale)
+            parts["prompt_score"] = str(score_prompt_parts(parts, scale, shot, aspect))
+        if normalize_scale(scale) == "normal":
+            parts = _reselect_normal_pose_for_scene(parts, shot, aspect, era, rng)
             parts["prompt_score"] = str(score_prompt_parts(parts, scale, shot, aspect))
         score = int(parts.get("prompt_score") or score_prompt_parts(parts, scale, shot, aspect))
         if score > best_score:
@@ -2043,7 +2062,6 @@ def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str
             break
         if parts is None:
             parts = generate_candidate_parts(scale, shot, rng, aspect, era)
-        parts = enforce_prompt_length(parts, scale=scale)
         parts = clean_global_prompt_text(parts, shot, scale)
         parts = _enforce_ancient_outfit(parts, scale, shot, aspect, era, rng)
         parts = _enforce_ancient_barefoot(parts, era)
@@ -2058,6 +2076,8 @@ def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str
         parts = clean_global_prompt_text(parts, shot, scale)
         parts = _enforce_ancient_outfit(parts, scale, shot, aspect, era, rng)
         parts = _enforce_ancient_barefoot(parts, era)
+        if scale in {"normal", "bold"} and not _is_ancient_era(era) and parts.get("outfit"):
+            parts["outfit"] = _outfit_visible_details(parts["outfit"], shot)
         prompt = build_prompt({**parts, "shot_key": shot, "scale": scale})
         if scale in {"bold_no_outfit", "nsfw"}:
             prompt = clean_prompt_text(prompt)

@@ -15,7 +15,6 @@ from rpp_globals import (
     FIXED_CHARACTER_IDENTITY,
     K2_SFW_RULE_KEY,
     KREA2_PORTRAIT_HORIZONTAL_MARKERS,
-    MAX_POSITIVE_PROMPT_LENGTH,
     MOBILE_CUSTOM_RESOLUTION_PRESETS,
     MOBILE_DEFAULT_RESOLUTIONS,
     MOBILE_DIRECTOR_RESOLUTION_RULES,
@@ -47,7 +46,7 @@ from prompt_resolution import (
 )
 from prompt_postprocess import clean_prompt_text
 
-__all__ = sorted(["__all__", "_apply_krea2_portrait_orientation_guard", "_apply_krea2_prompt_item_orientation_guard", "_apply_mobile_framing", "_build_desktop_prompt_with_mobile_logic", "_build_mobile_prompt_for_scope", "_build_mobile_prompt_item", "_build_mobile_prompt_item_for_rule", "_build_prompt", "_build_prompt_item", "_build_prompt_with_mobile_logic", "_clamp_mobile_resolution", "_clean_mobile_prompt_parts", "_custom_mobile_prompt_item", "_display_prompt_text", "_enforce_mobile_ancient_barefoot_parts", "_enforce_mobile_ancient_barefoot_text", "_enforce_prompt_length", "_ensure_scoped_character_prompt", "_krea2_upright_pose_fallback", "_mobile_custom_resolution", "_mobile_ground_anchor", "_mobile_prompt_text_for_resolution", "_mobile_resolution_for_custom_prompt", "_mobile_resolution_for_prompt", "_mobile_shot_config", "_normalize_mobile_prompt_rule", "_prompt_len_from_parts", "_prompt_text", "_rebuild_prompt_text_from_parts", "_resolve_mobile_framing", "_use_chinese_negative_prompt"])
+__all__ = sorted(["__all__", "_apply_krea2_portrait_orientation_guard", "_apply_krea2_prompt_item_orientation_guard", "_apply_mobile_framing", "_build_desktop_prompt_with_mobile_logic", "_build_mobile_prompt_for_scope", "_build_mobile_prompt_item", "_build_mobile_prompt_item_for_rule", "_build_prompt", "_build_prompt_item", "_build_prompt_with_mobile_logic", "_clamp_mobile_resolution", "_clean_mobile_prompt_parts", "_custom_mobile_prompt_item", "_display_prompt_text", "_enforce_mobile_ancient_barefoot_parts", "_enforce_mobile_ancient_barefoot_text", "_ensure_scoped_character_prompt", "_krea2_upright_pose_fallback", "_mobile_custom_resolution", "_mobile_ground_anchor", "_mobile_prompt_text_for_resolution", "_mobile_resolution_for_custom_prompt", "_mobile_resolution_for_prompt", "_mobile_shot_config", "_normalize_mobile_prompt_rule", "_prompt_text", "_rebuild_prompt_text_from_parts", "_resolve_mobile_framing", "_use_chinese_negative_prompt"])
 
 def _build_prompt_item(scale, shot, seed_text="", aspect="portrait", width=None, height=None, era="modern"):
     generate_prompt_items = _load_prompt_generator()
@@ -123,7 +122,7 @@ def _ensure_scoped_character_prompt(prompt_item, era="modern"):
         parts["shot_key"] = shot_key
         parts["scale"] = str(item.get("scale") or "")
         item["dimension_parts"] = parts
-        prompt = _rebuild_prompt_text_from_parts(parts)
+        prompt = _rebuild_prompt_text_from_parts(parts, item.get("aspect"))
         item["positive_prompt"] = prompt
         item["compact_prompt"] = prompt
     else:
@@ -210,10 +209,13 @@ def _apply_krea2_portrait_orientation_guard(positive_prompt, negative_prompt, pr
     return clean_prompt_text(positive), clean_prompt_text(negative)
 
 
-def _rebuild_prompt_text_from_parts(parts):
+def _rebuild_prompt_text_from_parts(parts, aspect=None):
     from prompt_engine import build_prompt
 
-    return clean_prompt_text(build_prompt(dict(parts or {}), enforce_limit=False))
+    source = dict(parts or {})
+    if aspect is not None:
+        source["aspect"] = aspect
+    return clean_prompt_text(build_prompt(source))
 
 
 def _enforce_mobile_ancient_barefoot_text(text, era):
@@ -258,27 +260,6 @@ def _clean_mobile_prompt_parts(parts, shot_key, era="modern"):
             )
     cleaned = _enforce_mobile_ancient_barefoot_parts(cleaned, era)
     return cleaned
-
-
-def _prompt_len_from_parts(parts):
-    return len(_rebuild_prompt_text_from_parts(parts))
-
-
-def _enforce_prompt_length(parts, max_length=MAX_POSITIVE_PROMPT_LENGTH):
-    compacted = dict(parts or {})
-    if _prompt_len_from_parts(compacted) <= max_length:
-        return compacted
-    compacted["quality"] = ""
-    if _prompt_len_from_parts(compacted) <= max_length:
-        return compacted
-    for name in ("scene_light", "outfit", "pose_expression", "camera"):
-        clauses = _prompt_clauses(compacted.get(name, ""))
-        while len(clauses) > 1 and _prompt_len_from_parts(compacted) > max_length:
-            clauses.pop()
-            compacted[name] = "，".join(clauses)
-        if _prompt_len_from_parts(compacted) <= max_length:
-            break
-    return compacted
 
 
 def _display_prompt_text(prompt_item):
@@ -401,7 +382,7 @@ def _apply_mobile_framing(prompt_item, resolution, era="modern"):
     # 去重：如果camera的开头分句与framing的开头分句重复，跳过追加
     camera_first = re.split(r"[，,]", camera)[0].strip() if camera else ""
     framing_first = re.split(r"[，,]", framing)[0].strip()
-    scope_markers = ("大腿以上入镜", "肩膀及以上入镜", "从头到脚完整入镜", "头顶完整")
+    scope_markers = ("腰部及以上入镜", "肩膀及以上入镜", "从头到脚完整入镜", "头顶完整")
     # 任何含"全身"的相机描述都已表达全身构图意图，无需再追加泛化的"竖向全身构图"
     camera_has_full_body_framing = "全身" in camera
     framing_has_full_body_framing = "全身" in framing and "构图" in framing
@@ -418,9 +399,8 @@ def _apply_mobile_framing(prompt_item, resolution, era="modern"):
     parts = _clean_mobile_prompt_parts(parts, item.get("shot_key") or "", era)
     parts["shot_key"] = str(item.get("shot_key") or "")
     parts["scale"] = str(item.get("scale") or "")
-    parts = _enforce_prompt_length(parts)
     item["dimension_parts"] = parts
-    prompt = _rebuild_prompt_text_from_parts(parts)
+    prompt = _rebuild_prompt_text_from_parts(parts, resolution.get("aspect"))
     item["compact_prompt"] = prompt
     item["positive_prompt"] = prompt
     return item
@@ -497,6 +477,5 @@ def _mobile_shot_config(value):
     if key not in MOBILE_SCOPE_PRESETS:
         raise ValueError(f"不支持的镜头：{text}")
     return MOBILE_SCOPE_PRESETS[key]
-
 
 

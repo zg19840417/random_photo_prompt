@@ -49,7 +49,7 @@ random_photo_prompt/
 ├── rpp_endpoints.py                    # HTTP 端点
 ├── prompt_engine.py                    # 提示词生成入口
 ├── prompt_data.py                      # 提示词池加载（JSON + 保底数据）
-├── prompt_postprocess.py               # 提示词清理、长度控制、冲突处理
+├── prompt_postprocess.py               # 提示词清理、视觉细节强化、冲突处理
 ├── prompt_resolution.py                # 分辨率推断和工作流尺寸 patch
 ├── negative_prompt_engine.py           # 负面提示词
 ├── video_prompt_engine.py              # 图生视频动作提示词
@@ -150,14 +150,14 @@ http://Mac局域网IP:8188/random_photo_prompt/mobile
 
 完整规则以 docs 为准：
 
-- `docs/PROMPT_GENERATION_RULES.md`：文生图提示词生成规则、六维度、镜头范围、尺度逻辑、长度限制。
+- `docs/PROMPT_GENERATION_RULES.md`：文生图提示词生成规则、六维度、镜头范围、尺度逻辑、冲突清理。
 - `docs/VIDEO_PROMPT_OPTION_GUIDE.md`：图生视频动作提示词格式。
 - `docs/REMOTE_MOBILE_ACCESS.md`：Mac 8188 手机入口、远端计算和本地资产回传说明。
 - `docs/AI_CONTEXT.md`：给 AI 协作者看的项目索引和当前上下文。
 
 核心约束摘要：
 
-- 最终正向提示词不再设置总长度上限，由各维度预算（`PART_LENGTH_BUDGETS`）控制单个维度不膨胀。
+- 项目默认规则的最终正向提示词不设总字数或分维度字数上限；去重与镜头范围清理不以字数为依据。
 - 提示词按镜头可见范围裁剪，不写画面中看不到的身体部位。
 - 一档服务时尚、多样性和艺术感。
 - 二档服务性感、诱惑和成人 glamour，但仍保留衣着维度。

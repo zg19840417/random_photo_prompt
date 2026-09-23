@@ -1,4 +1,7 @@
 import sys
+import ast
+import copy
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +17,37 @@ from video_resolution import image_to_video_resolution
 
 
 class VideoRuntimeLimitsTests(unittest.TestCase):
+    def test_selected_duration_reaches_template_frame_expression(self):
+        tree = ast.parse((PROJECT_ROOT / "rpp_workflow.py").read_text())
+        function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_patch_mobile_video_workflow")
+        namespace = {
+            "copy": copy, "Path": Path,
+            "ensure_model_cleanup": lambda workflow: [],
+            "image_to_video_resolution": lambda path: (640, 960),
+            "_node_title": lambda node: node.get("_meta", {}).get("title", "").lower(),
+            "_looks_negative_text": lambda node: False,
+            "MOBILE_VIDEO_OUTPUT_SUBFOLDER": "videos",
+        }
+        exec(compile(ast.Module(body=[function], type_ignores=[]), "rpp_workflow.py", "exec"), namespace)
+        template = json.loads((PROJECT_ROOT / "minimax_h3_workflow_api.json").read_text())
+        for mode in ("text", "image"):
+            for seconds in (4, 5, 10, 20):
+                with self.subTest(mode=mode, seconds=seconds):
+                    model = ("minimax_h3_fl2va_pruned_int8_convrot.safetensors" if seconds == 4
+                             else "h3ErosMax_beta5_fp8.safetensors")
+                    workflow, patched, params = namespace[function.name](
+                        template, {}, "source.png", "source.png", 1,
+                        seconds=seconds, positive_prompt="镜头前移", video_mode=mode, video_model=model,
+                    )
+                    self.assertEqual(workflow["163"]["inputs"]["model_name"], model)
+                    length_link = workflow["156"]["inputs"]["length"]
+                    expression = workflow[length_link[0]]["inputs"]
+                    duration_link = expression["values.a"]
+                    duration = workflow[duration_link[0]]["inputs"]["value"]
+                    self.assertEqual(duration, seconds)
+                    frames = eval(expression["expression"], {"__builtins__": {}, "max": max, "round": round}, {"a": duration})
+                    self.assertLess(abs(frames / 24 - seconds), 17 / 24)
+
     def test_four_second_default_is_allowed(self):
         self.assertEqual(normalize_video_seconds(4), 4)
         self.assertEqual(normalize_video_seconds(None), 4)

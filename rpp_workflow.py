@@ -1013,7 +1013,7 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
     return workflow, patched
 
 
-def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_image_path, seed, seconds=8, fps=24, output_prefix=None, positive_prompt=None, remote_source_url="", remote_video_upload_url="", video_mode="image"):
+def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_image_path, seed, seconds=8, fps=24, output_prefix=None, positive_prompt=None, remote_source_url="", remote_video_upload_url="", video_mode="image", video_model=""):
     workflow = copy.deepcopy(template)
     model_cleanup_nodes = ensure_model_cleanup(workflow)
     positive_prompt = positive_prompt or _prompt_text(prompt_item)
@@ -1063,6 +1063,8 @@ def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_
         if class_type == "ResolutionSelector":
             workflow.pop(str(node_id), None)
             continue
+        if class_type == "DiffusionModelLoaderKJ" and video_model:
+            inputs["model_name"] = video_model
         if class_type == "MiniMaxH3ImageToVideo":
             inputs["width"] = video_width
             inputs["height"] = video_height
@@ -1082,7 +1084,7 @@ def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_
             inputs["fps"] = fps
             patched["fps"] += 1
         if "value" in inputs and isinstance(inputs.get("value"), (int, float, str)):
-            if "秒" in title or "second" in title:
+            if any(marker in title for marker in ("秒", "second", "时长", "duration")):
                 inputs["value"] = seconds
                 patched["seconds"] += 1
             elif "帧" in title or "fps" in title or "frame" in title:

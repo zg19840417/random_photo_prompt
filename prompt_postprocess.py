@@ -10,11 +10,7 @@ from prompt_constants import (
     ANCIENT_OUTFIT_MARKERS,
     FEEDBACK_TAG_RULES,
     FORBIDDEN_BY_SHOT,
-    MAX_POSITIVE_PROMPT_LENGTH,
-    NSFW_PART_LENGTH_BUDGETS,
-    PART_LENGTH_BUDGETS,
     PROMPT_PART_ORDER,
-    TRIMMABLE_PARTS,
     VISIBLE_PROMPT_PARTS,
     WHITE_EDGE_REPLACEMENTS,
     QUALITY_BY_SCALE,
@@ -96,45 +92,9 @@ def _clauses(text: str) -> list[str]:
     return [part.strip("，。 \n\t") for part in str(text or "").replace("；", "，").split("，") if part.strip("，。 \n\t")]
 
 
-def _set_clauses(parts: dict[str, str], name: str, clauses: list[str]) -> None:
-    parts[name] = "，".join(clauses)
-
-
 def _parts_text(parts: dict[str, str]) -> str:
     ordered = [parts.get(name, "") for name in PROMPT_PART_ORDER if name in VISIBLE_PROMPT_PARTS]
     return "\n".join(ensure_sentence(part) for part in ordered if part)
-
-
-def _parts_length(parts: dict[str, str]) -> int:
-    return len(_parts_text({name: value for name, value in parts.items() if name in VISIBLE_PROMPT_PARTS}))
-
-
-def _trim_part_to(parts: dict[str, str], name: str, target_len: int) -> None:
-    clauses = _clauses(parts.get(name, ""))
-    # 保留最后2个分句（通常是表情/眼神/笑容等关键语义），从中间开始裁剪
-    # 先裁剪场景/手势细节类分句（优先级低）
-    low_priority_markers = ("脚下", "地面", "阴影", "反光", "光线", "背景", "材质", "纹理", "色块", "修容", "鼻梁", "下颌", "高光")
-    while len(clauses) > 2 and _parts_length(parts) > target_len:
-        # 从前往后找第一个低优先级分句裁剪
-        cut_idx = -1
-        for i, clause in enumerate(clauses[:-2]):  # 不动最后2个
-            if any(m in clause for m in low_priority_markers):
-                cut_idx = i
-                break
-        if cut_idx == -1:
-            cut_idx = 0  # 没有低优先级分句就裁剪第一个非保留分句
-        clauses.pop(cut_idx)
-        _set_clauses(parts, name, clauses)
-
-
-def enforce_part_budgets(parts: dict[str, str], budgets: dict[str, int] | None = None, scale: str = "") -> dict[str, str]:
-    """Length budgets disabled: return parts unchanged (no clause trimming)."""
-    return dict(parts)
-
-
-def enforce_prompt_length(parts: dict[str, str], max_length: int = MAX_POSITIVE_PROMPT_LENGTH, scale: str = "") -> dict[str, str]:
-    """Prompt length trimming disabled: return parts unchanged."""
-    return dict(parts)
 
 
 def _text_has_any(text: str, markers: tuple[str, ...]) -> bool:
@@ -2136,7 +2096,7 @@ def _normalize_bold_outfit_coverage(text: str, shot: str) -> str:
     color = color_match.group(1) if color_match else "珊瑚粉"
     accent = "黑色细颈链"
     upper_styles = (
-        f"{color}薄透网纱细带短上衣，极细肩带贴住肩头，领口只有窄蕾丝边，胸前薄料轻轻贴合，{accent}扣在颈部",
+        f"{color}细带网纱拼接短上衣，哑光缎面前片有纵向收省线，透明纱袖沿上臂垂落，窄蕾丝领缘压住肩带接缝，{accent}扣在颈部",
         f"{color}轻薄交叉吊带短上衣，双肩细带在胸前交叠，领口有小金属环，布面薄而贴身，{accent}扣在颈部",
         f"{color}挂脖薄纱胸衣短上衣，挂脖细带绕过颈侧，弧形杯线和透明网纱边清楚，领口有小金属扣",
         f"{color}短款蕾丝束身上衣，前片是轻薄蕾丝和细鱼骨压线，腰侧细带收紧，细锁骨链落在领口内侧",
@@ -2145,10 +2105,10 @@ def _normalize_bold_outfit_coverage(text: str, shot: str) -> str:
         f"{color}短款蕾丝胸衣上衣，深V领口压出利落线条，前襟小金属扣排列整齐，腰侧只有细窄收省线",
         f"{color}极细带薄纱裹胸短上衣，胸前轻薄横向褶皱贴合身体，下摆细窄，透明薄手套边缘贴近手腕",
         f"{color}蕾丝边吊带上衣，领口有细小花边，肩带带小调节扣，胸前布面是柔雾哑光质地",
-        f"{color}一字肩短上衣，横向领口贴住锁骨，袖口有轻微褶皱，细腰链从下摆边缘露出",
+        f"{color}一字肩短上衣，横向领口用窄缎边贴住锁骨，前片是细密的斜向收省，短袖口随肩头微微堆褶，缎面下摆停在上腰，细腰链从衣缘露出",
         f"{color}法式短款胸衣上衣，弧形杯线和竖向鱼骨压线清楚，细肩带带小金属扣，黑色细颈链贴在颈侧",
         f"{color}柔雾薄纱裹胸短上衣，前片交叠成斜向褶皱，下摆贴近上腰，细锁骨链落在领口中央",
-        f"{color}薄纱拼接短袖上衣，袖口是透亮网纱，胸前是哑光轻薄布料，领口有一圈细窄滚边",
+        f"{color}薄纱拼接短袖上衣，透亮网纱从肩头叠到袖口，哑光缎面前片在腰侧收出两道细省线，领口的窄滚边与袖缘呼应",
         f"{color}蕾丝胸衣短上衣，弧形杯线有细蕾丝滚边，前片竖向鱼骨压线收紧，细金属扣贴近胸前中心",
     )
     half_styles = (
@@ -2236,13 +2196,13 @@ def _normalize_normal_outfit_artistry(text: str, shot: str) -> str:
     color = color_match.group(1) if color_match else "雾蓝"
     accent = "小号金属耳环"
     upper_styles = (
-        f"{color}解构衬衫，斜向门襟穿过锁骨，袖口略宽，衣片边缘有细压线，{accent}贴近脸侧",
+        f"{color}解构衬衫，斜向门襟穿过锁骨后收进腰侧，前片上下错层，宽袖口露出内层折边，衣片边缘有细密压线，{accent}贴近脸侧",
         f"{color}丝质立领上衣，领口有细褶，肩线利落，布面有柔和垂坠光，珍珠耳钉点亮脸侧",
-        f"{color}短款针织开衫，细密罗纹贴合肩线，内搭白色方领背心，纽扣小而圆润",
-        f"{color}宽肩短外套，内搭白色圆领背心，金属纽扣沿前襟排列，肩部剪裁硬挺",
+        f"{color}短款针织开衫，细密罗纹沿肩线垂到袖口，敞开的一段门襟露出白色方领背心，上腰处的窄衣摆和圆纽扣层次分明",
+        f"{color}宽肩短外套，内搭白色圆领背心，外套敞开的前襟露出背心领缘，金属纽扣沿一侧衣襟排列，肩部挺括衣片在袖窿处折出清楚线条",
         f"{color}薄纱叠层上衣，白色背心打底，袖口有轻盈透明层次，叠层边缘微微飘开",
-        f"{color}褶皱抹胸外搭短西装，西装肩线硬挺，抹胸表面有横向压褶，金属耳骨夹贴近耳侧",
-        f"{color}飘带领雪纺衬衫，领口系成松散蝴蝶结，袖口有细窄束口，布料透出柔和层次",
+        f"{color}褶皱抹胸外搭短西装，西装敞开的翻领围住抹胸的横向压褶，肩线硬挺而袖身自然垂落，短西装的下摆停在上腰，金属耳骨夹贴近耳侧",
+        f"{color}飘带领雪纺衬衫，领口的长飘带系成松散蝴蝶结后垂到胸前，双层雪纺在前襟错开，窄袖口收住轻盈的袖身，扣眼与衣缘压线清楚",
         f"{color}廓形牛仔短外套，内搭白色背心，翻领有明线车缝，银色纽扣沿门襟排列",
         f"{color}不对称针织背心，一侧肩带更宽，衣摆斜切到腰侧，罗纹纹理清楚",
         f"{color}轻薄风衣式短上衣，翻领打开，腰侧有细带打结，袖口卷起露出内层浅色布边",
@@ -2295,9 +2255,9 @@ def _normalize_normal_outfit_artistry(text: str, shot: str) -> str:
             f"{color}宽肩短外套的肩线进入画面下缘，金属纽扣露出一枚，肩部剪裁硬挺",
             f"{color}薄纱叠层上衣的透明袖口靠近肩侧，白色背心打底，纱层边缘微微飘开",
             f"{color}褶皱短上衣外搭短西装的翻领进入画面下缘，横向压褶露出一小段",
-            f"{color}飘带领雪纺衬衫的蝴蝶结垂在颈侧下方，袖口细窄束口靠近肩线",
+            f"{color}飘带领雪纺衬衫，领口蝴蝶结垂在颈侧，雪纺领缘有细窄滚边，肩线压缝清楚",
             f"{color}廓形牛仔短外套的翻领进入画面下缘，明线车缝和银色纽扣清楚",
-            f"{color}不对称针织背心的一侧宽肩带贴住肩头，斜切领口露出细密罗纹",
+            f"{color}不对称针织背心，一侧宽肩带贴住肩头，斜切领口露出细密罗纹",
             f"{color}轻薄风衣式短上衣的翻领打开，领边压线和一枚扣子露在画面下缘",
             f"{color}短款飞行员夹克的尼龙立领进入画面下缘，弹力织边和金属拉链露出一小段",
             f"{color}拼色棒球领衬衫的撞色领口贴近颈侧，前襟暗扣露出两颗",
@@ -2495,7 +2455,15 @@ def clean_global_prompt_text(parts: dict[str, str], shot: str = "", scale: str =
             outfit = outfit.replace(marker, "裸足")
         cleaned["outfit"] = outfit
     cleaned["scene_light"] = _fix_scene_ground_anchor(cleaned.get("scene_light", ""))
+    if any(cue in str(cleaned["scene_light"]) for cue in ("冷蓝", "冷紫", "蓝灰")):
+        cleaned["quality"] = str(cleaned.get("quality") or "").replace("亮部暖金高光", "亮部保持自然肤色高光")
     scene_for_pose = str(cleaned.get("scene_light") or "")
+    if "栏杆" not in scene_for_pose:
+        pose = str(cleaned.get("pose_expression") or "")
+        pose = pose.replace("她倚着栏杆", "她侧身站立").replace("她倚栏杆", "她侧身站立")
+        pose = pose.replace("左手搭栏右手垂落", "左手拢住发尾，右手自然垂落")
+        pose = pose.replace("左手搭栏", "左手拢住发尾").replace("右手搭栏", "右手拢住发尾")
+        cleaned["pose_expression"] = pose
     if not any(marker in scene_for_pose for marker in ("吧台", "酒吧", "酒廊", "吧椅", "黄铜麦克风")):
         pose = str(cleaned.get("pose_expression") or "")
         pose = pose.replace("吧台高脚椅", "高凳")
@@ -2603,10 +2571,10 @@ def _clean_pose_family_conflicts(text: str) -> str:
     return "，".join(clauses)
 
 
-def _append_missing_clauses(text: str, clauses: tuple[str, ...], limit: int) -> str:
+def _append_missing_clauses(text: str, clauses: tuple[str, ...]) -> str:
     current = str(text or "").strip("，。 \n\t")
     for clause in clauses:
-        if clause and clause not in current and len(current) + len(clause) + 1 <= limit:
+        if clause and clause not in current:
             current = f"{current}，{clause}" if current else clause
     return current
 
@@ -2626,9 +2594,9 @@ def polish_photographic_naturalness(parts: dict[str, str], scale: str, shot: str
     if not _text_has_any(full_text, _PHOTOGRAPHIC_MARKERS):
         # 画质尾缀优先按镜头细分，缺省回退到按档
         quality_tail = _QUALITY_TAIL_BY_SHOT.get(shot) or _PHOTOGRAPHIC_BOOSTS_BY_SCALE.get(scale, ())
-        quality = _append_missing_clauses(quality, quality_tail, PART_LENGTH_BUDGETS["quality"])
+        quality = _append_missing_clauses(quality, quality_tail)
     elif "高光不过曝" not in full_text and scale in {"bold", "bold_no_outfit", "nsfw"}:
-        quality = _append_missing_clauses(quality, ("高光不过曝",), PART_LENGTH_BUDGETS["quality"])
+        quality = _append_missing_clauses(quality, ("高光不过曝",))
     # 收尾去重：质量行三层叠加时近义短语（颗粒/色块/高光）可能重复，统一各保留一句
     quality = _dedupe_quality_concepts(quality)
     polished["quality"] = quality
@@ -2637,7 +2605,7 @@ def polish_photographic_naturalness(parts: dict[str, str], scale: str, shot: str
         pose = str(polished.get("pose_expression") or "")
         if not _text_has_any(pose, _TENSION_MARKERS):
             boosts = _TENSION_BOOSTS_BY_SCALE_AND_SHOT.get((scale, shot), _TENSION_BOOSTS_BY_SCALE.get(scale, ()))
-            pose = _append_missing_clauses(pose, boosts, PART_LENGTH_BUDGETS["pose_expression"])
+            pose = _append_missing_clauses(pose, boosts)
         polished["pose_expression"] = pose
 
     return polished
@@ -2957,6 +2925,8 @@ def simplify_pose_language(parts: dict[str, str]) -> dict[str, str]:
     simplified = dict(parts)
     pose = str(simplified.get("pose_expression") or "")
     pose = _clean_pose_family_conflicts(pose)
+    # 无分隔的“一手…一手…”先区分左右手，避免后续统一替换成两只左手。
+    pose = re.sub(r"(一手[^，。]{1,20}?)一手", r"\1另一手", pose)
     for source, replacement in _POSE_LANGUAGE_REPLACEMENTS:
         pose = pose.replace(source, replacement)
     for source, replacement in _VAGUE_PROMPT_REPLACEMENTS:
@@ -3079,8 +3049,6 @@ def feedback_tags(parts: dict[str, str], scale: str, shot: str, aspect: str) -> 
         tags.append("landscape_vertical_pose_risk")
     if aspect == "portrait" and _text_has_any(text, ("横躺", "侧躺", "沿宽画幅")):
         tags.append("portrait_horizontal_pose_risk")
-    if len(text) > MAX_POSITIVE_PROMPT_LENGTH:
-        tags.append("over_length")
     return tags
 
 
@@ -3123,8 +3091,7 @@ def score_prompt_parts(parts: dict[str, str], scale: str, shot: str, aspect: str
         score += 10 if "full_body_foot_anchor" in tags else -18
     if "forced_perspective" in tags:
         score += 4
-    for bad_tag in ("red_lip_risk", "white_padding_risk", "avoid_flat_face", "landscape_vertical_pose_risk", "portrait_horizontal_pose_risk", "over_length"):
+    for bad_tag in ("red_lip_risk", "white_padding_risk", "avoid_flat_face", "landscape_vertical_pose_risk", "portrait_horizontal_pose_risk"):
         if bad_tag in tags:
             score -= 14
-    score -= max(0, len(text) - MAX_POSITIVE_PROMPT_LENGTH) // 8
     return score

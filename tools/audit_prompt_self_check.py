@@ -12,7 +12,7 @@
 保留 / 新增的可靠检查：
 - 真实拼接残片（重复主语「女孩她/女人她」、字段错位「肩线和肩线下方」等）。
 - 精确重复分句 / 重复内容。
-- 复用 v2 的文本级检查：非视觉叙述、独立脚主语、远镜头舌头、摄影真实感缺失、超长。
+- 复用 v2 的文本级检查：非视觉叙述、独立脚主语、远镜头舌头、摄影真实感缺失。
 - 档位 / 景别 / 时代 的结构性检查（无衣着档位出现上衣、头部镜头出现胸前、古代混现代衣）。
 
 `main()` 还会对每条生成结果跑 v2 的完整维度审计（audit_item），两路并发，任一
@@ -112,8 +112,6 @@ def audit_prompt(text: str, selections: dict[str, str] | None = None) -> list[st
         issues.append("远镜头出现舌头动作（看不清）")
     if not any(m in text for m in V2.QUALITY_REALISM):
         issues.append("缺少摄影真实感标记")
-    if len(text) > V2.MAX_POSITIVE_PROMPT_LENGTH:
-        issues.append(f"总字数超过 {V2.MAX_POSITIVE_PROMPT_LENGTH}")
 
     # 4) 档位 / 景别 / 时代 结构性检查
     if scale in {"bold_no_outfit", "nsfw"} and "上衣" in text:

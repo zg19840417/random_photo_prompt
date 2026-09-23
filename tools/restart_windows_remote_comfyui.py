@@ -127,7 +127,7 @@ Set-Location '$comfyDir'
 `$env:RPP_MAC_VIDEO_UPLOAD_URL = {ps_quote(video_upload_url)}
 `$env:RPP_MAC_SOURCE_IMAGE_URL = {ps_quote(source_image_url)}
 `$env:RPP_REMOTE_TRANSFER_TOKEN = {ps_quote(token)}
-`$p = Start-Process -FilePath '$venvPython' -ArgumentList @('-u', 'main.py', '--enable-manager', '--listen', '0.0.0.0', '--port', '$port') -WorkingDirectory '$comfyDir' -WindowStyle Hidden -RedirectStandardOutput '$stdoutLog' -RedirectStandardError '$stderrLog' -PassThru
+`$p = Start-Process -FilePath '$venvPython' -ArgumentList @('-u', 'main.py', '--enable-manager', '--listen', '0.0.0.0', '--port', '$port', '--fast-disk') -WorkingDirectory '$comfyDir' -WindowStyle Hidden -RedirectStandardOutput '$stdoutLog' -RedirectStandardError '$stderrLog' -PassThru
 Set-Content -Path '$pidFile' -Value `$p.Id -Encoding ASCII -NoNewline
 "@
 Set-Content -Path $hiddenStarter -Value $starter -Encoding UTF8 -NoNewline

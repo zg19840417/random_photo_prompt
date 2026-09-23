@@ -47,9 +47,7 @@ DIMENSION_LABELS = {
     "quality": "固定提示词",
 }
 
-# 总长度已不再设置上限（运行时 MAX_POSITIVE_PROMPT_LENGTH 为 99999 哨兵，单一来源
-# 在 prompt_constants），长度控制由各维度 PART_LENGTH_BUDGETS 在生成时完成；
-# 审计只保留长度统计（见 length_report），不再报告「总字数超上限」错误。
+# 字数仅用于审计分布统计，不作为生成或正确性约束。
 
 # ---------------------------------------------------------------------------
 # 检查用的语义标记（精简、刻意保守，宁可漏报也不制造误报）
@@ -263,8 +261,7 @@ def quality_findings(scale, shot, aspect, sample, parts, prompt) -> list[Finding
 
 
 def length_findings(scale, shot, aspect, sample, parts, prompt) -> list[Finding]:
-    # 总长度不再设置硬上限（MAX_POSITIVE_PROMPT_LENGTH 为 99999 哨兵），长度由
-    # 各维度预算在生成时控制；此处不再产生超长 error，长度分布仅作统计展示。
+    # 仅统计长度分布，不把字数当作错误。
     return []
 
 

@@ -20,6 +20,8 @@ When a long-term rule changes, update this index with a short pointer and update
 
 本机唯一编辑源是 `/Users/zouge/Project/1-myProject/random_photo_prompt/`。Mac ComfyUI 的 `custom_nodes/random_photo_prompt` 是指向该目录的软链接，不是独立运行副本；Windows `D:\ComfyUI\ComfyUI\custom_nodes\random_photo_prompt` 只是由同步脚本更新的部署副本。任何 AI 修改前必须以本机编辑源为准，不能把运行路径、镜像或远端部署目录当作源真相。手机入口是 Mac `8188`，`18199` 代理已废弃且禁止恢复。
 
+Mac `8188` 只做页面编排、提示词和工作流提交、远端结果回传及本地资产存储；图片和视频推理统一在 Windows 4090 执行，本机不承担生成计算。
+
 ## Current Goal
 
 The project should remain a lightweight prompt-generation node, not a standalone application.
@@ -54,15 +56,17 @@ Future prompt quality work should improve beauty, artistry, and erotic atmospher
 
 When these concepts are implemented, each generated image should prefer one clear visual intention instead of stacking many unrelated attractive details. The selected style should coordinate scene, lighting, pose, expression, accessories, material texture, and post-processing feel. Lighting should express fair clean skin through selective highlights and shadow falloff; pose should use one primary pose family, one hand action, one expression action, and one body-line goal; accessories and environment should serve one visual anchor rather than becoming clutter.
 
+The finalized scene/light text is authoritative for location, environment interactions, and modern photographic grading. Modern third-tier and bold full-body scene selection filters to private-feeling settings at the pool accessor. Makeup pool text no longer overrides the fixed blue contact lens with brown eye color. Normal-mode candidates whose pose claims a missing scene object reselect from compatible pool poses, with explicit foot contact for full-body replacements. Head-shot assembly removes duplicated crop labels from the scene and separates garment name from visible neckline. A legacy theme blueprint is applied only when its scene category agrees with that scene; scene-diversity counting does not use theme keywords or pose text. Environment interaction is optional and names only props explicitly shown in the chosen scene; the generic support-surface pose fallback was removed, and normal/bold portrait and landscape options now use concrete ground or already-visible objects instead of unspecified supports.
+
 The generator has an internal director table for prompt coordination. It defines style motif, visual focus, preferred scene packages, light/material/color cues, and composition intent. The director table is not a visible final dimension and must not append extra text to prompts. It should influence option selection before assembly, so camera, makeup, outfit, pose-expression, and scene-light choices feel like one coherent image rather than unrelated attractive fragments. Useful visual-focus targets include eyes/gaze, lips/jawline, neck/collarbone, complete chest, waist curve, hip/leg line, hands, feet/ground contact, mirror reflection, and wet hair/skin highlights. Useful desire-distance modes include close gaze pressure, mid-distance invitation, distant sculptural viewing, private glimpse, and active dominance. Useful color relationships include black/white/gray with cold fair skin, deep blue-black with silver highlights, ivory bedding with black hair and fair skin, deep wine or dark wood background with clean fair skin, wet gray street with skin highlights, forest green with porcelain skin, and blue-gray shoreline with black hair and pale skin. These concepts should coordinate generated options and audits, not lengthen final prompts.
 
 Automatic resolution should consider shot scope, pose/body-axis wording, and the internal director. Hard pose and body-axis rules have priority: lying, horizontal expansion, jumping-wide, standing, kneeling, or vertical posture markers should decide aspect first. When no strong pose marker is found, the director may choose a better default resolution family: minimal gallery and nightclub pressure lean portrait; private-room, wet-film, and wild-natural moods may lean landscape for half-body through full-body environmental compositions; mirror private space leans portrait to preserve vertical reflection. Desktop auto-resolution and mobile generation must use the same inference path.
 
 Future aesthetic upgrades must explicitly control repetition and prompt length. Director concepts should reduce repeated wording by coordinating choices before final assembly, not by appending more sentences. Prefer one selected visual focus, one style motif, one light-layering idea, one composition language, and one material/tactile contrast per prompt. Avoid repeating the same body parts, skin whiteness, cold beauty, gaze pressure, and glamour adjectives across multiple dimensions. If a concept is already strongly expressed in camera, pose, or scene-light text, other dimensions should support it with shorter wording rather than restating it. Prompt audits should track repeated phrases, repeated body-part emphasis, and median/fat-tail prompt length by scale and shot.
 
-Prompt pool compression should keep the six dimensions readable while preventing repeated concept stacking. Character identity preserves the user's source wording except for deleting out-of-frame clauses. Makeup should carry compact facial styling only and avoid restating full lip constraints more than once. Pose/expression should describe one pose family, one gaze/expression action, and one body-line action without re-listing every attractive body part already covered by camera or character text. Scene/light should state location, selective light path, skin brightness, and shadow layering in one compact sentence; avoid long repeated endings such as "整体保持..." when the scene already implies mood. Outfit options may mention coverage/accessories, but should not repeat camera crop labels unless needed to prevent scope drift.
+Prompt cleanup should keep the six dimensions readable by removing repeated concepts, not by meeting a word budget. Character identity preserves the user's source wording except for deleting out-of-frame clauses. Makeup should carry compact facial styling only and avoid restating full lip constraints more than once. Pose/expression should retain compatible body, hand, gaze, lip, and expression actions without re-listing body parts already covered by camera or character text. Scene/light should state location, selective light path, skin brightness, and shadow layering in one compact sentence; avoid long repeated endings such as "整体保持..." when the scene already implies mood. Outfit options may mention coverage/accessories, but should not repeat camera crop labels unless needed to prevent scope drift.
 
-Final positive prompts are no longer capped by a total character limit: MAX_POSITIVE_PROMPT_LENGTH is a 99999 sentinel, and length control is delegated to the per-dimension budgets (PART_LENGTH_BUDGETS) for both desktop node generation and mobile generation. If a dimension exceeds its budget, first remove format-like or redundant wording: fixed quality tail, repeated camera crop labels, repeated body-part lists, repeated skin-whiteness wording, repeated lip constraints, and repeated mood endings. Preserve the selected character identity source wording for visible attributes before trimming other dimensions. Runtime generation enforces the per-dimension budgets as the final guardrail; audits report per-dimension and total length statistics instead of treating length as a correctness error.
+The project-default prompt has no total or per-dimension character cap on desktop or mobile. Runtime preserves visible pose/expression, lighting, and outfit details; it still removes duplicates, contradictions, and content outside the camera scope. Audits may report lengths as statistics only, not as correctness errors. K2 SFW remains a separate independent rule.
 
 All scales should avoid large-area or deep facial flushing. Makeup, pose, and lighting may use only slight natural cheek warmth or faint rosiness so generated faces stay realistic and not over-red. Makeup should also avoid deep red, wine-red, dark berry, or heavy red lipstick. Smoky eye makeup is allowed only as a light or soft smoky effect, not as heavy black-gray smoke.
 
@@ -72,7 +76,7 @@ The fixed identity is a 22-year-old K-pop Korean female star with a strong matur
 
 Fixed identity wording must be treated as preserved source text. Camera-scope adaptation may only delete original clauses that are outside the current frame; it must not rewrite visible attributes into different wording or substitute new descriptions for attributes that should remain visible.
 
-Rule 1 character/body text must remain camera-scoped after all post-processing. Every final character description must preserve the fixed identity phrase `22岁瓷白冷白皮K-pop韩国美女` followed by `黑色渐变的手指甲又细又长`, regardless of whether hands are explicitly visible; neither phrase may be removed by camera-scope or length trimming. Do not reinsert other full-body details such as waist, hips, legs, feet, or toenails into head, upper-body, half-body, or large-half-body shots unless that body part is visible in the active camera scope.
+Rule 1 character/body text must remain camera-scoped after all post-processing. Every final character description must preserve the fixed identity phrase `22岁瓷白冷白皮K-pop韩国美女` followed by `黑色渐变的手指甲又细又长`, regardless of whether hands are explicitly visible; neither phrase may be removed by camera-scope cleanup. Do not reinsert other full-body details such as waist, hips, legs, feet, or toenails into head, upper-body, half-body, or large-half-body shots unless that body part is visible in the active camera scope.
 
 1. Camera.
 2. Character face and body identity.
@@ -159,7 +163,7 @@ Each generated prompt should prefer one clear visual focus and one visual path. 
 
 Prompt generation uses an internal intent pipeline before final six-line assembly. It first chooses a director, color palette, emotion intent, visual focus, and pose family, then uses those signals to bias camera, makeup, scene/light, outfit, and pose/expression selection. Emotion intent should make faces more active and motivated; visual focus should keep each prompt centered on one main path; pose-family weights should prevent full-body and large-half-body outputs from collapsing into mostly standing poses. These concepts are internal metadata only and must not appear as visible labels in the final prompt.
 
-After dimensions are selected, runtime applies a conflict-cleaning and scoring pass. It should remove or soften orientation conflicts such as landscape standing and portrait horizontal-lying conflicts, keep shot-scope boundaries, replace generic full-body ground-margin wording with concrete "脚下是..." ground anchors, replace canvas-padding wording with real scene-fill wording, suppress red-lip and side-padding risk wording, apply per-dimension length budgets, then score several candidates and output the highest-scoring prompt. Scoring should reward active smiles, vivid color, full-body foot/ground anchors, forced-perspective focus when appropriate, and staying within per-dimension length budgets; it should penalize flat-face wording, red-lip risk, side-padding risk, orientation conflicts, and dimensions that exceed their budgets.
+After dimensions are selected, runtime applies a conflict-cleaning and scoring pass. It should remove or soften orientation conflicts such as landscape standing and portrait horizontal-lying conflicts, keep shot-scope boundaries, replace generic full-body ground-margin wording with concrete "脚下是..." ground anchors, replace canvas-padding wording with real scene-fill wording, suppress red-lip and side-padding risk wording, preserve drawable details, then score several candidates and output the highest-scoring prompt. Scoring should reward active smiles, vivid color, full-body foot/ground anchors, forced-perspective focus when appropriate; it should penalize flat-face wording, red-lip risk, side-padding risk, orientation conflicts.
 
 Bold and NSFW pose-expression pools may use forced-perspective body-part focus when it fits the shot scope. This means near-large-far-small actions such as fingers close to lips, a hand reaching toward the lens, chest/shoulder moving toward the camera, a knee or leg entering the foreground, or a foot stretched close to the lens in full-body shots. The wording should make the perspective effect explicit with terms such as 近大远小, 强透视, 前景, 靠近镜头, or 视觉路径. Use this as an occasional artistic tool, not every prompt.
 
@@ -196,11 +200,12 @@ The mobile gallery has matching image, video, and favorite-image browsing behavi
 - `prompt_planner.py`
   - director, color-palette, filter-grade, emotion-intent, visual-focus, pose-family, and weighted option selection logic.
 - `prompt_postprocess.py`
-  - sentence cleanup, nail-color fill, visual finish enrichment, conflict cleanup, prompt length enforcement, feedback tags, and prompt scoring.
+  - Modern normal/bold outfit normalization currently reselects shot-specific garment templates; the selected JSON text primarily supplies color. Inspect the final `dimension_parts.outfit` rather than assuming the JSON prose survives. Bold/bold_no_outfit final pose also comes from shot-specific reference alternatives in `prompt_engine.py`.
+  - sentence cleanup, nail-color fill, visual finish enrichment, conflict cleanup, feedback tags, and prompt scoring.
 - `negative_prompt_engine.py`
   - dynamic negative prompt assembly from the JSON-maintained base negative prompt plus runtime rule terms.
 - `prompt_constants.py`
-  - prompt assembly constants, length budgets, shot aliases, scope blockers, feedback rules, and dynamic negative prompt rule tables.
+  - prompt assembly constants, shot aliases, scope blockers, feedback rules, and dynamic negative prompt rule tables.
 - `prompt_data.py`
   - `CAMERA_OPTIONS`
   - `camera_options_by_aspect`
@@ -289,6 +294,10 @@ Remote-sync-required changes include custom node Python files, prompt-generation
 Pure documentation changes do not require remote sync.
 
 ## Service Restart Decision Rule
+
+视频页可选择远端 MiniMax H3、h3ErosMax beta5 FP8 或 Dasiwa Hybrid V2 INT8，选择写入 `DiffusionModelLoaderKJ.model_name`；视频模型及专用编码器/VAE 位于 Windows `E:\ComfyUI_models`，图片模型位于 `F:\ComfyUI_models`，模型目录与提交约束见 `docs/REMOTE_MOBILE_ACCESS.md`。
+
+视频详情的循环播放按钮默认关闭，同一页面内保留选择，刷新后重置；具体行为见 `docs/REMOTE_MOBILE_ACCESS.md`。
 
 After every code or prompt-rule change, decide which running service actually serves the user's entry point. Do not automatically restart only the remote Windows ComfyUI.
 

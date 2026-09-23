@@ -45,6 +45,20 @@ def run(args, cwd=PROJECT):
     return subprocess.check_call(args, cwd=str(cwd))
 
 
+def require_idle_queues():
+    import json
+
+    for host in ("127.0.0.1", "192.168.123.111"):
+        with urllib.request.urlopen(f"http://{host}:8188/queue", timeout=5) as response:
+            queue = json.load(response)
+        if queue["queue_running"] or queue["queue_pending"]:
+            raise RuntimeError(f"{host}:8188 有运行或待执行任务，停止同步重启")
+    with urllib.request.urlopen("http://127.0.0.1:8188/random_photo_prompt/mobile/jobs", timeout=5) as response:
+        jobs = json.load(response)["jobs"]
+    if jobs:
+        raise RuntimeError("手机端仍有活动任务，停止同步重启")
+
+
 def verify_remote_object_info():
     url = "http://192.168.123.111:8188/object_info/RandomPhotoPrompt"
     with urllib.request.urlopen(url, timeout=20) as response:
@@ -53,6 +67,7 @@ def verify_remote_object_info():
 
 
 def main():
+    require_idle_queues()
     existing = [str(PROJECT / file) for file in FILES if (PROJECT / file).is_file()]
     if not existing:
         raise RuntimeError("no prompt runtime files found")
@@ -64,6 +79,7 @@ def main():
         remote_dir = f"{REMOTE_SSH}:D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/data/"
         run(["ssh", REMOTE_SSH, "powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force 'D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/data' | Out-Null"])
         run(["scp", str(path), remote_dir])
+    require_idle_queues()
     run(["python3", "tools/restart_windows_remote_comfyui.py"])
     verify_remote_object_info()
     return 0

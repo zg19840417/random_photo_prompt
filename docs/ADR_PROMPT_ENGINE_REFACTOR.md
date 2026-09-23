@@ -14,10 +14,10 @@ The JSON data model is the editable source of prompt option text. This refactor 
 
 Keep `prompt_engine.py` as the stable public orchestration API and split internal responsibilities:
 
-- `prompt_constants.py`: shared constants, aliases, budgets, feedback rules, and negative rule tables.
+- `prompt_constants.py`: shared constants, aliases, feedback rules, and negative rule tables.
 - `prompt_normalize.py`: scale, shot, aspect, and shot-label normalization.
 - `prompt_planner.py`: director/color/filter/emotion/focus/pose-family planning and weighted selection.
-- `prompt_postprocess.py`: cleanup, enrichment, conflict handling, length enforcement, feedback tags, and scoring.
+- `prompt_postprocess.py`: cleanup, enrichment, conflict handling, feedback tags, and scoring.
 - `negative_prompt_engine.py`: dynamic negative prompt construction.
 
 External callers should continue importing from `prompt_engine.py` unless they are explicitly editing one of these internal concerns.

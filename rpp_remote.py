@@ -199,6 +199,20 @@ def _template_krea2_models():
     return _sort_krea2_models(models)
 
 
+async def _available_mobile_video_models():
+    info, error = await _remote_json("GET", "/object_info/DiffusionModelLoaderKJ")
+    if error:
+        raise ValueError(error["error"])
+    values = info["DiffusionModelLoaderKJ"]["input"]["required"]["model_name"][0]
+    names = {
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "h3ErosMax_beta5_fp8.safetensors",
+        "DasiwaMinimaxH3_dasiwaHybridV2_int8.safetensors",
+    }
+    return sorted({value for value in values if Path(value.replace("\\", "/")).name in names},
+                  key=lambda value: ("minimax_h3" not in value.lower(), value))
+
+
 async def _available_mobile_zimage_models():
     if REMOTE_COMFYUI_URL:
         object_info, error = await _remote_json("GET", "/object_info/UNETLoader")
@@ -375,9 +389,11 @@ async def receive_remote_video(request):
             receipts = job.setdefault("received_videos", [])
             if not any(str(item.get("filename") or "") == filename for item in receipts if isinstance(item, dict)):
                 receipts.append(receipt)
-            prompt = str(job.get("prompt") or "")
+            prompt = str(job.get("generation_prompt") or "")
             if prompt:
                 MOBILE_VIDEO_PROMPT_BY_FILENAME[filename] = prompt
+                from rpp_mobile import _remember_mobile_prompt_file
+                _remember_mobile_prompt_file(filename, prompt, MOBILE_VIDEO_OUTPUT_SUBFOLDER, job.get("seed"))
             _save_mobile_session_jobs()
             break
         return web.json_response(receipt)

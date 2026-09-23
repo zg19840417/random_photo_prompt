@@ -1314,15 +1314,6 @@
                 </select>
               </label>
               <label>
-                <div class="label">档位</div>
-                <select id="videoScale">
-                  <option value="normal">一档</option>
-                  <option value="bold" selected>二档</option>
-                  <option value="bold_no_outfit">三档</option>
-                  <option value="nsfw">四档</option>
-                </select>
-              </label>
-              <label>
                 <div class="label">视频数</div>
                 <div class="count-stepper" role="group" aria-label="生成视频数">
                   <div id="videoCountValue" class="count-value">1</div>
@@ -1352,9 +1343,12 @@
               </label>
             </div>
             <label>
+              <div class="label">视频模型</div>
+              <select id="videoModel"><option value="">加载中</option></select>
+            </label>
+            <label>
               <div class="label">动作描述</div>
-              <textarea id="videoAction" placeholder="先选择图片，再点击下方按钮随机生成本次图生视频动作提示词。"></textarea>
-              <button id="pregenerateAction" class="recommend-action" type="button">生成提示词</button>
+              <textarea id="videoAction" placeholder="请输入视频动作描述。"></textarea>
             </label>
             <div id="videoSourceRow" class="source-row" hidden>
               <label>
@@ -1412,6 +1406,7 @@
     <div class="viewer-panel">
       <div class="viewer-actions">
         <span id="viewerResolution" class="viewer-resolution"></span>
+        <button id="viewerLoop" class="viewer-action" type="button" aria-pressed="false" hidden>循环播放：关</button>
         <button id="viewerQView" class="viewer-action" type="button" hidden>用 qView 打开</button>
         <button id="viewerFavorite" class="viewer-action" type="button">收藏</button>
         <button id="viewerCopyPrompt" class="viewer-action" type="button">复制提示词</button>
@@ -1438,6 +1433,10 @@
   <div id="sourceDialog" class="confirm-dialog source-dialog" aria-hidden="true">
     <div class="confirm-box" role="dialog" aria-modal="true">
       <p class="confirm-message">选择一张图片</p>
+      <div id="sourceTabs" class="gallery-media-tabs">
+        <button class="gallery-media-tab active" type="button" data-source-tab="default" aria-pressed="true">默认</button>
+        <button class="gallery-media-tab" type="button" data-source-tab="favorites" aria-pressed="false">收藏</button>
+      </div>
       <div id="sourceGrid" class="source-grid"></div>
       <div class="confirm-actions" style="margin-top: 12px;">
         <button id="sourceCancel" class="confirm-cancel" type="button">取消</button>
@@ -1494,7 +1493,7 @@
       customResolution: "",
       customPromptSource: "",
       sourceImage: null,
-      videoActionNonce: 0,
+      sourceTab: "default",
       viewerVideoPlayTimer: null,
       waterfallCols: 4,
       nextBatchId: 1,
@@ -1549,6 +1548,8 @@
     const viewerImage = document.querySelector("#viewerImage");
     const viewerIncomingImage = document.querySelector("#viewerIncomingImage");
     const viewerVideo = document.querySelector("#viewerVideo");
+    const videoModelSelect = document.querySelector("#videoModel");
+    const viewerLoop = document.querySelector("#viewerLoop");
     const viewerCount = document.querySelector("#viewerCount");
     const viewerResolution = document.querySelector("#viewerResolution");
     const viewerPrompt = document.querySelector("#viewerPrompt");
@@ -1569,7 +1570,6 @@
     const eraField = document.querySelector("#eraField");
     const shotField = document.querySelector("#shotField");
     const scaleSelect = document.querySelector("#scale");
-    const videoScaleSelect = document.querySelector("#videoScale");
     const videoInputModeSelect = document.querySelector("#videoInputMode");
     const eraSelect = document.querySelector("#era");
     const shotSelect = document.querySelector("#shot");
@@ -1606,7 +1606,6 @@
     const customPromptCopy = document.querySelector("#customPromptCopy");
     const customPromptOk = document.querySelector("#customPromptOk");
     const videoActionInput = document.querySelector("#videoAction");
-    const pregenerateAction = document.querySelector("#pregenerateAction");
     const sourcePicker = document.querySelector("#sourcePicker");
     const sourcePreview = document.querySelector("#sourcePreview");
     const sourcePickerText = document.querySelector("#sourcePickerText");
@@ -1616,6 +1615,7 @@
     const videoSourceRow = document.querySelector("#videoSourceRow");
     const sourceDialog = document.querySelector("#sourceDialog");
     const sourceGrid = document.querySelector("#sourceGrid");
+    const sourceTabs = document.querySelector("#sourceTabs");
     const sourceCancel = document.querySelector("#sourceCancel");
     const settingsKey = "randomPhotoPrompt.mobile.settings";
     const viewedImagesKey = "randomPhotoPrompt.mobile.viewedImages.v1";
@@ -1736,8 +1736,8 @@
           mode: state.mode,
           promptRule: promptRuleSelect.value,
           scale: scaleSelect.value,
-          videoScale: videoScaleSelect.value,
           videoInputMode: videoInputModeSelect.value,
+          videoModel: videoModelSelect.value,
           era: eraSelect.value,
           shot: shotSelect.value,
           workflow: workflowSelect.value,
@@ -1755,7 +1755,7 @@
           customResolution: state.customPromptSource === "manual" ? state.customResolution : "",
           customPromptSource: state.customPromptSource === "manual" ? "manual" : "",
           videoAction: videoActionInput.value,
-          sourceFilename: state.sourceImage?.filename || ""
+          sourceFilename: imageKey(state.sourceImage)
         }));
       } catch (error) {
         // Local storage may be unavailable in strict privacy modes.
@@ -1769,9 +1769,6 @@
         if (optionExists(promptRuleSelect, settings.promptRule)) setSelectValue(promptRuleSelect, settings.promptRule);
         if (optionExists(scaleSelect, settings.scale)) setSelectValue(scaleSelect, settings.scale);
         updatePromptRuleControls();
-        if (optionExists(videoScaleSelect, settings.videoScale || settings.scale)) {
-          setSelectValue(videoScaleSelect, settings.videoScale || settings.scale);
-        }
         if (optionExists(videoInputModeSelect, settings.videoInputMode)) setSelectValue(videoInputModeSelect, settings.videoInputMode);
         if (optionExists(eraSelect, settings.era)) setSelectValue(eraSelect, settings.era);
         const shotValue = normalizeStoredShot(settings.shot, settings.preset);
@@ -1786,6 +1783,7 @@
         if (settings.krea2Model) {
           krea2ModelSelect.dataset.pendingValue = settings.krea2Model;
         }
+        if (settings.videoModel) videoModelSelect.dataset.pendingValue = settings.videoModel;
         if (Array.isArray(settings.loras)) {
           pendingLoras = settings.loras.slice(0, 4);
         }
@@ -1945,8 +1943,8 @@
       const isImageToVideo = videoInputModeSelect.value === "image";
       videoSourceRow.hidden = !isImageToVideo;
       videoActionInput.placeholder = isImageToVideo
-        ? "先选择图片，再生成本次图生视频动作提示词。"
-        : "描述画面、镜头运动和声音，或点击下方按钮生成提示词。";
+        ? "请输入图片如何运动的视频提示词。"
+        : "请输入画面、镜头运动和声音的视频提示词。";
     }
 
     function setStatus(text, isError = false) {
@@ -2071,6 +2069,14 @@
         updateZitModelOptions(data.zit_models || []);
         updateZibModelOptions(data.zib_models || []);
         updateKrea2ModelOptions(data.krea2_models || []);
+        const videoModels = data.video_models || [];
+        const selectedVideoModel = videoModelSelect.dataset.pendingValue || videoModelSelect.value;
+        videoModelSelect.innerHTML = videoModels.length
+          ? videoModels.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")
+          : '<option value="">无可用视频模型</option>';
+        if (videoModels.includes(selectedVideoModel)) videoModelSelect.value = selectedVideoModel;
+        delete videoModelSelect.dataset.pendingValue;
+        renderCustomSelect(videoModelSelect);
         updateLoraOptions(data.loras || []);
         updateWorkflowModelVisibility();
         const ready = state.mode === "video" ? data.video_workflow?.template_ready : data.template_ready;
@@ -2476,7 +2482,7 @@
 
     function videoRecords() {
       const videos = state.sessionOnly ? state.galleryVideos.filter(isSessionMedia) : state.galleryVideos;
-      return videos.map(video => ({video, prompt: mediaPrompt(video)}));
+      return videos.map(video => ({video, prompt: String(video.video_prompt || "")}));
     }
 
     function sessionOutputPrefixes() {
@@ -2851,7 +2857,7 @@
         state.selectedFavorites = new Set([...state.selectedFavorites].filter(filename => state.favoriteImages.some(image => imageKey(image) === filename)));
         if (state.sourceImage?.filename) {
           const sourceKey = imageKey(state.sourceImage);
-          const fresh = state.galleryImages.find(image => imageKey(image) === sourceKey);
+          const fresh = [...state.galleryImages, ...state.favoriteImages].find(image => imageKey(image) === sourceKey);
           if (fresh) state.sourceImage = fresh;
         }
         updateSourcePicker();
@@ -2872,17 +2878,23 @@
 
     async function openSourceDialog() {
       await loadGallery();
-      if (!state.galleryImages.length) {
-        setStatus("瀑布流里还没有可选图片。", true);
-        return;
-      }
-      sourceGrid.innerHTML = state.galleryImages.map(image => `
+      renderSourceGrid();
+      sourceDialog.classList.add("open");
+      sourceDialog.setAttribute("aria-hidden", "false");
+    }
+
+    function renderSourceGrid() {
+      sourceTabs.querySelectorAll("[data-source-tab]").forEach(button => {
+        const active = button.dataset.sourceTab === state.sourceTab;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      const images = state.sourceTab === "favorites" ? state.favoriteImages : state.galleryImages;
+      sourceGrid.innerHTML = images.map(image => `
         <button class="source-choice" type="button" data-filename="${escapeHtml(imageKey(image))}" aria-label="选择图片">
           <img src="${image.url}" alt="">
         </button>
-      `).join("");
-      sourceDialog.classList.add("open");
-      sourceDialog.setAttribute("aria-hidden", "false");
+      `).join("") || `<div class="empty">${state.sourceTab === "favorites" ? "暂无收藏图片" : "暂无默认图片"}</div>`;
     }
 
     function closeSourceDialog() {
@@ -2932,6 +2944,7 @@
       const images = activeImageRecords();
       if (!images.length) return;
       state.viewerMediaType = "image";
+      viewerLoop.hidden = true;
       viewer.classList.remove("video-mode");
       viewerRotate.hidden = false;
       viewerCopyPrompt.hidden = false;
@@ -2964,6 +2977,7 @@
       const videos = videoRecords();
       if (!videos.length) return;
       state.viewerMediaType = "video";
+      viewerLoop.hidden = false;
       viewer.classList.add("video-mode");
       viewerRotate.hidden = true;
       viewerFavorite.hidden = false;
@@ -2990,11 +3004,11 @@
           viewerVideo.play().catch(() => {});
         }
       }, 1000);
-      viewerPrompt.textContent = record.prompt || mediaPrompt(record.video);
+      viewerPrompt.textContent = record.prompt ? `视频提示词：\n${record.prompt}` : "未记录视频提示词";
       viewerCount.textContent = `${state.viewerIndex + 1} / ${videos.length}`;
       updateViewerResolution(resolutionText(record.video));
       viewerDelete.dataset.filename = videoKey(record.video);
-      viewerCopyPrompt.dataset.prompt = record.prompt || mediaPrompt(record.video);
+      viewerCopyPrompt.dataset.prompt = record.prompt;
       updateViewerSeed("");
       state.viewerRotation = 0;
       resetViewerLayout();
@@ -3371,6 +3385,13 @@
       toggleCurrentFavorite();
     });
 
+    viewerLoop.addEventListener("click", () => {
+      viewerVideo.loop = !viewerVideo.loop;
+      viewerLoop.setAttribute("aria-pressed", String(viewerVideo.loop));
+      viewerLoop.classList.toggle("active", viewerVideo.loop);
+      viewerLoop.textContent = viewerVideo.loop ? "循环播放：开" : "循环播放：关";
+    });
+
     viewerQView.addEventListener("click", async () => {
       const record = state.viewerImageRecord;
       if (!record || !state.qviewAvailable) return;
@@ -3466,7 +3487,7 @@
       renderWaterfall();
     });
 
-    [promptRuleSelect, scaleSelect, videoScaleSelect, videoInputModeSelect, eraSelect, shotSelect, workflowSelect, zitModelSelect, zibModelSelect, krea2ModelSelect, videoFpsSelect, videoSecondsSelect, customPromptResolution].forEach(enhanceSelect);
+    [promptRuleSelect, scaleSelect, videoInputModeSelect, eraSelect, shotSelect, workflowSelect, zitModelSelect, zibModelSelect, krea2ModelSelect, videoFpsSelect, videoSecondsSelect, customPromptResolution].forEach(enhanceSelect);
     document.addEventListener("click", () => closeAllCustomSelects());
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") closeAllCustomSelects();
@@ -3479,7 +3500,8 @@
     modeTabs.forEach(tab => {
       tab.addEventListener("click", () => switchMode(tab.dataset.mode));
     });
-    [scaleSelect, videoScaleSelect, eraSelect, shotSelect].forEach(select => {
+    enhanceSelect(videoModelSelect);
+    [scaleSelect, eraSelect, shotSelect, videoModelSelect].forEach(select => {
       select.addEventListener("change", () => {
         renderCustomSelect(select);
         saveSettings();
@@ -3555,35 +3577,6 @@
       });
     });
     videoActionInput.addEventListener("input", saveSettings);
-    async function refreshVideoActionForSource() {
-      if (!state.sourceImage?.filename) {
-        setStatus("请先选择一张图片。", true);
-        return;
-      }
-      state.videoActionNonce += 1;
-      pregenerateAction.disabled = true;
-      try {
-        const data = await requestJson("/random_photo_prompt/mobile/video/action", {
-          method: "POST",
-          headers: {"Content-Type": "application/json"},
-          body: JSON.stringify({
-            source_filename: imageKey(state.sourceImage),
-            scale: videoScaleSelect.value,
-            seconds: videoSecondsSelect.value,
-            previous_action: videoActionInput.value,
-            nonce: `${state.videoActionNonce}-${Date.now()}-${Math.random()}`
-          })
-        });
-        videoActionInput.value = data.action || "";
-        saveSettings();
-        setStatus("");
-      } catch (error) {
-        setStatus(error.message, true);
-      } finally {
-        pregenerateAction.disabled = false;
-      }
-    }
-    pregenerateAction.addEventListener("click", refreshVideoActionForSource);
     sourcePicker.addEventListener("click", openSourceDialog);
     sourceUpload.addEventListener("click", () => {
       sourceUploadInput.click();
@@ -3607,11 +3600,9 @@
           height: data.height || 0,
           uploaded: true
         };
-        videoActionInput.value = "";
         updateSourcePicker();
         saveSettings();
         setStatus("");
-        refreshVideoActionForSource();
       } catch (error) {
         setStatus(error.message, true);
       } finally {
@@ -3621,28 +3612,32 @@
     sourceClear.addEventListener("click", () => {
       if (state.sourceImage?.filename) {
         state.sourceImage = null;
-        videoActionInput.value = "";
         updateSourcePicker();
         saveSettings();
         setStatus("");
       }
     });
     sourceCancel.addEventListener("click", closeSourceDialog);
+    sourceTabs.addEventListener("click", event => {
+      const button = event.target.closest("[data-source-tab]");
+      if (!button) return;
+      state.sourceTab = button.dataset.sourceTab;
+      renderSourceGrid();
+    });
     sourceDialog.addEventListener("click", event => {
       if (event.target === sourceDialog) closeSourceDialog();
     });
     sourceGrid.addEventListener("click", event => {
       const button = event.target.closest(".source-choice");
       if (!button) return;
-      const image = state.galleryImages.find(item => imageKey(item) === button.dataset.filename);
+      const images = state.sourceTab === "favorites" ? state.favoriteImages : state.galleryImages;
+      const image = images.find(item => imageKey(item) === button.dataset.filename);
       if (!image) return;
       state.sourceImage = image;
-      videoActionInput.value = "";
       updateSourcePicker();
       saveSettings();
       closeSourceDialog();
       setStatus("");
-      refreshVideoActionForSource();
     });
 
     let pinchStartDistance = 0;
@@ -4116,8 +4111,8 @@
       return isVideoMode
         ? {
             client_id: state.clientId,
-            scale: videoScaleSelect.value,
             video_mode: videoInputModeSelect.value,
+            video_model: videoModelSelect.value,
             source_filename: imageKey(state.sourceImage),
             action_text: videoActionInput.value.trim(),
             fps: videoFpsSelect.value,

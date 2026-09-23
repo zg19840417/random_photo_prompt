@@ -8,10 +8,9 @@ from pathlib import Path
 import folder_paths
 
 from k2_sfw_prompt_rule import RULE_KEY as K2_SFW_RULE_KEY
-from prompt_constants import MAX_POSITIVE_PROMPT_LENGTH  # 单一来源：总长度不再限制（99999 哨兵）
 from prompt_resolution import MOBILE_CUSTOM_RESOLUTION_PRESETS, MOBILE_STANDING_FULL_BODY_RESOLUTION
 
-__all__ = sorted(["ANCIENT_SHOE_REPLACEMENTS", "BLOCK_REMOTE_ASSET_SAVE", "CHARACTER_BY_SHOT", "FIXED_CHARACTER_IDENTITY", "FIXED_CHARACTER_ORIGINAL", "GENERATION_SUBMISSION_LOCK", "KREA2_MODEL_DIR", "KREA2_PORTRAIT_HORIZONTAL_MARKERS", "LORA_MODEL_EXTENSIONS", "MANUAL_PAGE_HTML", "MANUAL_PAGE_PATH", "MAX_POSITIVE_PROMPT_LENGTH", "MOBILE_DEFAULT_RESOLUTIONS", "MOBILE_DEFAULT_WORKFLOW_KEY", "MOBILE_DIRECTOR_RESOLUTION_RULES", "MOBILE_FAVORITE_BACKUP_DIR", "MOBILE_FAVORITE_METADATA_NAME", "MOBILE_FRAMING_COMPACT_REPLACEMENTS", "MOBILE_GALLERY_EXTENSIONS", "MOBILE_MAX_ACTIVE_JOBS", "MOBILE_MAX_LORAS", "MOBILE_OUTPUT_SUBFOLDER", "MOBILE_PAGE_HTML", "MOBILE_PAGE_PATH", "MOBILE_PREFERRED_KREA2_MODELS", "MOBILE_PREFERRED_ZIB_MODELS", "MOBILE_PREFERRED_ZIT_MODELS", "MOBILE_PROMPT_BY_FILENAME", "MOBILE_PROMPT_INDEX_NAME", "MOBILE_RESOLUTION_RULES", "MOBILE_RESULT_RECEIVE_GRACE_SECONDS", "MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID", "MOBILE_SCOPE_PRESETS", "MOBILE_SESSION_JOBS", "MOBILE_SESSION_JOBS_LOADED", "MOBILE_SESSION_JOBS_NAME", "MOBILE_VIDEO_DIMENSIONS_BY_FILENAME", "MOBILE_VIDEO_EXTENSIONS", "MOBILE_VIDEO_FAVORITE_BACKUP_DIR", "MOBILE_VIDEO_INPUT_SUBFOLDER", "MOBILE_VIDEO_OUTPUT_SUBFOLDER", "MOBILE_VIDEO_PROMPT_BY_FILENAME", "MOBILE_VIDEO_WORKFLOW_KEY", "MOBILE_WORKFLOWS", "MOBILE_WORKFLOW_PATH", "MOBILE_WORKFLOW_TEMPLATES", "MOBILE_WORKFLOW_TEMPLATE_ERRORS", "NODE_DIR", "PROMPT_DISPLAY_PART_ORDER", "PROMPT_LIMIT_PART_ORDER", "QVIEW_APP_PATH", "REMOTE_BLOCKED_ZIT_MODELS", "REMOTE_COMFYUI_URL", "REMOTE_DELETE_OUTPUT", "REMOTE_HISTORY_TIMEOUT", "REMOTE_LORA_DIR", "REMOTE_MAC_IMAGE_UPLOAD_URL", "REMOTE_MAC_SOURCE_IMAGE_URL", "REMOTE_MAC_VIDEO_UPLOAD_URL", "REMOTE_OUTPUT_DIR", "REMOTE_PROGRESS_BY_PROMPT_ID", "REMOTE_TRANSFER_ALLOWED_IP", "REMOTE_TRANSFER_TOKEN", "REMOTE_WEBSOCKET_OUTPUT", "REMOTE_WS_CLIENT_ID_BY_PROMPT_ID", "REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID", "REMOTE_WS_WATCHERS", "ZIB_BASE_CFG", "ZIB_BASE_STEPS", "ZIB_DISTILLED_CFG", "ZIB_DISTILLED_STEPS", "ZIMAGE_LORA_SUBDIR", "ZIT_MODEL_DIR", "ZIT_MODEL_EXTENSIONS", "ZIT_SINGLE_TEN_STEP_MODEL", "__all__"])
+__all__ = sorted(["ANCIENT_SHOE_REPLACEMENTS", "BLOCK_REMOTE_ASSET_SAVE", "CHARACTER_BY_SHOT", "FIXED_CHARACTER_IDENTITY", "FIXED_CHARACTER_ORIGINAL", "GENERATION_SUBMISSION_LOCK", "KREA2_MODEL_DIR", "KREA2_PORTRAIT_HORIZONTAL_MARKERS", "LORA_MODEL_EXTENSIONS", "MANUAL_PAGE_HTML", "MANUAL_PAGE_PATH", "MOBILE_DEFAULT_RESOLUTIONS", "MOBILE_DEFAULT_WORKFLOW_KEY", "MOBILE_DIRECTOR_RESOLUTION_RULES", "MOBILE_FAVORITE_BACKUP_DIR", "MOBILE_FAVORITE_METADATA_NAME", "MOBILE_FRAMING_COMPACT_REPLACEMENTS", "MOBILE_GALLERY_EXTENSIONS", "MOBILE_MAX_ACTIVE_JOBS", "MOBILE_MAX_LORAS", "MOBILE_OUTPUT_SUBFOLDER", "MOBILE_PAGE_HTML", "MOBILE_PAGE_PATH", "MOBILE_PREFERRED_KREA2_MODELS", "MOBILE_PREFERRED_ZIB_MODELS", "MOBILE_PREFERRED_ZIT_MODELS", "MOBILE_PROMPT_BY_FILENAME", "MOBILE_PROMPT_INDEX_NAME", "MOBILE_RESOLUTION_RULES", "MOBILE_RESULT_RECEIVE_GRACE_SECONDS", "MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID", "MOBILE_SCOPE_PRESETS", "MOBILE_SESSION_JOBS", "MOBILE_SESSION_JOBS_LOADED", "MOBILE_SESSION_JOBS_NAME", "MOBILE_VIDEO_DIMENSIONS_BY_FILENAME", "MOBILE_VIDEO_EXTENSIONS", "MOBILE_VIDEO_FAVORITE_BACKUP_DIR", "MOBILE_VIDEO_INPUT_SUBFOLDER", "MOBILE_VIDEO_OUTPUT_SUBFOLDER", "MOBILE_VIDEO_PROMPT_BY_FILENAME", "MOBILE_VIDEO_WORKFLOW_KEY", "MOBILE_WORKFLOWS", "MOBILE_WORKFLOW_PATH", "MOBILE_WORKFLOW_TEMPLATES", "MOBILE_WORKFLOW_TEMPLATE_ERRORS", "NODE_DIR", "PROMPT_DISPLAY_PART_ORDER", "QVIEW_APP_PATH", "REMOTE_BLOCKED_ZIT_MODELS", "REMOTE_COMFYUI_URL", "REMOTE_DELETE_OUTPUT", "REMOTE_HISTORY_TIMEOUT", "REMOTE_LORA_DIR", "REMOTE_MAC_IMAGE_UPLOAD_URL", "REMOTE_MAC_SOURCE_IMAGE_URL", "REMOTE_MAC_VIDEO_UPLOAD_URL", "REMOTE_OUTPUT_DIR", "REMOTE_PROGRESS_BY_PROMPT_ID", "REMOTE_TRANSFER_ALLOWED_IP", "REMOTE_TRANSFER_TOKEN", "REMOTE_WEBSOCKET_OUTPUT", "REMOTE_WS_CLIENT_ID_BY_PROMPT_ID", "REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID", "REMOTE_WS_WATCHERS", "ZIB_BASE_CFG", "ZIB_BASE_STEPS", "ZIB_DISTILLED_CFG", "ZIB_DISTILLED_STEPS", "ZIMAGE_LORA_SUBDIR", "ZIT_MODEL_DIR", "ZIT_MODEL_EXTENSIONS", "ZIT_SINGLE_TEN_STEP_MODEL", "__all__"])
 
 
 
@@ -150,8 +149,6 @@ MOBILE_PROMPT_INDEX_NAME = ".random_photo_prompt_mobile_prompts.json"
 MOBILE_SESSION_JOBS_NAME = ".random_photo_prompt_mobile_jobs.json"
 MOBILE_GALLERY_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 MOBILE_VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov", ".mkv"}
-# MAX_POSITIVE_PROMPT_LENGTH 单一来源见 prompt_constants（99999 哨兵，不再限制总长度，
-# 各维度由 PART_LENGTH_BUDGETS 控制不膨胀）。
 PROMPT_DISPLAY_PART_ORDER = (
     "director_plan",
     "camera",
@@ -161,7 +158,6 @@ PROMPT_DISPLAY_PART_ORDER = (
     "scene_light",
     "quality",
 )
-PROMPT_LIMIT_PART_ORDER = ("director_plan", "camera", "character", "outfit", "pose_expression", "scene_light", "quality")
 
 MOBILE_RESOLUTION_RULES = {
     "full_body": (
@@ -193,11 +189,11 @@ MOBILE_RESOLUTION_RULES = {
     "half_body": (
         (
             ("横躺", "侧躺", "仰躺", "平躺", "俯拍", "顶视角", "床", "横向", "横跨", "横向靠", "横向坐", "横向趴", "沿宽画幅", "斜向铺"),
-            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身镜头，大腿以上入镜"},
+            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身镜头，腰部及以上入镜"},
         ),
         (
             ("坐", "坐姿", "跪", "跪坐", "膝", "直立", "站", "站立", "竖向", "纵向"),
-            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身镜头，大腿以上入镜"},
+            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身镜头，腰部及以上入镜"},
         ),
     ),
     "head_shot": (
@@ -212,52 +208,52 @@ MOBILE_FRAMING_COMPACT_REPLACEMENTS = {
     "横向全身构图，身体沿宽画幅展开，从头到脚完整入镜": "横向宽构图，身体沿画幅展开",
     "竖向全身非站姿构图，头部、手臂、腿部、脚部和姿势外轮廓完整": "竖向全身非站姿构图",
     "窄长全身构图，从头顶到脚掌完整入镜，脚下留地面边距": "窄长全身构图，脚下留地面边距",
-    "横向半身镜头，大腿以上入镜": "横向半身构图，大腿以上入镜",
-    "竖向半身镜头，大腿以上入镜": "竖向半身构图，大腿以上入镜",
+    "横向半身镜头，腰部及以上入镜": "横向半身构图，腰部及以上入镜",
+    "竖向半身镜头，腰部及以上入镜": "竖向半身构图，腰部及以上入镜",
     "横向头部镜头，肩膀及以上入镜，头顶完整": "横向头部构图，头顶完整",
     "竖向全身构图，从头到脚完整入镜，姿势外轮廓完整": "竖向全身构图",
     "头部镜头，肩膀及以上入镜，头顶完整": "竖向头部构图，头顶完整",
 }
 MOBILE_DEFAULT_RESOLUTIONS = {
     "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身构图"},
-    "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身镜头，大腿以上入镜"},
+    "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身镜头，腰部及以上入镜"},
     "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部镜头，肩膀及以上入镜，头顶完整"},
 }
 MOBILE_DIRECTOR_RESOLUTION_RULES = {
     "sunny_multicolor_pool_glamour": {
         "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身阳光水光构图，从头到脚完整入镜，脚下留地面或池边边距"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身多色反光构图，大腿以上入镜"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身多色反光构图，腰部及以上入镜"},
     },
     "beach_vivid_glamour": {
         "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身海边构图，从头到脚完整入镜，脚下沙面边距清楚"},
-        "half_body": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身海边构图，大腿以上入镜，保留海风空间"},
+        "half_body": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身海边构图，腰部及以上入镜，保留海风空间"},
     },
     "garden_waterlight_seduction": {
         "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身花园构图，从头到脚完整入镜，脚下草地或地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身花园水光构图，大腿以上入镜"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身花园水光构图，腰部及以上入镜"},
     },
     "glass_balcony_colorlight": {
         "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身玻璃反射构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身玻璃彩光构图，大腿以上入镜"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身玻璃彩光构图，腰部及以上入镜"},
         "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部玻璃反光近景，肩膀及以上入镜，头顶完整"},
     },
     "bright_studio_color_fashion": {
         "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身彩色棚拍构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身彩色棚拍构图，大腿以上入镜"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身彩色棚拍构图，腰部及以上入镜"},
         "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部彩色棚拍近景，肩膀及以上入镜，头顶完整"},
     },
     "tropical_terrace_sensuality": {
         "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身热带露台构图，从头到脚完整入镜，脚下甲板或地面边距清楚"},
-        "half_body": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身热带露台构图，大腿以上入镜"},
+        "half_body": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身热带露台构图，腰部及以上入镜"},
     },
     "sweet_vivid_tease": {
         "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身甜艳构图，从头到脚完整入镜，脚下边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身甜艳构图，大腿以上入镜"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身甜艳构图，腰部及以上入镜"},
         "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部甜艳近景，肩膀及以上入镜，头顶完整"},
     },
     "forced_perspective_focus": {
         "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身低机位构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身强透视构图，大腿以上入镜，手部动作清楚"},
+        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身强透视构图，腰部及以上入镜，手部动作清楚"},
         "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部近景，肩膀及以上入镜，头顶完整"},
     },
 }

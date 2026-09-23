@@ -73,6 +73,7 @@ from rpp_workflow import (
 )
 from rpp_remote import (
     _available_mobile_loras,
+    _available_mobile_video_models,
     _available_mobile_zimage_models,
     _clear_remote_mobile_runtime_state,
     _lora_dir_display_path,
@@ -497,6 +498,7 @@ async def mobile_generation_status(request):
             "zib_models": zib_models,
             "krea2_models": krea2_models,
             "model_source": zimage_models["source"],
+            "video_models": await _available_mobile_video_models(),
             "zit_model_dir_ready": bool(zit_models) if REMOTE_COMFYUI_URL else ZIT_MODEL_DIR.exists(),
             "loras": loras,
             "lora_dir": _lora_dir_display_path(),
@@ -676,6 +678,10 @@ async def generate_mobile_video(request):
         workflow_key, workflow_config = _mobile_workflow_config(MOBILE_VIDEO_WORKFLOW_KEY)
         template = _load_mobile_workflow(workflow_key)
         scale = data.get("scale", "bold")
+        video_models = await _available_mobile_video_models()
+        video_model = str(data.get("video_model") or "")
+        if video_model not in video_models:
+            raise ValueError("请选择远端可用的视频模型。")
         client_id = str(data.get("client_id") or "").strip()
         shot_config = _mobile_shot_config(data.get("shot", "full_body"))
         batch_id = data.get("_batch_id")
@@ -730,6 +736,7 @@ async def generate_mobile_video(request):
                 remote_source_url,
                 remote_video_upload_url,
                 video_mode,
+                video_model=video_model,
             )
             queued, error = await _queue_mobile_workflow(workflow, client_id)
             if error:
@@ -741,6 +748,7 @@ async def generate_mobile_video(request):
                 "prompt": video_prompt,
                 "generation_prompt": video_prompt,
                 "motion_prompt": video_prompt,
+                "video_model": video_model,
                 "workflow": workflow_key,
                 "workflow_label": workflow_config["label"],
                 "scale": prompt_item.get("scale", scale),
