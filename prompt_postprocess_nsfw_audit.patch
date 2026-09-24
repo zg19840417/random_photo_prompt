@@ -18,3 +18,111 @@
 +            text = "，".join(parts)
      return text.strip("，。 \n\t")
  
+ 
+@@ -366,9 +368,9 @@
+     ("大笑", "微笑"),
+     ("咧嘴", "微笑"),
+     ("露齿", "闭唇"),
+-    ("轻蔑冷笑", "轻蔑又俏皮的笑弧"),
+-    ("危险冷笑", "轻蔑又挑逗的笑弧"),
+-    ("冷淡讥笑", "俏皮嘲弄的笑弧"),
++    ("轻蔑冷笑", "嘴角一侧上扬的高冷坏笑"),
++    ("危险冷笑", "嘴角一侧上扬、眼尾微挑的坏笑"),
++    ("冷淡讥笑", "单侧嘴角上扬的嘲弄坏笑"),
+     ("怪罪式笑意", "浅淡笑意"),
+     ("挑衅笑", "单侧嘴角上提的挑衅笑"),
+     ("挑衅微笑", "单侧嘴角上提的挑衅笑"),
+@@ -2387,10 +2389,13 @@
+ 
+ 
+ def _remove_distant_tongue_expression(parts: dict[str, str], shot: str) -> dict[str, str]:
+-    if shot not in {"half_body", "full_body"}:
++    if shot not in {"half_body", "full_body", "large_half_body", "upper_body"}:
+         return parts
+     cleaned = dict(parts)
+     pose = str(cleaned.get("pose_expression") or "")
++    # NSFW 口交依赖舌/唇接触阴茎，禁止当「远距离吐舌」清掉
++    if any(marker in pose for marker in ("阴茎", "龟头", "柱身", "冠状沟", "马眼")):
++        return cleaned
+     if not any(marker in pose for marker in _DISTANT_TONGUE_MARKERS):
+         return cleaned
+     clauses = _clauses(pose)
+@@ -2557,12 +2562,16 @@
+     clauses = _clauses(pose)
+     if not clauses:
+         return pose
++    # NSFW 双人：男人站立 + 女孩跪姿是合法组合，不能按「跪=删站」一刀切
++    if any(marker in pose for marker in ("阴茎", "龟头", "柱身", "冠状沟")):
++        return "，".join(clauses)
+     is_seated_or_kneeling = any(marker in pose for marker in _SEATED_OR_KNEELING_MARKERS)
+     if is_seated_or_kneeling:
+         clauses = [
+             clause
+             for clause in clauses
+             if not any(marker in clause for marker in _STANDING_LEG_CONFLICT_MARKERS)
++            or any(keep in clause for keep in ("男人", "男方", "他的"))
+         ]
+         clauses = [
+             clause.replace("脚部落点完整可见", "腿部姿态清楚")
+@@ -2883,6 +2892,12 @@
+         pose = pose.replace(source, replacement)
+ 
+     full_text = "，".join(str(strengthened.get(name, "")) for name in ("makeup", "pose_expression"))
++    # NSFW 已有眼神/嘴角或口交动作时不再追加表情，避免「直视镜头」堆叠
++    if str(scale or "") == "nsfw" and _text_has_any(
++        pose, ("眼神", "直视", "抬眸", "斜视", "嘴角", "冷笑", "坏笑", "含住", "舔", "套弄", "撸动")
++    ):
++        strengthened["pose_expression"] = pose
++        return strengthened
+     if not _text_has_any(full_text, _STRONG_EXPRESSION_MARKERS):
+         boosts = _EXPRESSION_BOOST_BY_SCALE.get(scale, _EXPRESSION_BOOST_BY_SCALE.get("bold", ()))
+         if boosts:
+@@ -2899,7 +2914,8 @@
+ def order_pose_before_expression(parts: dict[str, str]) -> dict[str, str]:
+     ordered = dict(parts)
+     pose = str(ordered.get("pose_expression") or "")
+-    if _text_has_any(pose, ("双女", "两名女性", "接吻")):
++    # NSFW 口交/打飞机句子是完整因果链，按 body/face 重排会拆散归属与动作
++    if _text_has_any(pose, ("双女", "两名女性", "接吻", "阴茎", "龟头", "柱身", "冠状沟")):
+         return ordered
+     clauses = _clauses(pose.replace("；", "，"))
+     if len(clauses) < 3:
+@@ -2925,8 +2941,9 @@
+     simplified = dict(parts)
+     pose = str(simplified.get("pose_expression") or "")
+     pose = _clean_pose_family_conflicts(pose)
+-    # 无分隔的“一手…一手…”先区分左右手，避免后续统一替换成两只左手。
+-    pose = re.sub(r"(一手[^，。]{1,20}?)一手", r"\1另一手", pose)
++    # “一手…一手…”先区分左右手，避免后续统一替换成两只左手。
++    pose = re.sub(r"(一手[^，。]{1,30}?)一手", r"\1另一手", pose)
++    pose = re.sub(r"(一手[^，。]{1,40}?)，一手", r"\1，另一手", pose)
+     for source, replacement in _POSE_LANGUAGE_REPLACEMENTS:
+         pose = pose.replace(source, replacement)
+     for source, replacement in _VAGUE_PROMPT_REPLACEMENTS:
+@@ -2961,16 +2978,16 @@
+     if shot in {"head_shot", "half_body"}:
+         for name in ("camera", "pose_expression", "outfit", "scene_light"):
+             cleaned[name] = clean_sentence(cleaned.get(name, ""), shot, scale)
+-        # 去除pose中与camera重复的镜头约束分句（入镜/入画/清楚/完整等）
+-        camera_text = str(cleaned.get("camera") or "")
+-        pose_text = str(cleaned.get("pose_expression") or "")
+-        if camera_text and pose_text:
+-            constraint_markers = ("入镜", "入画", "入图", "清楚", "完整身形", "占据主体", "边距")
+-            for marker in constraint_markers:
+-                # 如果camera含此标记而pose也含，移除pose中的该分句
+-                if marker in camera_text and marker in pose_text:
+-                    pose_text = _remove_clauses_with_markers(pose_text, (marker,))
+-            cleaned["pose_expression"] = pose_text
++        # NSFW 归属句常含「清楚/入镜」，禁止当镜头约束重复项删掉
++        if str(scale or "").lower() != "nsfw":
++            camera_text = str(cleaned.get("camera") or "")
++            pose_text = str(cleaned.get("pose_expression") or "")
++            if camera_text and pose_text:
++                constraint_markers = ("入镜", "入画", "入图", "清楚", "完整身形", "占据主体", "边距")
++                for marker in constraint_markers:
++                    if marker in camera_text and marker in pose_text:
++                        pose_text = _remove_clauses_with_markers(pose_text, (marker,))
++                cleaned["pose_expression"] = pose_text
+ 
+     if scale == "bold" and cleaned.get("outfit"):
+         cleaned["outfit"] = _fix_outfit_aesthetic_conflicts(
