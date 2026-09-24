@@ -1,0 +1,20 @@
+--- prompt_postprocess.py
++++ prompt_postprocess.py
+@@ -75,11 +75,13 @@
+     text = "，".join(part.strip() for part in str(text).replace("；", "，").split("，") if part.strip())
+     for source, replacement in WHITE_EDGE_REPLACEMENTS:
+         text = text.replace(source, replacement)
+-    blockers = FORBIDDEN_BY_SHOT.get(shot, ())
+-    if blockers:
+-        parts = [part.strip() for part in text.split("，") if part.strip()]
+-        parts = [part for part in parts if not any(marker in part for marker in blockers)]
+-        text = "，".join(parts)
++    # NSFW 姿势依赖“下腹/胯/根部相连”等归属词，禁止按景别裁掉这些分句
++    if str(scale or "").lower() != "nsfw":
++        blockers = FORBIDDEN_BY_SHOT.get(shot, ())
++        if blockers:
++            parts = [part.strip() for part in text.split("，") if part.strip()]
++            parts = [part for part in parts if not any(marker in part for marker in blockers)]
++            text = "，".join(parts)
+     return text.strip("，。 \n\t")
+ 
