@@ -1,0 +1,4309 @@
+{
+  "ART_DIRECTIONS": [
+    {
+      "name": "golden_hour_backlight",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "dusk",
+      "places": [
+        "beach",
+        "flower_field",
+        "sunflower_field",
+        "meadow",
+        "rooftop",
+        "reeds",
+        "pier",
+        "lakeside",
+        "garden_courtyard",
+        "villa_balcony",
+        "private_pool"
+      ],
+      "near_light": "傍晚的金色逆光从脑后照来，发丝边缘透出一圈暖光，脸部被柔和的天光轻轻托亮",
+      "light": "傍晚低角度的金色阳光从她身后照来，头发和身体轮廓镶着一圈暖金色的光边，脸部由天空的柔光托亮",
+      "atmosphere": [
+        "空气里浮着被阳光照亮的细小光尘",
+        "镜头迎着光留下一道柔和的光晕",
+        "远处景物融进暖金色的薄雾里"
+      ],
+      "foreground": [
+        "前景掠过一片虚化的暖色光斑"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "蜂蜜金",
+            "奶油白",
+            "珊瑚橙"
+          ],
+          [
+            "暖杏色",
+            "雾粉",
+            "天空蓝"
+          ]
+        ],
+        "bold": [
+          [
+            "香槟金",
+            "象牙白",
+            "珊瑚红"
+          ],
+          [
+            "玫瑰金",
+            "奶油白",
+            "宝石蓝"
+          ]
+        ]
+      },
+      "grade": "暖金色胶片调色，高光柔和泛光",
+      "camera": [
+        "机位略低",
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "backlight"
+    },
+    {
+      "name": "window_afternoon",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "apartment_window",
+        "cafe",
+        "bookstore",
+        "gallery",
+        "hotel_suite",
+        "old_house",
+        "velvet_lounge"
+      ],
+      "near_light": "午后的阳光从一侧窗户斜照在脸上，亮部和暗部之间是柔和的过渡，另一侧脸颊自然落进阴影",
+      "light": "午后的阳光从一侧窗户斜射进来，在她脸上和身上留下柔和的明暗过渡，另一侧自然落入安静的阴影",
+      "atmosphere": [
+        "窗格的影子斜斜地落在身后的墙面上",
+        "光束里能看见缓缓漂浮的细尘",
+        "室内暗部保留着温润的暖灰色"
+      ],
+      "foreground": [
+        "前景有一只虚化的玻璃杯边缘",
+        "前景是一角虚化的窗帘"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "奶油白",
+            "燕麦色",
+            "雾蓝"
+          ],
+          [
+            "象牙白",
+            "浅灰绿",
+            "焦糖色"
+          ]
+        ],
+        "bold": [
+          [
+            "酒红",
+            "象牙白",
+            "金色"
+          ],
+          [
+            "墨绿",
+            "香槟色",
+            "珍珠白"
+          ]
+        ]
+      },
+      "grade": "柔和的油画感调色，暗部温润，明暗过渡细腻",
+      "camera": [
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "side_window"
+    },
+    {
+      "name": "morning_mist",
+      "scales": [
+        "normal"
+      ],
+      "time": "day",
+      "places": [
+        "lakeside",
+        "forest_path",
+        "reeds",
+        "meadow"
+      ],
+      "near_light": "清晨透过薄雾的柔光均匀地落在脸上，发丝边缘有一点淡淡的亮",
+      "light": "清晨的柔光透过薄雾洒下来，整个人被均匀通透的光包住，身体轮廓泛着淡淡的亮边",
+      "atmosphere": [
+        "远处的景物在晨雾里一层层变淡",
+        "空气湿润清透，远景只剩柔和的灰蓝轮廓"
+      ],
+      "foreground": [
+        "前景有几片带露水的叶子虚化成亮点"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "雾白",
+            "灰蓝",
+            "鼠尾草绿"
+          ],
+          [
+            "珍珠白",
+            "淡紫灰",
+            "浅樱粉"
+          ]
+        ]
+      },
+      "grade": "清冷通透的低饱和调色，高光干净柔和",
+      "camera": [
+        "平视机位",
+        "机位略高"
+      ],
+      "eras": [
+        "modern"
+      ]
+    },
+    {
+      "name": "dappled_leaves",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "forest_path",
+        "blossom_tree",
+        "old_street",
+        "balcony",
+        "garden_courtyard"
+      ],
+      "near_light": "穿过树叶的阳光在她脸上投下斑驳光点，一小块亮光正好落在眼睛附近",
+      "light": "阳光穿过头顶的树叶，在她身上和身后的地面洒下斑驳的光斑",
+      "atmosphere": [
+        "树荫下的暗部带着一层清凉的绿色反光",
+        "光斑随着树叶轻轻晃动，明暗错落"
+      ],
+      "foreground": [
+        "前景有一枝虚化的绿叶",
+        "前景有几片虚化的花瓣"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "嫩绿",
+            "奶白",
+            "柠檬黄"
+          ],
+          [
+            "樱花粉",
+            "叶绿",
+            "米白"
+          ]
+        ],
+        "bold": [
+          [
+            "翡翠绿",
+            "象牙白",
+            "金色"
+          ],
+          [
+            "珊瑚粉",
+            "叶绿",
+            "珍珠白"
+          ]
+        ]
+      },
+      "grade": "清新的日系胶片调色，绿色通透，肤色明亮",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "dappled"
+    },
+    {
+      "name": "summer_noon_color",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "color_alley",
+        "poolside",
+        "beach",
+        "rooftop",
+        "street_corner",
+        "museum_stairs",
+        "sunflower_field",
+        "private_pool",
+        "villa_balcony"
+      ],
+      "near_light": "正午的明亮阳光打在脸上，眼睛下方和下颌留下干净利落的阴影，眼睛里映着天空的蓝",
+      "light": "正午的强烈阳光从高处直射下来，在地面投下清晰利落的短影子，色彩饱满明快",
+      "atmosphere": [
+        "地面和身后景物的颜色在阳光下饱和而鲜亮",
+        "天空是万里无云的浓郁蓝色"
+      ],
+      "foreground": [
+        "前景有一片虚化的彩色遮阳伞边缘",
+        "前景有一簇虚化的三角梅"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "钴蓝",
+            "纯白",
+            "柠檬黄"
+          ],
+          [
+            "番茄红",
+            "天空蓝",
+            "奶白"
+          ],
+          [
+            "薄荷绿",
+            "珊瑚粉",
+            "白色"
+          ]
+        ],
+        "bold": [
+          [
+            "宝石蓝",
+            "纯白",
+            "金色"
+          ],
+          [
+            "樱桃红",
+            "湖蓝",
+            "白色"
+          ],
+          [
+            "柠檬黄",
+            "珊瑚粉",
+            "银色"
+          ]
+        ]
+      },
+      "grade": "高饱和的彩色胶片调色，对比明快，阴影干净",
+      "camera": [
+        "机位略低",
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "hard_top"
+    },
+    {
+      "name": "sheer_curtain_glow",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "apartment_window",
+        "dance_studio",
+        "hotel_suite",
+        "boudoir_vanity"
+      ],
+      "near_light": "透过纱帘的柔光均匀地落在脸上，五官的明暗过渡非常柔和，眼睛里有一块干净的窗光",
+      "light": "阳光透过白色纱帘变得柔和而均匀，像一盏巨大的柔光灯包住她，暗部轻盈通透",
+      "atmosphere": [
+        "纱帘被微风轻轻鼓起，边缘透着光",
+        "整个空间是明亮安静的高调色彩"
+      ],
+      "foreground": [
+        "前景是一层虚化的白纱"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "纯白",
+            "浅粉",
+            "淡金"
+          ],
+          [
+            "奶油黄",
+            "雾白",
+            "浅蓝"
+          ]
+        ],
+        "bold": [
+          [
+            "裸粉",
+            "珍珠白",
+            "金色"
+          ],
+          [
+            "淡紫",
+            "象牙白",
+            "银色"
+          ]
+        ]
+      },
+      "grade": "高调柔和的奶油调色，亮部通透",
+      "camera": [
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "soft_diffuse"
+    },
+    {
+      "name": "retro_film_warm",
+      "scales": [
+        "normal"
+      ],
+      "time": "day",
+      "places": [
+        "cafe",
+        "old_street",
+        "bookstore",
+        "street_corner",
+        "flower_market",
+        "museum_stairs"
+      ],
+      "near_light": "温暖的斜射阳光落在脸侧，暗部带着一点复古的暖棕色",
+      "light": "温暖的斜射阳光落在她身上，亮部微微发黄，暗部带着一点复古的暖棕色",
+      "atmosphere": [
+        "画面带着老照片般的细腻颗粒和微微褪色的色彩",
+        "街边的招牌和橱窗在身后虚化成暖色块"
+      ],
+      "foreground": [
+        "前景有一角虚化的橱窗玻璃反光"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "焦糖棕",
+            "奶油黄",
+            "复古红"
+          ],
+          [
+            "芥末黄",
+            "墨绿",
+            "米白"
+          ]
+        ]
+      },
+      "grade": "七十年代复古胶片调色，暖黄偏色，颗粒细腻",
+      "camera": [
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ]
+    },
+    {
+      "name": "high_key_studio",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "studio"
+      ],
+      "near_light": "大面积柔光从正前方偏上打来，脸部干净明亮，下颌下方只留一道很浅的阴影",
+      "light": "大面积柔光从正前方偏上打来，身体干净明亮，背景纸从中心向边缘有一点自然的明暗渐变",
+      "atmosphere": [
+        "整个画面简洁干净，只有人物和一种主色的背景",
+        "地面上有一道柔和的投影"
+      ],
+      "foreground": [],
+      "palettes": {
+        "normal": [
+          [
+            "柠檬黄",
+            "纯白",
+            "黑色"
+          ],
+          [
+            "天空蓝",
+            "奶白",
+            "番茄红"
+          ],
+          [
+            "薰衣草紫",
+            "白色",
+            "银色"
+          ]
+        ],
+        "bold": [
+          [
+            "樱桃红",
+            "黑色",
+            "金色"
+          ],
+          [
+            "宝石蓝",
+            "银色",
+            "珍珠白"
+          ],
+          [
+            "玫瑰粉",
+            "黑色",
+            "银色"
+          ]
+        ]
+      },
+      "grade": "干净的时装杂志调色，色彩纯净，肤色明亮",
+      "camera": [
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "soft_diffuse"
+    },
+    {
+      "name": "prism_glass",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "greenhouse",
+        "gallery",
+        "apartment_window",
+        "hotel_suite"
+      ],
+      "near_light": "窗边挂着的彩色玻璃挂饰把阳光折成几块透明的彩色光斑，落在她的脸颊和发丝上",
+      "light": "窗边挂着的彩色玻璃挂饰把阳光折成几块透明的彩色光斑，落在她身上和墙面上，颜色像被水洗过一样清透",
+      "atmosphere": [
+        "墙面上散落着蓝、粉、黄的小块折射光",
+        "玻璃反光在画面边缘形成柔和的光晕"
+      ],
+      "foreground": [
+        "前景有一块虚化的玻璃反光"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "雾蓝",
+            "粉紫",
+            "琥珀黄"
+          ],
+          [
+            "薄荷绿",
+            "浅粉",
+            "柠檬黄"
+          ]
+        ],
+        "bold": [
+          [
+            "紫罗兰",
+            "珍珠白",
+            "琥珀色"
+          ],
+          [
+            "湖蓝",
+            "玫瑰粉",
+            "银色"
+          ]
+        ]
+      },
+      "grade": "梦幻清透的调色，彩色光斑饱和，肤色干净",
+      "camera": [
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "prism"
+    },
+    {
+      "name": "seaside_breeze",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "beach",
+        "pier",
+        "rocks"
+      ],
+      "near_light": "薄云遮住太阳，海边的天光柔和均匀地落在脸上，阴影轻而淡",
+      "light": "薄云遮住太阳，海边的天光柔和而均匀，影子轻而淡",
+      "atmosphere": [
+        "海风把头发吹向一侧",
+        "远处海平线和天空融成一片浅灰蓝"
+      ],
+      "foreground": [
+        "前景有一丛随风倒伏的海草虚化"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "海盐白",
+            "雾蓝",
+            "橘红"
+          ],
+          [
+            "灰蓝",
+            "沙色",
+            "珊瑚粉"
+          ]
+        ],
+        "bold": [
+          [
+            "海军蓝",
+            "纯白",
+            "珊瑚红"
+          ],
+          [
+            "雾蓝",
+            "沙色",
+            "金色"
+          ]
+        ]
+      },
+      "grade": "低饱和的海边胶片调色，冷暖平衡，颗粒细腻",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "soft_diffuse"
+    },
+    {
+      "name": "blue_hour",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "dusk",
+      "places": [
+        "rooftop",
+        "street_corner",
+        "balcony",
+        "pier",
+        "lakeside",
+        "villa_balcony"
+      ],
+      "near_light": "天空的冷蓝色光落在脸的一侧，另一侧被暖黄的灯光轻轻照亮",
+      "light": "太阳刚落下，天空是深浅过渡的蓝色，街灯和窗户亮起暖黄灯光，冷暖两种光同时落在她身上",
+      "atmosphere": [
+        "远处的城市灯光在身后化成圆形的暖色光斑",
+        "天空从深蓝渐变到地平线附近的一点粉紫"
+      ],
+      "foreground": [
+        "前景有一串虚化的暖色小灯"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "午夜蓝",
+            "暖黄",
+            "玫瑰粉"
+          ],
+          [
+            "雾蓝",
+            "奶油白",
+            "琥珀色"
+          ]
+        ],
+        "bold": [
+          [
+            "午夜蓝",
+            "香槟金",
+            "玫瑰粉"
+          ],
+          [
+            "深紫",
+            "银色",
+            "暖黄"
+          ]
+        ]
+      },
+      "grade": "电影感的蓝调时刻调色，冷暖对比柔和",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "moon_rim"
+    },
+    {
+      "name": "spring_bloom",
+      "scales": [
+        "normal"
+      ],
+      "time": "day",
+      "places": [
+        "flower_field",
+        "blossom_tree",
+        "flower_market",
+        "greenhouse",
+        "sunflower_field"
+      ],
+      "near_light": "春日柔和的斜阳从侧后方照来，发丝和脸颊边缘被照得透亮",
+      "light": "春日柔和的斜阳从侧后方照来，花瓣边缘和她的身体轮廓都被照得透亮",
+      "atmosphere": [
+        "几片花瓣在空气中缓缓飘落",
+        "身后的花海虚化成大片柔和的彩色色块"
+      ],
+      "foreground": [
+        "前景有几朵虚化的花",
+        "前景有一枝虚化的花枝斜斜伸进画面"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "樱花粉",
+            "嫩黄",
+            "浅绿"
+          ],
+          [
+            "薰衣草紫",
+            "奶白",
+            "嫩绿"
+          ]
+        ]
+      },
+      "grade": "柔美的春日胶片调色，粉彩通透",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "eras": [
+        "modern"
+      ]
+    },
+    {
+      "name": "rainy_window_soft",
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "cafe",
+        "apartment_window",
+        "bookstore",
+        "hotel_suite",
+        "old_house"
+      ],
+      "near_light": "雨天柔和的漫射光从窗外照进来，窗玻璃上的雨痕在她脸上投下细碎的水纹光影",
+      "light": "雨天柔和的漫射光从窗外照进来，窗玻璃上的雨痕在她身上投下细碎的水纹光影",
+      "atmosphere": [
+        "窗玻璃上挂满细密的雨珠",
+        "窗外的街景被雨水晕成模糊的色块"
+      ],
+      "foreground": [
+        "前景是一片挂着雨珠的虚化窗玻璃"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "雾灰",
+            "燕麦色",
+            "暖橙"
+          ],
+          [
+            "灰蓝",
+            "奶白",
+            "番茄红"
+          ]
+        ],
+        "bold": [
+          [
+            "烟灰紫",
+            "象牙白",
+            "酒红"
+          ],
+          [
+            "墨蓝",
+            "珍珠白",
+            "琥珀色"
+          ]
+        ]
+      },
+      "grade": "安静的雨天胶片调色，低对比，暗部带一点冷灰",
+      "camera": [
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "side_window"
+    },
+    {
+      "name": "hotel_night_lamp",
+      "scales": [
+        "bold"
+      ],
+      "time": "night",
+      "places": [
+        "hotel_suite",
+        "velvet_lounge",
+        "old_house",
+        "boudoir_vanity"
+      ],
+      "near_light": "夜里，几盏暖黄台灯低低地亮着，暖光从侧面落在脸上，另一侧脸颊沉进柔和的暗影",
+      "light": "夜里，几盏暖黄台灯低低地亮着，暖光从侧面落在她身上，房间其余部分沉进柔和的暗影",
+      "atmosphere": [
+        "窗外城市的灯火虚化成细小的光点",
+        "暖光在墙面上晕开一圈柔和的光斑"
+      ],
+      "foreground": [
+        "前景是一角虚化的纱帘",
+        "前景有一盏虚化的台灯光晕"
+      ],
+      "palettes": {
+        "bold": [
+          [
+            "酒红",
+            "香槟金",
+            "黑色"
+          ],
+          [
+            "宝石蓝",
+            "金色",
+            "象牙白"
+          ],
+          [
+            "墨绿",
+            "玫瑰金",
+            "黑色"
+          ]
+        ]
+      },
+      "grade": "暖调夜景胶片调色，暗部干净细腻",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "low_lamp"
+    },
+    {
+      "name": "vanity_mirror_glow",
+      "scales": [
+        "bold"
+      ],
+      "time": "night",
+      "places": [
+        "boudoir_vanity"
+      ],
+      "near_light": "夜里，化妆镜四周的一圈灯泡把柔和明亮的光打在脸上，眼睛里映出一排小小的灯点",
+      "light": "夜里，化妆镜四周的一圈灯泡把柔和明亮的光打在她身上，镜面映出她的侧影",
+      "atmosphere": [
+        "镜子里的灯泡连成一串温暖的光点",
+        "梳妆台上的香水瓶和首饰闪着细小的亮光"
+      ],
+      "foreground": [
+        "前景有一只虚化的香水瓶"
+      ],
+      "palettes": {
+        "bold": [
+          [
+            "裸粉",
+            "金色",
+            "黑色"
+          ],
+          [
+            "樱桃红",
+            "珍珠白",
+            "金色"
+          ]
+        ]
+      },
+      "grade": "复古好莱坞化妆间调色，暖白亮部，暗部柔和",
+      "camera": [
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "mirror_bulbs"
+    },
+    {
+      "name": "moonlit_balcony",
+      "scales": [
+        "bold"
+      ],
+      "time": "night",
+      "places": [
+        "villa_balcony",
+        "hotel_suite",
+        "private_pool"
+      ],
+      "near_light": "月光从一侧洒下冷白的轮廓光，屋内透出的暖光照亮脸的另一侧",
+      "light": "月光从一侧洒下冷白的轮廓光，屋内透出的暖光照亮她的另一侧，冷暖两色在身上交汇",
+      "atmosphere": [
+        "夜空是深邃的蓝黑色，远处有零星灯火",
+        "水面或玻璃上映着一道细长的月光"
+      ],
+      "foreground": [
+        "前景有一枝虚化的夜色绿植"
+      ],
+      "palettes": {
+        "bold": [
+          [
+            "银白",
+            "午夜蓝",
+            "香槟金"
+          ],
+          [
+            "珍珠白",
+            "深紫",
+            "银色"
+          ]
+        ]
+      },
+      "grade": "冷暖对比的月夜电影调色，暗部通透不发闷",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "moon_rim"
+    },
+    {
+      "name": "steam_bath_morning",
+      "scales": [
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "bathroom"
+      ],
+      "near_light": "晨光透过磨砂玻璃窗照进来，薄薄的水汽让落在脸上的光变得柔和",
+      "light": "晨光透过磨砂玻璃窗照进浴室，空气里薄薄的水汽让光线变得柔和朦胧",
+      "atmosphere": [
+        "镜面上蒙着一层细密的雾气",
+        "瓷砖上挂着细小的水珠反光"
+      ],
+      "foreground": [
+        "前景是一片挂着水汽的虚化玻璃"
+      ],
+      "palettes": {
+        "bold": [
+          [
+            "珍珠白",
+            "雾蓝",
+            "金色"
+          ],
+          [
+            "裸粉",
+            "象牙白",
+            "银色"
+          ]
+        ]
+      },
+      "grade": "清透柔雾的晨光调色，高光湿润细腻",
+      "camera": [
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "soft_diffuse"
+    },
+    {
+      "name": "villa_pool_dusk",
+      "scales": [
+        "bold"
+      ],
+      "time": "dusk",
+      "places": [
+        "private_pool"
+      ],
+      "near_light": "黄昏的暖橙色阳光斜斜地照来，池水把粼粼光纹映在她的脸上",
+      "light": "黄昏的暖橙色阳光斜斜地掠过池面，水波把粼粼光纹投在她身上",
+      "atmosphere": [
+        "池水从湖蓝渐变成暖橙色的倒影",
+        "远处的棕榈树剪影映在天边"
+      ],
+      "foreground": [
+        "前景有一片虚化的池水反光"
+      ],
+      "palettes": {
+        "bold": [
+          [
+            "珊瑚橙",
+            "湖蓝",
+            "金色"
+          ],
+          [
+            "玫瑰粉",
+            "宝石蓝",
+            "白色"
+          ]
+        ]
+      },
+      "grade": "暖橙度假电影调色，水光通透，肤色干净",
+      "camera": [
+        "机位略低",
+        "平视机位"
+      ],
+      "eras": [
+        "modern"
+      ],
+      "light_type": "water_ripple"
+    },
+    {
+      "name": "lantern_rain_corridor",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "night",
+      "places": [
+        "rain_corridor",
+        "garden_pavilion",
+        "old_study"
+      ],
+      "near_light": "夜里，纸灯笼的暖光从侧上方落在脸上，雨夜的冷色天光勾出另一侧脸颊",
+      "light": "夜里，檐下纸灯笼的暖光从侧上方落在她身上，雨夜的冷色天光勾出另一侧的身体轮廓",
+      "atmosphere": [
+        "檐角的雨线在灯光里连成细密的银丝",
+        "湿润的石阶映着灯笼的暖色倒影"
+      ],
+      "foreground": [
+        "前景有一串虚化的雨珠从檐下垂落"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "月白",
+            "青灰",
+            "朱红"
+          ],
+          [
+            "藕粉",
+            "黛青",
+            "暖金"
+          ]
+        ],
+        "bold": [
+          [
+            "胭脂红",
+            "墨黑",
+            "金色"
+          ],
+          [
+            "月白",
+            "朱红",
+            "银色"
+          ]
+        ]
+      },
+      "grade": "雨夜古风电影调色，灯笼暖光与冷雨分层",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "light_type": "low_lamp"
+    },
+    {
+      "name": "palace_lamp_banquet",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "night",
+      "places": [
+        "palace_hall",
+        "theater_backstage"
+      ],
+      "near_light": "夜里，宫灯的暖金色光从正前方偏上落在脸上，珠翠边缘闪着细小的高光",
+      "light": "夜里，一排宫灯的暖金色光铺满殿内，光从正前方偏上落在她身上，暗处的帷幕沉进温润的红色阴影",
+      "atmosphere": [
+        "帷幕和屏风上的金线在灯下泛着细光",
+        "香炉升起的细烟在灯光里慢慢散开"
+      ],
+      "foreground": [
+        "前景有一盏虚化的宫灯光晕"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "朱红",
+            "金色",
+            "象牙白"
+          ],
+          [
+            "石青",
+            "金色",
+            "藕粉"
+          ]
+        ],
+        "bold": [
+          [
+            "正红",
+            "金色",
+            "黑色"
+          ],
+          [
+            "绛紫",
+            "金色",
+            "月白"
+          ]
+        ]
+      },
+      "grade": "浓郁的宫廷暖金调色，红金分明，暗部温润",
+      "camera": [
+        "平视机位"
+      ],
+      "light_type": "low_lamp"
+    },
+    {
+      "name": "candle_study_night",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "night",
+      "places": [
+        "old_study",
+        "boat_cabin"
+      ],
+      "near_light": "夜里，案头烛火的暖光从一侧照亮脸颊，另一侧脸沉进柔和的暗影",
+      "light": "夜里，桌上的烛火从一侧照亮她，暖光在木纹上晕开，房间其余部分沉进安静的暗影",
+      "atmosphere": [
+        "烛火的光晕在墙上轻轻摇曳",
+        "窗纸外透进一点冷蓝的夜色"
+      ],
+      "foreground": [
+        "前景有一支虚化的烛火"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "月白",
+            "琥珀色",
+            "黛青"
+          ],
+          [
+            "象牙白",
+            "赭石",
+            "松绿"
+          ]
+        ],
+        "bold": [
+          [
+            "绛红",
+            "琥珀色",
+            "黑色"
+          ],
+          [
+            "月白",
+            "朱红",
+            "金色"
+          ]
+        ]
+      },
+      "grade": "烛光古风调色，暖琥珀高光，暗部细腻",
+      "camera": [
+        "平视机位"
+      ],
+      "light_type": "low_lamp"
+    },
+    {
+      "name": "bamboo_moonlight",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "night",
+      "places": [
+        "bamboo_grove",
+        "garden_pavilion"
+      ],
+      "near_light": "月光从竹叶间漏下，在脸上投下细碎的冷白光斑",
+      "light": "月光从竹叶间漏下，在她身上和石径上投下细碎的冷白光斑，远处竹影层层变淡",
+      "atmosphere": [
+        "竹林深处浮着一层薄雾",
+        "竹叶的影子在地面上轻轻摇动"
+      ],
+      "foreground": [
+        "前景有几片虚化的竹叶"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "月白",
+            "竹青",
+            "银灰"
+          ],
+          [
+            "雾蓝",
+            "象牙白",
+            "青绿"
+          ]
+        ],
+        "bold": [
+          [
+            "墨绿",
+            "月白",
+            "银色"
+          ],
+          [
+            "黛蓝",
+            "珍珠白",
+            "朱红"
+          ]
+        ]
+      },
+      "grade": "银蓝月色古风调色，冷色通透，暗部有层次",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "light_type": "moon_rim"
+    },
+    {
+      "name": "painted_boat_dusk",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "dusk",
+      "places": [
+        "boat_cabin",
+        "lotus_pond"
+      ],
+      "near_light": "黄昏的暖光从水面反射上来，在脸颊和下颌留下晃动的水光",
+      "light": "黄昏的暖光从湖面反射上来，粼粼水光在她身上轻轻晃动，远处的天色从橙红过渡到淡紫",
+      "atmosphere": [
+        "湖面上漂着几盏刚点亮的河灯",
+        "远山在暮色里只剩淡淡的轮廓"
+      ],
+      "foreground": [
+        "前景有一片虚化的湖面波光"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "藕粉",
+            "湖蓝",
+            "暖金"
+          ],
+          [
+            "月白",
+            "橘红",
+            "黛青"
+          ]
+        ],
+        "bold": [
+          [
+            "胭脂红",
+            "湖蓝",
+            "金色"
+          ],
+          [
+            "杏色",
+            "黛紫",
+            "金色"
+          ]
+        ]
+      },
+      "grade": "暮色湖光古风调色，暖橙与淡紫过渡柔和",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "light_type": "water_ripple"
+    },
+    {
+      "name": "hot_spring_mist",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "hot_spring"
+      ],
+      "near_light": "晨光穿过温泉升起的水汽，柔和地落在脸上，发丝边缘带着湿润的亮光",
+      "light": "晨光穿过温泉升起的水汽，变得柔和朦胧，均匀地包住她，身体轮廓泛着湿润的亮边",
+      "atmosphere": [
+        "水汽在竹帘和石壁之间缓缓升腾",
+        "石壁上挂着细小的水珠反光"
+      ],
+      "foreground": [
+        "前景是一层虚化的水汽"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "月白",
+            "青灰",
+            "藕粉"
+          ]
+        ],
+        "bold": [
+          [
+            "珍珠白",
+            "藕粉",
+            "金色"
+          ],
+          [
+            "月白",
+            "黛青",
+            "朱红"
+          ]
+        ]
+      },
+      "grade": "清透柔雾的古风晨光调色，高光湿润细腻",
+      "camera": [
+        "平视机位"
+      ],
+      "light_type": "soft_diffuse"
+    },
+    {
+      "name": "peach_blossom_spring",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "peach_garden",
+        "garden_pavilion",
+        "lotus_pond"
+      ],
+      "near_light": "春日柔和的斜阳从侧后方照来，发丝和脸颊边缘被照得透亮",
+      "light": "春日柔和的斜阳从侧后方照来，桃花花瓣边缘和她的身体轮廓都被照得透亮",
+      "atmosphere": [
+        "几片桃花瓣在空气中缓缓飘落",
+        "身后的桃林虚化成大片粉白色块"
+      ],
+      "foreground": [
+        "前景有一枝虚化的桃花斜斜伸进画面"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "桃粉",
+            "月白",
+            "嫩绿"
+          ],
+          [
+            "藕粉",
+            "松绿",
+            "鹅黄"
+          ]
+        ],
+        "bold": [
+          [
+            "桃红",
+            "月白",
+            "金色"
+          ],
+          [
+            "胭脂粉",
+            "黛青",
+            "珍珠白"
+          ]
+        ]
+      },
+      "grade": "柔美的春日古风调色，粉彩通透",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "light_type": "backlight"
+    },
+    {
+      "name": "snow_plum",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "snow_courtyard"
+      ],
+      "near_light": "雪地反射的天光柔和地照亮脸庞，几点雪花落在发间",
+      "light": "雪地反射的天光柔和明亮，均匀地照亮她，红梅在白雪里格外鲜艳",
+      "atmosphere": [
+        "细雪在空气中缓缓飘落",
+        "枝头的红梅压着一层薄雪"
+      ],
+      "foreground": [
+        "前景有一枝虚化的红梅"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "朱红",
+            "月白",
+            "墨黑"
+          ],
+          [
+            "绛红",
+            "雪白",
+            "松绿"
+          ]
+        ],
+        "bold": [
+          [
+            "正红",
+            "雪白",
+            "金色"
+          ],
+          [
+            "胭脂红",
+            "月白",
+            "银色"
+          ]
+        ]
+      },
+      "grade": "清冷雪景古风调色，红白对比鲜明，高光干净",
+      "camera": [
+        "平视机位"
+      ],
+      "light_type": "soft_diffuse"
+    },
+    {
+      "name": "republic_window_afternoon",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "republic_house"
+      ],
+      "near_light": "午后的阳光透过百叶木窗，在脸上投下几道柔和的条纹光",
+      "light": "午后的阳光透过百叶木窗斜照进来，在她身上和地板上投下一道道柔和的条纹光",
+      "atmosphere": [
+        "旧墙纸和留声机在暖光里泛着复古的色泽",
+        "光束里浮着缓缓漂浮的细尘"
+      ],
+      "foreground": [
+        "前景有一只虚化的白瓷茶杯"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "象牙白",
+            "墨绿",
+            "暖金"
+          ],
+          [
+            "浅杏色",
+            "黛蓝",
+            "珍珠白"
+          ]
+        ],
+        "bold": [
+          [
+            "酒红",
+            "象牙白",
+            "金色"
+          ],
+          [
+            "墨黑",
+            "珍珠白",
+            "玫瑰金"
+          ]
+        ]
+      },
+      "grade": "民国老照片调色，暖黄偏色，颗粒细腻",
+      "camera": [
+        "平视机位"
+      ],
+      "light_type": "side_window"
+    },
+    {
+      "name": "dunhuang_warm_gold",
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "time": "day",
+      "places": [
+        "dunhuang_cave"
+      ],
+      "near_light": "暖金色的侧光照在脸上，身后的壁画在暗处泛着赭石与石青的光泽",
+      "light": "暖金色的侧光从一侧照来，勾出她的身体轮廓，身后的壁画在光影里泛着赭石与石青的色泽",
+      "atmosphere": [
+        "壁画上的飞天纹样在暗处若隐若现",
+        "空气里浮着被光照亮的细小尘埃"
+      ],
+      "foreground": [
+        "前景有一段虚化的飘带光影"
+      ],
+      "palettes": {
+        "normal": [
+          [
+            "赭石",
+            "石青",
+            "金色"
+          ],
+          [
+            "朱砂",
+            "石绿",
+            "象牙白"
+          ]
+        ],
+        "bold": [
+          [
+            "赭红",
+            "石青",
+            "金色"
+          ],
+          [
+            "朱砂",
+            "黑色",
+            "金色"
+          ]
+        ]
+      },
+      "grade": "敦煌壁画暖金调色，矿物色饱和，暗部温润",
+      "camera": [
+        "平视机位",
+        "机位略低"
+      ],
+      "light_type": "side_window"
+    }
+  ],
+  "PLACES": {
+    "apartment_window": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "窗框",
+        "窗台",
+        "纱帘",
+        "墙"
+      ],
+      "near": "身后是柔焦的白色纱帘和浅色窗框",
+      "half": "她在公寓的大窗边，身后是挂着白纱帘的窗户和浅色墙面",
+      "full": "她在洒满阳光的公寓窗边，身后是挂着白纱帘的落地窗，脚下是浅色木地板",
+      "eras": [
+        "modern"
+      ]
+    },
+    "cafe": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": true,
+      "props": [
+        "桌",
+        "窗框"
+      ],
+      "near": "身后是虚化的木质吧台和暖色吊灯",
+      "half": "她在一家老式咖啡馆里，身后是木质吧台、几盏暖色吊灯和贴着手写菜单的墙",
+      "full": "她在一家老式咖啡馆里，身后是木质吧台和靠窗的小圆桌，脚下是拼花瓷砖地面",
+      "eras": [
+        "modern"
+      ]
+    },
+    "bookstore": {
+      "scales": [
+        "normal"
+      ],
+      "private": false,
+      "indoor": true,
+      "props": [
+        "书架"
+      ],
+      "near": "身后是虚化成暖色竖条的书脊",
+      "half": "她在一间安静的书店里，身后是一整面塞满书的木质书架",
+      "full": "她在一间安静的书店里，两侧是高到天花板的木质书架，脚下是深色木地板",
+      "eras": [
+        "modern"
+      ]
+    },
+    "gallery": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": true,
+      "props": [
+        "墙"
+      ],
+      "near": "身后是一面干净的白墙和一角虚化的画框",
+      "half": "她在一间美术馆的展厅里，身后是白墙和一幅色块鲜明的抽象画",
+      "full": "她在一间美术馆的展厅里，身后白墙上挂着一幅巨大的抽象画，脚下是浅灰色水磨石地面",
+      "eras": [
+        "modern"
+      ]
+    },
+    "studio": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "studio": true,
+      "props": [],
+      "near": "身后是一整片纯色的背景纸",
+      "half": "她在摄影棚里，身后是一整片纯色的背景纸",
+      "full": "她在摄影棚里，纯色背景纸从墙面弯下来平滑地铺到地面，脚下是同色的背景纸",
+      "eras": [
+        "modern"
+      ]
+    },
+    "dance_studio": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "镜",
+        "把杆",
+        "窗框"
+      ],
+      "near": "身后是虚化的练功镜和明亮的窗",
+      "half": "她在一间舞蹈练习室里，身后是整面的练功镜和一根木质把杆",
+      "full": "她在一间舞蹈练习室里，身后是整面练功镜和木质把杆，脚下的浅色木地板映着窗光",
+      "eras": [
+        "modern"
+      ]
+    },
+    "greenhouse": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "花架",
+        "玻璃"
+      ],
+      "near": "身后是虚化成绿色和粉色色块的植物",
+      "half": "她在一间玻璃温室里，身后是层层叠叠的绿植和开花的花架",
+      "full": "她在一间玻璃温室里，身后是层层叠叠的绿植和花架，脚下是被水打湿的浅色石板",
+      "eras": [
+        "modern"
+      ]
+    },
+    "flower_market": {
+      "scales": [
+        "normal"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "花丛",
+        "花摊"
+      ],
+      "near": "身后是虚化成大片彩色色块的鲜花",
+      "half": "她在街边的花摊前，身后是一桶桶颜色鲜艳的鲜切花",
+      "full": "她在街边的花摊前，身后和身旁摆满一桶桶鲜切花，脚下是旧石板路",
+      "eras": [
+        "modern"
+      ]
+    },
+    "street_corner": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "墙"
+      ],
+      "near": "身后是虚化的街道和一面浅色墙",
+      "half": "她在城市街角，身后是一面浅色外墙和虚化的街道",
+      "full": "她在城市街角，身后是一面浅色外墙和延伸出去的街道，脚下是干净的人行道地砖",
+      "eras": [
+        "modern"
+      ]
+    },
+    "color_alley": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "墙"
+      ],
+      "near": "身后是一面刷成鲜艳色块的墙",
+      "half": "她在一条小巷里，身后是刷成鲜艳色块的墙面和一扇旧木门",
+      "full": "她在一条小巷里，身后是刷成鲜艳色块的墙面，脚下的石板路延伸到画面深处",
+      "eras": [
+        "modern"
+      ]
+    },
+    "museum_stairs": {
+      "scales": [
+        "normal"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "台阶"
+      ],
+      "near": "身后是虚化的石柱和宽大的台阶",
+      "half": "她在博物馆门前，身后是一排白色石柱和宽大的石阶",
+      "full": "她在博物馆门前宽大的石阶上，身后是一排白色石柱，脚下是被晒暖的浅色石阶",
+      "eras": [
+        "modern"
+      ]
+    },
+    "rooftop": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "栏杆"
+      ],
+      "near": "身后是虚化的城市天际线",
+      "half": "她在城市天台上，身后是栏杆和远处的城市天际线",
+      "full": "她在城市天台上，身后是一排栏杆和远处的城市天际线，脚下是浅色水泥地面",
+      "eras": [
+        "modern"
+      ]
+    },
+    "balcony": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "栏杆",
+        "花盆"
+      ],
+      "near": "身后是虚化的绿植和阳台栏杆",
+      "half": "她在一处阳台上，身后是铁艺栏杆和几盆绿植",
+      "full": "她在一处阳台上，身后是铁艺栏杆和几盆开花的植物，脚下是赤陶色地砖",
+      "eras": [
+        "modern"
+      ]
+    },
+    "old_street": {
+      "scales": [
+        "normal"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "台阶",
+        "墙"
+      ],
+      "near": "身后是虚化的老街和旧砖墙",
+      "half": "她在一条老街上，身后是旧砖墙和爬满藤蔓的窗台",
+      "full": "她在一条老街上，身后是旧砖墙和几级石台阶，脚下是被磨得发亮的石板路",
+      "eras": [
+        "modern"
+      ]
+    },
+    "poolside": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "池边"
+      ],
+      "near": "身后是虚化成一片湖蓝色的泳池水面",
+      "half": "她在泳池边，身后是湖蓝色的池水和白色躺椅",
+      "full": "她在泳池边，身后是湖蓝色的池水和一排白色躺椅，脚下是被晒暖的浅色池边地砖",
+      "eras": [
+        "modern"
+      ],
+      "water": true
+    },
+    "pier": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "木栈道",
+        "栏杆"
+      ],
+      "near": "身后是虚化的海面和栈桥栏杆",
+      "half": "她在海边的木栈桥上，身后是栏杆和开阔的海面",
+      "full": "她在海边的木栈桥上，身后是开阔的海面，脚下的木板一直延伸向远处",
+      "eras": [
+        "modern"
+      ],
+      "water": true
+    },
+    "beach": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "沙滩"
+      ],
+      "near": "身后是虚化的海面和浅色沙滩",
+      "half": "她在海边沙滩上，身后是翻着白浪的海面和远处的海平线",
+      "full": "她在海边沙滩上，身后是翻着白浪的海面，脚下是细软的浅金色沙滩",
+      "eras": [
+        "modern"
+      ],
+      "water": true
+    },
+    "rocks": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "礁石"
+      ],
+      "near": "身后是虚化的海面和深色礁石",
+      "half": "她在海边的礁石旁，身后是深色礁石和拍起白色浪花的海面",
+      "full": "她在海边的礁石上，身后是拍起白色浪花的海面，脚下是被海水打湿的深色礁石",
+      "eras": [
+        "modern"
+      ],
+      "water": true
+    },
+    "flower_field": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "花丛",
+        "草地"
+      ],
+      "near": "身后是虚化成柔和色块的花海",
+      "half": "她在一片花田里，身后的花海一直铺到远处",
+      "full": "她在一片花田里，花海一直铺到远处，脚下是花丛间的一条小径",
+      "eras": [
+        "modern"
+      ]
+    },
+    "sunflower_field": {
+      "scales": [
+        "normal"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "花丛",
+        "草地"
+      ],
+      "near": "身后是虚化成金黄色块的向日葵",
+      "half": "她在一片向日葵田里，身后是高过人肩的金黄色向日葵",
+      "full": "她在一片向日葵田里，身后的向日葵一直开到天边，脚下是田间的泥土小径",
+      "eras": [
+        "modern"
+      ]
+    },
+    "meadow": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "草地"
+      ],
+      "near": "身后是虚化的草坡和天空",
+      "half": "她在开阔的草坡上，身后是起伏的草地和辽阔的天空",
+      "full": "她在开阔的草坡上，身后是起伏的草地和辽阔的天空，脚下是柔软的青草",
+      "eras": [
+        "modern"
+      ]
+    },
+    "reeds": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "草地"
+      ],
+      "near": "身后是虚化的芦苇穗",
+      "half": "她在一片芦苇丛边，身后是高过人肩的芦苇和一小片水面",
+      "full": "她在一片芦苇丛边，身后是高过人肩的芦苇，脚下是湿润的泥土小路",
+      "eras": [
+        "modern"
+      ]
+    },
+    "lakeside": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "木栈道"
+      ],
+      "near": "身后是虚化的湖面和远山",
+      "half": "她在湖边，身后是平静的湖面和远处层叠的山影",
+      "full": "她在湖边的木栈道上，身后是平静的湖面和远处层叠的山影，脚下的木板带着湿润的反光",
+      "eras": [
+        "modern"
+      ],
+      "water": true
+    },
+    "forest_path": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "树干",
+        "草地"
+      ],
+      "near": "身后是虚化的树干和绿叶",
+      "half": "她在森林小径上，身后是高大的树干和层层绿叶",
+      "full": "她在森林小径上，两侧是高大的树干和层层绿叶，脚下是铺着落叶的泥土小路",
+      "eras": [
+        "modern"
+      ]
+    },
+    "blossom_tree": {
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": false,
+      "indoor": false,
+      "props": [
+        "树干",
+        "草地"
+      ],
+      "near": "身后是虚化成粉白色块的樱花",
+      "half": "她在一棵盛开的樱花树下，身后是满树粉白色的花",
+      "full": "她在一棵盛开的樱花树下，身后是满树粉白色的花，脚下的草地上落满花瓣",
+      "eras": [
+        "modern"
+      ]
+    },
+    "hotel_suite": {
+      "scales": [
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "床",
+        "床沿",
+        "窗框",
+        "纱帘",
+        "沙发",
+        "地毯",
+        "门框"
+      ],
+      "near": "身后是虚化的落地窗和柔软的白色靠枕",
+      "half": "她在酒店套房里，身后是落地窗、白纱帘和一盏落地灯",
+      "full": "她在酒店套房里，身后是铺着白色床品的大床和落地窗，脚下是柔软的浅色地毯",
+      "eras": [
+        "modern"
+      ]
+    },
+    "velvet_lounge": {
+      "scales": [
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "沙发",
+        "地毯"
+      ],
+      "near": "身后是虚化的丝绒沙发和暖色壁灯",
+      "half": "她在一间私人会客厅里，身后是深色丝绒沙发和一盏黄铜壁灯",
+      "full": "她在一间私人会客厅里，身后是深色丝绒沙发和黄铜壁灯，脚下是厚实的花纹地毯",
+      "eras": [
+        "modern"
+      ]
+    },
+    "old_house": {
+      "scales": [
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "窗框",
+        "台阶",
+        "门框",
+        "墙"
+      ],
+      "near": "身后是虚化的木窗和旧墙纸",
+      "half": "她在一栋老洋房里，身后是雕花木窗和泛黄的旧墙纸",
+      "full": "她在一栋老洋房里，身后是雕花木窗和通往二楼的木楼梯，脚下是深色人字拼木地板",
+      "eras": [
+        "modern"
+      ]
+    },
+    "boudoir_vanity": {
+      "scales": [
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "梳妆台",
+        "镜",
+        "地毯"
+      ],
+      "near": "身后是虚化的化妆镜和一排小灯泡",
+      "half": "她在一间化妆间里，身后是一面嵌着小灯泡的化妆镜和摆满首饰的梳妆台",
+      "full": "她在一间化妆间里，身后是嵌着小灯泡的化妆镜和梳妆台，脚下是柔软的长毛地毯",
+      "eras": [
+        "modern"
+      ]
+    },
+    "bathroom": {
+      "scales": [
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "洗手台",
+        "镜",
+        "墙"
+      ],
+      "near": "身后是虚化的雾面镜和浅色瓷砖",
+      "half": "她在一间明亮的浴室里，身后是蒙着雾气的镜子和浅色大理石墙面",
+      "full": "她在一间明亮的浴室里，身后是独立浴缸和蒙着雾气的镜子，脚下是泛着水光的大理石地砖",
+      "eras": [
+        "modern"
+      ]
+    },
+    "private_pool": {
+      "scales": [
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "池边",
+        "躺椅"
+      ],
+      "near": "身后是虚化的池水和棕榈叶影",
+      "half": "她在私人别墅的泳池边，身后是湖蓝色的池水和棕榈树",
+      "full": "她在私人别墅的泳池边，身后是湖蓝色的池水和一张白色躺椅，脚下是被晒暖的浅色石材地面",
+      "eras": [
+        "modern"
+      ],
+      "water": true
+    },
+    "garden_courtyard": {
+      "scales": [
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "草地",
+        "台阶",
+        "花丛"
+      ],
+      "near": "身后是虚化的花丛和爬藤石墙",
+      "half": "她在一处私家庭院里，身后是爬满藤蔓的石墙和开花的灌木",
+      "full": "她在一处私家庭院里，身后是爬满藤蔓的石墙和几级石阶，脚下是修剪整齐的草坪",
+      "eras": [
+        "modern"
+      ]
+    },
+    "villa_balcony": {
+      "scales": [
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "栏杆",
+        "躺椅"
+      ],
+      "near": "身后是虚化的海景和白色栏杆",
+      "half": "她在一栋海边别墅的露台上，身后是白色栏杆和远处的海面",
+      "full": "她在一栋海边别墅的露台上，身后是白色栏杆和开阔的海景，脚下是浅色木质地板",
+      "eras": [
+        "modern"
+      ],
+      "water": true
+    },
+    "rain_corridor": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "栏杆",
+        "柱",
+        "台阶"
+      ],
+      "near": "身后是虚化的木柱和挂着雨珠的檐角",
+      "half": "她在雨夜的回廊下，身后是朱红木柱和挂着雨帘的檐角",
+      "full": "她在雨夜的回廊下，身后是一排朱红木柱和挂着灯笼的檐角，脚下是湿润的青石板",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "palace_hall": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "屏风",
+        "案",
+        "柱"
+      ],
+      "near": "身后是虚化的描金屏风",
+      "half": "她在宫殿的偏殿里，身后是描金屏风和低垂的红色帷幕",
+      "full": "她在宫殿的偏殿里，身后是描金屏风、低案和红色帷幕，脚下是光亮的深色木地板",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "theater_backstage": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "妆台",
+        "铜镜"
+      ],
+      "near": "身后是虚化的铜镜和戏服架",
+      "half": "她在戏台后台，身后是红木妆台、铜镜和挂满戏服的木架",
+      "full": "她在戏台后台，身后是红木妆台和挂满戏服的木架，脚下是旧木地板",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "old_study": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "案",
+        "窗框",
+        "书卷"
+      ],
+      "near": "身后是虚化的书卷和雕花木窗",
+      "half": "她在一间书房里，身后是堆着书卷的书架和雕花木窗",
+      "full": "她在一间书房里，身后是低案、书架和雕花木窗，脚下是铺着竹席的木地板",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "boat_cabin": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "船舷",
+        "窗框"
+      ],
+      "near": "身后是虚化的雕花船窗和湖面",
+      "half": "她在画舫的船舱里，身后是雕花船窗和窗外的湖面",
+      "full": "她在画舫的船舱里，身后是雕花船窗和垂落的纱帘，脚下是深色木船板",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "bamboo_grove": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "竹",
+        "台阶"
+      ],
+      "near": "身后是虚化的竹影",
+      "half": "她在竹林的石径上，身后是挺拔的青竹",
+      "full": "她在竹林的石径上，两侧是挺拔的青竹，脚下是铺着落叶的石板小径",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "garden_pavilion": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "栏杆",
+        "柱",
+        "台阶"
+      ],
+      "near": "身后是虚化的亭檐和花木",
+      "half": "她在园林的凉亭里，身后是飞檐亭柱和一池碧水",
+      "full": "她在园林的凉亭边，身后是飞檐亭柱和一池碧水，脚下是青石台阶",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "lotus_pond": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "栏杆"
+      ],
+      "near": "身后是虚化的荷叶和荷花",
+      "half": "她在荷塘边的曲桥上，身后是层层荷叶和初开的荷花",
+      "full": "她在荷塘边的曲桥上，身后是层层荷叶和初开的荷花，脚下是木质桥面",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "hot_spring": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "石",
+        "台阶"
+      ],
+      "near": "身后是虚化的竹帘和石壁",
+      "half": "她在山间的温泉边，身后是竹帘和长着青苔的石壁",
+      "full": "她在山间的温泉边，身后是竹帘和长着青苔的石壁，脚下是湿润的木台",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "peach_garden": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "树干",
+        "草地"
+      ],
+      "near": "身后是虚化成粉白色块的桃花",
+      "half": "她在桃林里，身后是满树盛开的桃花",
+      "full": "她在桃林里，身后是满树盛开的桃花，脚下的草地上落满花瓣",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "snow_courtyard": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": false,
+      "props": [
+        "树干",
+        "台阶",
+        "柱"
+      ],
+      "near": "身后是虚化的红梅和白雪",
+      "half": "她在落雪的庭院里，身后是一株开满红梅的老树和白墙黛瓦",
+      "full": "她在落雪的庭院里，身后是开满红梅的老树和白墙黛瓦，脚下是覆着薄雪的石板地",
+      "styles": [
+        "hanfu"
+      ]
+    },
+    "republic_house": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "窗框",
+        "沙发",
+        "台阶"
+      ],
+      "near": "身后是虚化的百叶木窗和旧墙纸",
+      "half": "她在一栋民国老洋房里，身后是百叶木窗和一台留声机",
+      "full": "她在一栋民国老洋房里，身后是百叶木窗、留声机和一张丝绒沙发，脚下是深色人字拼木地板",
+      "styles": [
+        "republic"
+      ]
+    },
+    "dunhuang_cave": {
+      "eras": [
+        "ancient"
+      ],
+      "scales": [
+        "normal",
+        "bold"
+      ],
+      "private": true,
+      "indoor": true,
+      "props": [
+        "柱"
+      ],
+      "near": "身后是虚化的彩色壁画",
+      "half": "她在敦煌石窟里，身后是满墙色彩斑驳的飞天壁画",
+      "full": "她在敦煌石窟里，身后是满墙色彩斑驳的飞天壁画，脚下是平整的黄土地面",
+      "styles": [
+        "dunhuang"
+      ]
+    }
+  },
+  "EXPRESSIONS": {
+    "normal": {
+      "calm": [
+        "安静地看向镜头，嘴角带着一点若有若无的笑",
+        "目光柔和地落在镜头上，唇角轻轻上扬",
+        "眼神清澈地直视镜头，嘴唇轻闭，神情松弛",
+        "用眼尾余光瞥向镜头，嘴角慢慢扬起",
+        "抬眼看向镜头，笑意藏在眼睛里",
+        "目光越过睫毛看向镜头，神情温柔而专注",
+        "看向镜头时眼睛微微弯起，嘴唇抿着一点笑",
+        "望着镜头轻轻舒了口气，唇角慢慢上扬"
+      ],
+      "playful": [
+        "歪着头看向镜头，眼睛弯成月牙，笑得露出一点牙齿",
+        "眉毛微微扬起，带着一点得意的挑衅看向镜头，嘴角往一侧勾起",
+        "假装嫌弃地皱了皱鼻子，眼睛却笑着看向镜头",
+        "冲镜头眨了一下眼，嘴角压不住地往上翘",
+        "像刚听到一个好笑的玩笑，看着镜头笑出了声",
+        "眯起眼睛笑看镜头，鼻尖微微皱起",
+        "眼神亮亮地看向镜头，嘴唇微张，像要说一句俏皮话",
+        "看向镜头时憋着笑，脸颊鼓起一点弧度"
+      ],
+      "dynamic": [
+        "视线正好撞上镜头，嘴唇微张带笑",
+        "愣了一下才看向镜头，笑得眉眼弯弯",
+        "对着镜头大笑，眼睛眯成一条缝",
+        "看向镜头的一瞬间笑开，神情明亮",
+        "被风迷了一下眼，眯着眼冲镜头笑",
+        "迎着镜头扬起下巴，笑容灿烂又自信"
+      ]
+    },
+    "bold": {
+      "calm": [
+        "半眯着狐狸眼直视镜头，嘴唇微启，神情慵懒而专注",
+        "目光从睫毛下缓缓抬起锁住镜头，唇角带着一点意味深长的笑",
+        "眼尾微挑地看向镜头，嘴唇轻抿，带着安静的笃定",
+        "侧着眼看向镜头，唇角似笑非笑",
+        "眼神湿润地望着镜头，嘴唇微微分开",
+        "低垂的视线慢慢抬起落在镜头上，唇角浮起一点笑意",
+        "用眼尾余光勾住镜头，神情漫不经心",
+        "静静地直视镜头，唇角带着一点若有若无的挑衅"
+      ],
+      "playful": [
+        "歪头看向镜头，嘴角勾起一点坏笑，像在等你先开口",
+        "冲镜头挑了挑眉，笑得甜又带点危险",
+        "眯起眼睛看向镜头，嘴角挂着得意的笑",
+        "轻咬下唇看向镜头，眼里全是笑意",
+        "眼神挑衅地直视镜头，嘴角压着一点嘲弄的笑",
+        "假装责怪地瞪着镜头，嘴角却忍不住上扬",
+        "看着镜头轻轻一笑，眼尾挑起勾人的弧度",
+        "眼神带着邀请看向镜头，唇角慢慢扬起"
+      ],
+      "dynamic": [
+        "抬眼撞上镜头，嘴唇微张，笑意从眼尾溢出",
+        "看向镜头的瞬间笑开，眼神明亮又大胆",
+        "直视镜头，唇角扬起张扬的笑",
+        "对着镜头笑出了声，下巴微微抬起",
+        "抬眼看向镜头，嘴角勾着笑，眼神热烈",
+        "迎着镜头扬起下巴，笑得自信又肆意"
+      ]
+    }
+  },
+  "POSES": {
+    "normal": {
+      "portrait": {
+        "head_shot": [
+          {
+            "body": "她微微侧过脸，下巴轻收",
+            "energy": "calm"
+          },
+          {
+            "body": "她把一侧头发别到耳后，指尖还停在耳边",
+            "energy": "calm"
+          },
+          {
+            "body": "她低头片刻后缓缓抬起脸",
+            "energy": "calm"
+          },
+          {
+            "body": "她侧脸迎向光来的方向",
+            "energy": "calm"
+          },
+          {
+            "body": "她迎着光微微仰起脸",
+            "energy": "calm"
+          },
+          {
+            "body": "她双手拢着头发举到脑后，手肘抬高",
+            "energy": "calm"
+          },
+          {
+            "body": "她歪着头凑近镜头",
+            "energy": "playful"
+          },
+          {
+            "body": "她用指背轻托下巴",
+            "energy": "playful"
+          },
+          {
+            "body": "她双手捧着脸颊",
+            "energy": "playful"
+          },
+          {
+            "body": "她把下巴轻轻搁在交叠的手背上",
+            "energy": "playful"
+          },
+          {
+            "body": "她用一根手指轻点嘴角",
+            "energy": "playful"
+          },
+          {
+            "body": "她回头越过肩膀，几缕头发挡在脸前",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她刚被风吹乱了头发，几缕发丝掠过脸颊",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她从侧面转过头来，发尾还在空中轻轻甩动",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她半掩着一柄团扇，只露出一双眼睛",
+            "energy": "playful",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她抬手扶了扶鬓边的发簪，指尖停在耳侧",
+            "energy": "calm",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她低头拈起一片落花，又缓缓抬起脸",
+            "energy": "calm",
+            "eras": [
+              "ancient"
+            ]
+          }
+        ],
+        "half_body": [
+          {
+            "body": "她侧身站着，肩膀转向镜头，一只手轻轻搭在另一侧手臂上",
+            "energy": "calm"
+          },
+          {
+            "body": "她双臂轻轻交叠抱在身前，肩膀放松，偏头",
+            "energy": "calm"
+          },
+          {
+            "body": "她双手轻握在身前，身体转成四分之三侧面，下巴轻收",
+            "energy": "calm"
+          },
+          {
+            "body": "她捧着一小束花凑近脸侧，低头闻了一下",
+            "energy": "calm"
+          },
+          {
+            "body": "她一只手抬起拨开被风吹到脸前的头发",
+            "energy": "calm"
+          },
+          {
+            "body": "她双手背在身后，上身微微前倾凑近镜头",
+            "energy": "playful"
+          },
+          {
+            "body": "她一只手撑着腰，另一只手把头发拨到肩后，下巴微抬",
+            "energy": "playful"
+          },
+          {
+            "body": "她举起一只手挡在额前遮光",
+            "energy": "playful"
+          },
+          {
+            "body": "她双手比出一个小小的取景框举在眼前",
+            "energy": "playful",
+            "eras": [
+              "modern"
+            ]
+          },
+          {
+            "body": "她正转身离开又回过头来，头发随着转身扬起",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她双手拢起被风吹乱的头发，手肘抬高，侧过脸",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她倚在窗边，一只手扶着窗框，侧脸迎着窗外的光",
+            "energy": "calm",
+            "props": [
+              "窗框"
+            ]
+          },
+          {
+            "body": "她双肘撑在栏杆上，身体微微前倾，头发被风吹到脸侧",
+            "energy": "playful",
+            "props": [
+              "栏杆"
+            ]
+          },
+          {
+            "body": "她单手托腮靠在桌边，另一只手握着一只咖啡杯",
+            "energy": "playful",
+            "props": [
+              "桌"
+            ],
+            "eras": [
+              "modern"
+            ]
+          },
+          {
+            "body": "她抱着一本书，肩膀轻靠书架",
+            "energy": "calm",
+            "props": [
+              "书架"
+            ],
+            "eras": [
+              "modern"
+            ]
+          },
+          {
+            "body": "她背靠着树干，一只手轻贴树皮，仰起脸",
+            "energy": "calm",
+            "props": [
+              "树干"
+            ]
+          },
+          {
+            "body": "她坐在台阶上，手肘搭在膝头，托着下巴",
+            "energy": "calm",
+            "props": [
+              "台阶"
+            ]
+          },
+          {
+            "body": "她扶着练功把杆侧身站立，另一只手举过头顶舒展",
+            "energy": "dynamic",
+            "props": [
+              "把杆"
+            ],
+            "eras": [
+              "modern"
+            ]
+          },
+          {
+            "body": "她撑着一把油纸伞侧身站立，伞沿微微倾斜",
+            "energy": "calm",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她手执团扇轻轻掩在唇前，肩膀微微侧转",
+            "energy": "playful",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她抬起衣袖拂开眼前的花枝，身体微微前倾",
+            "energy": "dynamic",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她倚着朱红木柱，一只手轻扶柱身",
+            "energy": "calm",
+            "props": [
+              "柱"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她跪坐在低案前，一只手执笔悬在纸上方",
+            "energy": "calm",
+            "props": [
+              "案"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她对着铜镜侧过身，一只手轻抚鬓发",
+            "energy": "calm",
+            "props": [
+              "铜镜"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她倚着船舷，一只手搭在窗沿上，侧脸迎着湖风",
+            "energy": "calm",
+            "props": [
+              "船舷"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          }
+        ],
+        "full_body": [
+          {
+            "body": "她自然站立，左脚承重、右脚向侧前方轻点地面，双手自然垂在身侧，头部侧转",
+            "energy": "calm"
+          },
+          {
+            "body": "她转身回望，身体侧向镜头，双脚一前一后站稳，一只手扶住腰侧，下巴轻抬",
+            "energy": "playful"
+          },
+          {
+            "body": "她盘腿坐在地面上，上身挺直微微前倾，双手搭在膝头，双脚收在身前，歪头",
+            "energy": "playful"
+          },
+          {
+            "body": "她抱膝坐在地面上，双脚并拢踩住地面，下巴搁在膝盖上",
+            "energy": "calm"
+          },
+          {
+            "body": "她单膝跪在地面上，另一只脚踩稳地面，一只手搭在膝头，另一只手把头发拢到耳后",
+            "energy": "calm"
+          },
+          {
+            "body": "她双脚与肩同宽站立，重心微微偏向一侧，双手在身后轻轻相握，头部轻轻侧偏",
+            "energy": "playful"
+          },
+          {
+            "body": "她迈步朝镜头走来，前脚刚落地、后脚脚跟微微抬起，一只手随步子自然摆动，另一只手拨开被风吹到脸侧的头发",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她踮起脚尖轻轻转了半圈，双臂向两侧自然打开，仰起头",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她自然站立，双手轻轻背在身后，一只脚的脚尖轻轻踮起，身体微微前倾",
+            "energy": "playful"
+          },
+          {
+            "body": "她蹲在地面上，双脚踩稳，手臂环抱着膝盖，仰起脸",
+            "energy": "playful"
+          },
+          {
+            "body": "她倚靠着栏杆站立，双脚在脚踝处轻轻交叉，一只手搭在栏杆上，另一只手把头发拢到耳后",
+            "energy": "calm",
+            "props": [
+              "栏杆"
+            ]
+          },
+          {
+            "body": "她靠墙站着，一只脚屈膝踩在墙面上，双手背在身后，歪头",
+            "energy": "playful",
+            "props": [
+              "墙"
+            ]
+          },
+          {
+            "body": "她站立在窗边，双脚自然并拢，一只手轻轻拉着纱帘，侧脸迎着光",
+            "energy": "calm",
+            "props": [
+              "纱帘"
+            ]
+          },
+          {
+            "body": "她坐在台阶上，双脚一高一低踩在台阶上，手肘搭在膝头，托着下巴",
+            "energy": "calm",
+            "props": [
+              "台阶"
+            ]
+          },
+          {
+            "body": "她赤脚站立在沙滩上，双脚微微陷进细沙，一只手按住被风吹起的头发，回头",
+            "energy": "dynamic",
+            "props": [
+              "沙滩"
+            ],
+            "barefoot": true
+          },
+          {
+            "body": "她沿着木栈道迈步走来，一只手抬到额前挡着阳光，双脚踩着木板的节奏",
+            "energy": "dynamic",
+            "props": [
+              "木栈道"
+            ]
+          },
+          {
+            "body": "她在花丛中蹲下，双脚踩稳地面，双手拢着一朵花凑到鼻尖",
+            "energy": "playful",
+            "props": [
+              "花丛"
+            ]
+          },
+          {
+            "body": "她背靠树干坐在草地上，双腿屈起，双脚踩在草叶间，手里拿着一片叶子",
+            "energy": "calm",
+            "props": [
+              "树干"
+            ]
+          },
+          {
+            "body": "她坐在台阶上，双肘撑在身后的台阶上，双腿一高一低舒展，双脚踩着台阶",
+            "energy": "playful",
+            "props": [
+              "台阶"
+            ]
+          },
+          {
+            "body": "她站立在礁石上，双脚一前一后踩稳，双臂张开迎着海风",
+            "energy": "dynamic",
+            "props": [
+              "礁石"
+            ]
+          },
+          {
+            "body": "她撑着油纸伞站立在石阶上，裙摆垂到脚面，双脚一前一后站稳",
+            "energy": "calm",
+            "props": [
+              "台阶"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她提着裙摆迈步走下石阶，一只脚踏在下一级台阶上",
+            "energy": "dynamic",
+            "props": [
+              "台阶"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她倚着朱红木柱站立，一只手轻扶柱身，另一只手执着团扇垂在身侧，双脚并拢",
+            "energy": "calm",
+            "props": [
+              "柱"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她跪坐在低案前，腰背挺直，双手轻按在案沿上，裙摆铺在身后",
+            "energy": "calm",
+            "props": [
+              "案"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她站立在竹林石径上，一只手轻扶身旁的竹子，裙摆被风吹向一侧",
+            "energy": "dynamic",
+            "props": [
+              "竹"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她旋身起舞，衣袖和裙摆随动作飞扬，一只脚踮起脚尖",
+            "energy": "dynamic",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她站立在树下，一只手攀着低垂的花枝，双脚一前一后站稳",
+            "energy": "playful",
+            "props": [
+              "树干"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她坐在台阶上，裙摆铺开，双脚并拢踩着下一级台阶，手里拈着一枝花",
+            "energy": "calm",
+            "props": [
+              "台阶"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          }
+        ]
+      },
+      "landscape": {
+        "head_shot": [
+          {
+            "body": "她侧过脸枕在交叠的手臂上",
+            "energy": "calm"
+          },
+          {
+            "body": "她歪着头靠向一侧肩膀，头发垂向一边",
+            "energy": "playful"
+          }
+        ],
+        "half_body": [
+          {
+            "body": "她横向侧坐，上身斜靠在一侧手臂上，肩膀放松，回头",
+            "energy": "calm"
+          },
+          {
+            "body": "她趴在窗台上，双臂交叠垫着下巴，身体横向舒展",
+            "energy": "calm",
+            "props": [
+              "窗台"
+            ]
+          },
+          {
+            "body": "她侧躺在草地上，用一只手撑着头，身体横向舒展，头发散在草叶间",
+            "energy": "playful",
+            "props": [
+              "草地"
+            ]
+          },
+          {
+            "body": "她侧躺在细沙上，一只手撑着头，头发散落在沙面，身体横向舒展",
+            "energy": "playful",
+            "props": [
+              "沙滩"
+            ]
+          },
+          {
+            "body": "她横向侧身站在风里，双手拢住被吹起的头发，肩膀迎着光",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她身体横向前倾，双臂交叠搭在栏杆上，下巴枕着手臂",
+            "energy": "playful",
+            "props": [
+              "栏杆"
+            ]
+          },
+          {
+            "body": "她侧身横向倚在墙边，肩膀贴着墙面，头轻轻靠上去",
+            "energy": "calm",
+            "props": [
+              "墙"
+            ]
+          },
+          {
+            "body": "她横向坐在桌边，手肘撑着桌面，托着腮侧过身",
+            "energy": "playful",
+            "props": [
+              "桌"
+            ],
+            "eras": [
+              "modern"
+            ]
+          }
+        ],
+        "full_body": [
+          {
+            "body": "她侧躺在草地上，一只手撑着头，双腿自然交叠，双脚在草叶间放松，身体横向舒展",
+            "energy": "calm",
+            "props": [
+              "草地"
+            ]
+          },
+          {
+            "body": "她侧躺在沙滩上，身体沿着海岸线横向舒展，一只手撑着头，双脚沾着细沙",
+            "energy": "playful",
+            "props": [
+              "沙滩"
+            ],
+            "barefoot": true
+          },
+          {
+            "body": "她仰躺在花丛里，头发散开，双臂自然放在头侧，双脚交叠",
+            "energy": "calm",
+            "props": [
+              "花丛"
+            ]
+          },
+          {
+            "body": "她原地轻轻跳起，双脚离地，头发一起扬起，双臂向两侧打开",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她坐在地面上，身体沿地面横向展开，上身斜靠一侧手臂，双腿向另一侧舒展，双脚并拢",
+            "energy": "calm"
+          },
+          {
+            "body": "她坐在台阶上，身体沿台阶横向展开，双腿斜斜伸向一侧，双脚轻轻交叠，托着下巴",
+            "energy": "calm",
+            "props": [
+              "台阶"
+            ]
+          },
+          {
+            "body": "她倚靠着栏杆，身体沿栏杆横向展开，双脚在脚踝处交叉，一只手搭在栏杆上",
+            "energy": "calm",
+            "props": [
+              "栏杆"
+            ]
+          },
+          {
+            "body": "她横向迈步从镜头前走过，身体展开成一道侧影，双脚一前一后，回头",
+            "energy": "dynamic"
+          }
+        ]
+      }
+    },
+    "bold": {
+      "portrait": {
+        "head_shot": [
+          {
+            "body": "她下巴微抬，头轻轻偏向一侧，颈侧线条拉得修长",
+            "energy": "calm"
+          },
+          {
+            "body": "她指尖沿着下颌线慢慢滑向耳后",
+            "energy": "calm"
+          },
+          {
+            "body": "她把长发拨到一侧肩后，露出整段颈侧和肩线",
+            "energy": "calm"
+          },
+          {
+            "body": "她低下头又缓缓抬起脸，发丝从脸颊两侧滑落",
+            "energy": "calm"
+          },
+          {
+            "body": "她仰起头，颈侧和下颌连成一道干净的线条",
+            "energy": "calm"
+          },
+          {
+            "body": "她肩膀轻轻前送，下巴收在肩头",
+            "energy": "calm"
+          },
+          {
+            "body": "她的指尖从肩头轻轻划过颈侧",
+            "energy": "calm"
+          },
+          {
+            "body": "她细长的手指轻抵下唇",
+            "energy": "playful"
+          },
+          {
+            "body": "她一只手撑着侧脸，脸颊贴着掌心，头微微歪向镜头",
+            "energy": "playful"
+          },
+          {
+            "body": "她伸出一根手指靠近镜头，指尖在前景里微微虚化",
+            "energy": "playful"
+          },
+          {
+            "body": "她双手从脸颊两侧把头发拢起，手肘抬高",
+            "energy": "playful"
+          },
+          {
+            "body": "她把脸凑近镜头，只留一点距离",
+            "energy": "playful"
+          },
+          {
+            "body": "她侧身回头越过肩膀，肩线在光里显得格外柔和",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她甩动长发转过脸来，几缕发丝贴在唇边",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她半掩着一柄团扇，只露出一双眼尾微挑的眼睛",
+            "energy": "playful",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她抬手取下发簪，一缕长发顺着颈侧滑落",
+            "energy": "calm",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她侧过脸，指尖轻抵下颌，发间的步摇轻轻晃动",
+            "energy": "calm",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她微微仰起脸，闭眼片刻又慢慢睁开，颈侧线条完全舒展",
+            "energy": "calm"
+          },
+          {
+            "body": "她侧过脸，下巴轻抵在抬起的肩头",
+            "energy": "calm"
+          },
+          {
+            "body": "她的指尖顺着颈侧慢慢滑到肩头",
+            "energy": "playful"
+          }
+        ],
+        "half_body": [
+          {
+            "body": "她侧身站立，肩膀转向镜头，一只手轻按在腰侧，腰线在侧光里收得很细",
+            "energy": "calm"
+          },
+          {
+            "body": "她回头越过肩膀，背部和腰线在光里连成一道柔和的弧线",
+            "energy": "calm"
+          },
+          {
+            "body": "她肩线一高一低，上身扭转出一道S形的曲线",
+            "energy": "calm"
+          },
+          {
+            "body": "她身体微微后仰，一只手撑着后腰，下巴轻抬",
+            "energy": "calm"
+          },
+          {
+            "body": "她指尖沿着锁骨慢慢滑向肩头",
+            "energy": "calm"
+          },
+          {
+            "body": "她上身微微前倾靠近镜头，双手交叠在身前",
+            "energy": "playful"
+          },
+          {
+            "body": "她一只手扶着腰，另一只手的指尖停在锁骨上",
+            "energy": "playful"
+          },
+          {
+            "body": "她双臂环抱在身前，肩膀微微耸起",
+            "energy": "playful"
+          },
+          {
+            "body": "她双手从颈后撩起长发，手肘抬高，腰身自然拉长",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她转身时长发扬起，一只手抬到耳后",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她一只手扶着窗框，身体斜斜倚在窗边",
+            "energy": "calm",
+            "props": [
+              "窗框"
+            ]
+          },
+          {
+            "body": "她倚靠在门框边，肩膀贴着门框，腰侧微微扭转",
+            "energy": "calm",
+            "props": [
+              "门框"
+            ]
+          },
+          {
+            "body": "她靠在沙发扶手上，上身微微侧倾，一只手搭在扶手上",
+            "energy": "playful",
+            "props": [
+              "沙发"
+            ]
+          },
+          {
+            "body": "她对着化妆镜侧过身，一只手撑在梳妆台边",
+            "energy": "calm",
+            "props": [
+              "梳妆台"
+            ],
+            "eras": [
+              "modern"
+            ]
+          },
+          {
+            "body": "她倚着栏杆，手肘搭在栏杆上，腰线向一侧舒展",
+            "energy": "playful",
+            "props": [
+              "栏杆"
+            ]
+          },
+          {
+            "body": "她坐在池边，一只手撑在身后的池沿上，上身微微后仰",
+            "energy": "calm",
+            "props": [
+              "池边"
+            ]
+          },
+          {
+            "body": "她撑着一把油纸伞侧身回望，肩线在光里显得格外柔和",
+            "energy": "calm",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她手执团扇半掩在身前，肩膀微微侧转，腰线向一侧舒展",
+            "energy": "playful",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她倚着朱红木柱，后背贴着柱身，下巴微微抬起",
+            "energy": "calm",
+            "props": [
+              "柱"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她对着铜镜侧过身，一只手抬起轻挽长发",
+            "energy": "calm",
+            "props": [
+              "铜镜"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她倚着船舷，一只手搭在窗沿上，身体斜斜靠向窗边",
+            "energy": "playful",
+            "props": [
+              "船舷"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她坐在温泉边的石头上，一只手撑在身后，长发湿润地贴在肩头",
+            "energy": "calm",
+            "props": [
+              "石"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她背对镜头回头，一只手撩起长发，露出整段后颈和背部线条",
+            "energy": "calm"
+          },
+          {
+            "body": "她双臂向上舒展，手腕交叠在头顶，腰身被拉得修长",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她身体微微后仰，一只手贴在锁骨下方，胸口随呼吸轻轻起伏",
+            "energy": "calm"
+          },
+          {
+            "body": "她侧身弓起后背，一只手扶在腰窝上",
+            "energy": "playful"
+          },
+          {
+            "body": "她抬起一侧肩膀轻抵着下巴，指尖沿着手臂慢慢滑下",
+            "energy": "playful"
+          }
+        ],
+        "full_body": [
+          {
+            "body": "她倚靠着墙站立，一侧肩膀贴着墙面，一条腿微微屈起，脚尖轻点地面，身体形成柔和的S形",
+            "energy": "calm",
+            "props": [
+              "墙"
+            ]
+          },
+          {
+            "body": "她自然站立，重心落在一条腿上，髋部轻轻侧推，另一只脚向前轻点地面，一只手顺着头发滑到肩后",
+            "energy": "calm"
+          },
+          {
+            "body": "她迈步朝镜头走来，腰身随步子轻轻扭动，双脚一前一后踩在地面上",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她回头站立，背部和腰线在侧光里连成一道弧线，双脚一前一后站稳",
+            "energy": "calm"
+          },
+          {
+            "body": "她抱膝坐在地面上，下巴搁在膝头，双脚并拢踩住地面",
+            "energy": "playful"
+          },
+          {
+            "body": "她踮起脚尖转了半圈，长发随身体扬起，双臂轻轻打开",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她自然站立，双手从颈后撩起长发，一条腿在前轻轻屈膝，脚尖点地",
+            "energy": "playful"
+          },
+          {
+            "body": "她坐在床沿，上身微微后仰，双手撑在身后的床面上，双腿交叠，脚尖轻点地面",
+            "energy": "calm",
+            "props": [
+              "床沿"
+            ]
+          },
+          {
+            "body": "她侧坐在沙发边缘，双腿并拢斜向一侧，双脚轻轻踮起，一只手搭在沙发靠背上",
+            "energy": "playful",
+            "props": [
+              "沙发"
+            ]
+          },
+          {
+            "body": "她跪坐在柔软的地毯上，腰背挺直，双手搭在大腿上，脚背贴着地毯",
+            "energy": "calm",
+            "props": [
+              "地毯"
+            ]
+          },
+          {
+            "body": "她半跪在地毯上，一侧膝盖着地，另一只脚踩稳地面，一只手拢起头发",
+            "energy": "playful",
+            "props": [
+              "地毯"
+            ]
+          },
+          {
+            "body": "她坐在台阶上，身体微微后仰，双手撑在身后的台阶上，双腿一高一低舒展，双脚踩在台阶上",
+            "energy": "calm",
+            "props": [
+              "台阶"
+            ]
+          },
+          {
+            "body": "她坐在池边，双脚轻轻踩着池边的地面，双手撑在身后，上身微微后仰",
+            "energy": "calm",
+            "props": [
+              "池边"
+            ]
+          },
+          {
+            "body": "她倚靠着栏杆站立，双手向后搭在栏杆上，一条腿轻轻屈起，脚尖点地",
+            "energy": "playful",
+            "props": [
+              "栏杆"
+            ]
+          },
+          {
+            "body": "她赤脚站立在浴室地砖上，一只手扶着洗手台边，身体侧向镜头，另一只手撩起湿润的发尾",
+            "energy": "calm",
+            "props": [
+              "洗手台"
+            ],
+            "barefoot": true,
+            "eras": [
+              "modern"
+            ]
+          },
+          {
+            "body": "她坐在梳妆凳上，侧身对着镜子，双腿交叠，脚尖轻点地面",
+            "energy": "calm",
+            "props": [
+              "梳妆台"
+            ],
+            "eras": [
+              "modern"
+            ]
+          },
+          {
+            "body": "她赤脚站立在草坪上，双脚踩着柔软的青草，一只手撩起被风吹乱的头发，身体微微侧转",
+            "energy": "dynamic",
+            "props": [
+              "草地"
+            ],
+            "barefoot": true
+          },
+          {
+            "body": "她倚靠在门框边站立，一只脚的脚尖抵着门框，双手背在身后",
+            "energy": "playful",
+            "props": [
+              "门框"
+            ]
+          },
+          {
+            "body": "她倚着朱红木柱站立，一侧肩膀贴着柱身，一条腿微微屈起，脚尖点地",
+            "energy": "calm",
+            "props": [
+              "柱"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她旋身起舞，长发随身体扬起，双臂向两侧舒展，一只脚踮起脚尖",
+            "energy": "dynamic",
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她跪坐在低案旁，腰背挺直，一只手轻按在案沿上，身体微微侧向镜头",
+            "energy": "calm",
+            "props": [
+              "案"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她站立在石阶上回望，身体侧转出柔和的S形，双脚一前一后站稳",
+            "energy": "playful",
+            "props": [
+              "台阶"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她坐在温泉边的木台上，双手撑在身后，双脚轻轻点着水面边缘的石头",
+            "energy": "calm",
+            "props": [
+              "石"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她倚着栏杆站立，双手向后搭在栏杆上，一条腿轻轻屈起，脚尖点地",
+            "energy": "playful",
+            "props": [
+              "栏杆"
+            ],
+            "eras": [
+              "ancient"
+            ]
+          },
+          {
+            "body": "她背对镜头站立，回头越过肩膀，长发拨到一侧，背部、腰窝和腿线连成一道流畅的弧线",
+            "energy": "calm"
+          },
+          {
+            "body": "她单手扶墙，身体向前微倾，腰背下沉出一道柔和的弧线，一条腿向后伸展，脚尖点地",
+            "energy": "playful",
+            "props": [
+              "墙"
+            ]
+          },
+          {
+            "body": "她坐在地面上，双腿并拢斜向一侧伸展，上身后仰，双手撑在身后，下巴微抬",
+            "energy": "calm"
+          },
+          {
+            "body": "她踮起脚尖站立，双臂向上舒展，身体被拉成一道修长的线条",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她侧身站立，一条腿向前屈膝，脚尖点地，髋部轻轻侧推，身体呈现明显的S形曲线",
+            "energy": "playful"
+          },
+          {
+            "body": "她跪坐在地面上，上身挺直微微后仰，双手撩起长发举过头顶，腰身舒展",
+            "energy": "dynamic"
+          }
+        ]
+      },
+      "landscape": {
+        "head_shot": [
+          {
+            "body": "她侧脸枕在交叠的手臂上，发丝散落在手臂间",
+            "energy": "calm"
+          },
+          {
+            "body": "她歪头靠向一侧肩膀，长发垂向一边，颈侧线条舒展",
+            "energy": "playful"
+          }
+        ],
+        "half_body": [
+          {
+            "body": "她横向侧躺，用一只手撑着头，肩线和腰线连成一道起伏的曲线",
+            "energy": "calm"
+          },
+          {
+            "body": "她横向趴在沙发扶手上，双臂交叠垫着下巴，背部线条舒展",
+            "energy": "playful",
+            "props": [
+              "沙发"
+            ]
+          },
+          {
+            "body": "她横向侧卧在躺椅上，一只手搭在腰侧",
+            "energy": "calm",
+            "props": [
+              "躺椅"
+            ]
+          },
+          {
+            "body": "她身体横向斜倚，一侧手肘撑着身体，肩膀放松地下沉",
+            "energy": "calm"
+          },
+          {
+            "body": "她横向侧躺在草地上，长发散在草叶间，一只手搭在腰侧",
+            "energy": "playful",
+            "props": [
+              "草地"
+            ]
+          },
+          {
+            "body": "她横向侧身回头，长发从肩头滑落，一只手搭在另一侧肩上",
+            "energy": "dynamic"
+          },
+          {
+            "body": "她横向侧卧，一只手枕在头下，肩线到腰线形成一道起伏的曲线",
+            "energy": "calm"
+          }
+        ],
+        "full_body": [
+          {
+            "body": "她侧躺在床上，一只手撑着头，身体横向舒展，双腿一前一后微微屈起，双脚放松",
+            "energy": "calm",
+            "props": [
+              "床"
+            ]
+          },
+          {
+            "body": "她侧躺在地毯上，身体横向舒展，一只手搭在腰侧，双脚交叠",
+            "energy": "calm",
+            "props": [
+              "地毯"
+            ]
+          },
+          {
+            "body": "她趴在床上，双手托着下巴，小腿向后翘起，脚尖轻轻交叠",
+            "energy": "playful",
+            "props": [
+              "床"
+            ]
+          },
+          {
+            "body": "她仰躺在床上，长发在床单上散开，双臂自然放在头侧，双腿微微屈起，双脚交叠",
+            "energy": "calm",
+            "props": [
+              "床"
+            ]
+          },
+          {
+            "body": "她前臂撑地侧身半卧在地毯上，身体横向展开，双腿向一侧舒展，双脚并拢",
+            "energy": "playful",
+            "props": [
+              "地毯"
+            ]
+          },
+          {
+            "body": "她侧卧在躺椅上，身体沿躺椅横向展开，一只手枕在头下，双脚轻轻交叠",
+            "energy": "calm",
+            "props": [
+              "躺椅"
+            ]
+          },
+          {
+            "body": "她仰躺在草地上，长发散在草叶间，身体横向展开，双脚交叠",
+            "energy": "calm",
+            "props": [
+              "草地"
+            ]
+          },
+          {
+            "body": "她坐在地面上，身体沿地面横向展开，上身斜靠一侧手臂，双腿向另一侧舒展，双脚并拢",
+            "energy": "calm"
+          },
+          {
+            "body": "她侧躺在沙发上，身体沿沙发横向展开，一只手搭在沙发靠背上，双脚轻轻交叠",
+            "energy": "playful",
+            "props": [
+              "沙发"
+            ]
+          },
+          {
+            "body": "她侧卧在地面上，一只手枕在头下，身体从肩到腰再到腿形成一道起伏的曲线，双脚轻轻交叠",
+            "energy": "calm"
+          },
+          {
+            "body": "她俯卧在地面上，双肘撑地托着下巴，小腿向上交叠翘起，脚尖轻点",
+            "energy": "playful"
+          }
+        ]
+      }
+    }
+  },
+  "OUTFITS": {
+    "normal": {
+      "head_shot": [
+        "{main}丝质立领上衣，立领边缘压着一道细窄的滚边，布面带着柔和的垂坠光泽，一对珍珠耳钉点亮脸侧",
+        "{main}针织开衫，领口停在画面下缘，露出里面{support}方领背心的滚边上缘，针织罗纹细密",
+        "{main}一字领上衣，领口平平地横过肩头，领缘有一道整齐的折边，颈间一条细链项链",
+        "{main}飘带领雪纺衬衫，领口的飘带在颈侧系成松散的蝴蝶结，雪纺边缘有细窄滚边",
+        "{main}亚麻衬衫，领口随意敞开一颗扣子，翻领边缘有细细的车缝线，{accent}小耳环贴在耳垂",
+        "{main}吊带连衣裙，细肩带与领口的接缝处压线整齐，缎面在光下泛着柔和光泽",
+        "{main}高领针织衫，罗纹领口折边贴合脖颈，衣料柔软蓬松，{accent}耳环在发丝间闪一下",
+        "{main}方领泡泡袖上衣，方领边缘有细窄滚边，肩头的泡泡袖在袖窿处蓬起柔软的弧度",
+        "{main}珍珠扣开衫，领口滚边细窄，一对{accent}耳环贴在耳垂",
+        "{main}水手领上衣，领口的{support}滚边在胸前收成小领结",
+        "{main}衬衫，领口系着一条{support}小丝巾，领缘有细窄压线",
+        "{main}针织翻领衫，罗纹翻领折边整齐，{accent}细链贴在颈间"
+      ],
+      "half_body": [
+        "{main}丝质立领上衣，前襟一排细小的包扣，衣摆收进{support}高腰裙压线整齐的裙腰，布面垂坠柔和",
+        "{main}短款针织开衫，敞开的门襟露出{support}方领背心的滚边领口，细密罗纹沿肩线垂到袖口",
+        "{main}亚麻衬衫，袖子随意折边卷到小臂，衣摆松松地塞进{support}高腰裤，布料有自然的褶皱",
+        "{main}吊带连衣裙，细肩带搭在肩头，缎面从胸前自然垂到腰间，腰侧有一道细细的收省",
+        "{main}廓形牛仔短外套，内搭{support}吊带背心，翻领有明线车缝，银色纽扣沿门襟排列",
+        "{main}飘带领雪纺衬衫，飘带系成松散的蝴蝶结垂在胸前，窄袖口的滚边收住轻盈的袖身",
+        "{main}宽肩短外套，敞开的前襟露出{support}圆领背心，肩部线条挺括，袖口折边整齐",
+        "{main}方领泡泡袖连衣裙，腰间系一条{accent}细腰带，泡泡袖在袖窿处蓬起柔软的弧度",
+        "{main}高领针织衫搭配{support}背带裙，背带与裙身的接缝处有金属扣，针织袖口松松地堆在手腕",
+        "{main}针织背心叠穿{support}衬衫，背心的V领滚边整齐，衬衫领从领口翻出来",
+        "{main}短款西装外套，内搭{support}丝质吊带，驳领车缝整齐",
+        "{main}泡泡袖衬衫，袖窿处蓬起柔软的弧度，前襟一排{accent}小纽扣",
+        "{main}水手领连衣裙，领口的{support}滚边在胸前收成小领结",
+        "{main}工装衬衫，胸前两个带盖口袋，明线车缝清楚，衣摆塞进{support}高腰裤"
+      ],
+      "full_body": [
+        {
+          "text": "{main}吊带长裙，腰侧收省让缎面贴着身体，一直垂到脚踝，裙摆随动作轻轻摆动",
+          "shoes": "{support}细带凉鞋"
+        },
+        {
+          "text": "{main}亚麻衬衫搭配{support}高腰阔腿裤，衬衫衣摆松松塞进压线整齐的裤腰，裤腿垂坠到脚背",
+          "shoes": "白色帆布鞋"
+        },
+        {
+          "text": "{main}方领泡泡袖连衣裙，方领边缘有细窄滚边，裙摆落在小腿中段，腰间系一条{accent}细腰带",
+          "shoes": "{support}玛丽珍鞋"
+        },
+        {
+          "text": "{main}短款针织开衫搭配{support}高腰百褶长裙，裙腰压线整齐，百褶随脚步散开",
+          "shoes": "白色乐福鞋"
+        },
+        {
+          "text": "{main}廓形牛仔短外套搭配{support}吊带连衣裙，外套有明线车缝和毛边下摆，裙摆落在膝盖上方",
+          "shoes": "白色短靴"
+        },
+        {
+          "text": "{main}丝质衬衫裙，门襟有细窄滚边，腰间一条同色系带收出腰线，裙摆开衩到小腿",
+          "shoes": "{support}低跟鞋"
+        },
+        {
+          "text": "{main}宽肩短外套搭配{support}高腰西装短裤，外套敞开，袖口折边整齐，短裤有利落的裤褶",
+          "shoes": "黑色中筒靴"
+        },
+        {
+          "text": "{main}飘带领雪纺衬衫搭配{support}高腰伞裙，伞裙从压线整齐的腰线向外展开",
+          "shoes": "银色玛丽珍鞋"
+        },
+        {
+          "text": "{main}针织连衣长裙，细密罗纹贴着身体线条垂到脚踝，外搭一件滚边的{support}短开衫",
+          "shoes": "白色帆布鞋"
+        },
+        {
+          "text": "{main}水手领连衣裙，领口的{support}滚边收成小领结，裙摆落在膝盖下方",
+          "shoes": "白色玛丽珍鞋"
+        },
+        {
+          "text": "{main}短款西装外套搭配{support}高腰百褶短裙，驳领车缝整齐",
+          "shoes": "黑色乐福鞋"
+        },
+        {
+          "text": "{main}工装连体裤，腰间系一条同色腰带，口袋明线车缝清楚，裤脚卷起一折",
+          "shoes": "白色帆布鞋"
+        },
+        {
+          "text": "{main}针织开衫搭配{support}缎面半身长裙，开衫袖口折边整齐，裙摆垂到小腿",
+          "shoes": "{accent}芭蕾平底鞋"
+        },
+        {
+          "text": "{main}碎花茶歇裙，领口的细窄滚边绕成V形，裙摆随脚步轻轻摆动",
+          "shoes": "{support}绑带凉鞋"
+        }
+      ]
+    },
+    "bold": {
+      "head_shot": [
+        {
+          "text": "{main}缎面细吊带，细肩带与领口的接缝压线清楚，{accent}细链项圈贴在颈间"
+        },
+        {
+          "text": "{main}挂脖上衣，挂脖细带在颈后系成结，领口滚边细窄，{accent}耳坠垂在发丝间"
+        },
+        {
+          "text": "{main}一字肩上衣，领口的细窄滚边横过肩头，颈间一条{accent}锁骨链"
+        },
+        {
+          "text": "{main}蕾丝边吊带，花边沿领口折边展开，{accent}珍珠项链贴着颈侧"
+        },
+        {
+          "text": "{main}薄纱叠层吊带，透亮的纱边压着细窄滚边，{accent}细项圈扣在颈间"
+        },
+        {
+          "text": "{main}交叉细带上衣，两根细带在颈前交叉后绕到肩后，接缝处有{accent}小金属扣"
+        },
+        {
+          "text": "{main}露肩缎面上衣，荷叶边沿肩头滚边展开，{accent}细链耳环垂到颈侧"
+        },
+        {
+          "text": "{main}绑带挂脖上衣，颈后的系带垂到肩后，领口压线细窄，{accent}水滴项链落在锁骨间"
+        },
+        {
+          "text": "{main}细肩带缎面吊带，一侧肩带滑落到手臂上，领口滚边细窄，{accent}细链贴在颈间"
+        },
+        {
+          "text": "{main}露背挂脖上衣，颈后系带垂向背部，领口压线细窄，{accent}耳坠垂在发丝间"
+        },
+        {
+          "text": "{main}蕾丝三角文胸，细肩带与杯边的接缝压线整齐，杯边的睫毛蕾丝停在画面下缘，{accent}细链项圈扣在颈间",
+          "requires": "private"
+        },
+        {
+          "text": "{main}缎面吊带睡裙，细肩带滑到肩头，领口的蕾丝滚边细窄，{accent}耳坠垂在颈侧",
+          "requires": "private"
+        },
+        {
+          "text": "{main}绑带挂脖内衣，细带在颈前交叉后绕到颈后，接缝处缀着{accent}小金属环",
+          "requires": "private"
+        },
+        {
+          "text": "{main}薄纱睡袍从肩头滑落，领口滚边细窄，里面露出{support}蕾丝文胸的细肩带",
+          "requires": "private"
+        }
+      ],
+      "half_body": [
+        {
+          "text": "{main}缎面束身胸衣，竖向鱼骨压线收出腰线，外搭一件半透明的{support}薄纱衬衫"
+        },
+        {
+          "text": "{main}挂脖连体泳衣，腰侧有弧形镂空，接缝处缀着{accent}小金属环，外搭{support}薄纱罩衫",
+          "requires": "water"
+        },
+        {
+          "text": "{main}缎面吊带裙，细肩带搭在肩头，胸前的收省让缎面贴合身体，腰间一条{accent}细链"
+        },
+        {
+          "text": "{main}蕾丝束腰上衣，蕾丝边沿领口滚边展开，腰侧系着{support}缎带"
+        },
+        {
+          "text": "{main}深V领贴身连体衣，领口滚边细窄，腰间系一条{accent}细腰链"
+        },
+        {
+          "text": "{main}交叉绑带上衣，细带在腰前交叉系结，接缝压线清楚，{accent}臂环扣在上臂"
+        },
+        {
+          "text": "{main}露背吊带上衣，背部的交叉细带接缝压线整齐，{accent}细链从颈后垂下"
+        },
+        {
+          "text": "{main}缎面裹身上衣，斜向交叠的前片在腰侧收省系结，{support}透明手套边停在手腕"
+        },
+        {
+          "text": "{main}露背缎面上衣，背部开到腰窝，接缝压线整齐，{accent}细链从颈后垂到背心"
+        },
+        {
+          "text": "{main}透明薄纱衬衫罩在{support}缎面胸衣外，胸衣竖向鱼骨压线若隐若现"
+        },
+        {
+          "text": "{main}挂脖深V连体泳衣，腰侧大面积弧形镂空，接缝处压线整齐",
+          "requires": "water"
+        },
+        {
+          "text": "{main}绑带束身胸衣，前片交叉绑带收紧腰线，接缝压线清楚，{accent}细链垂在腰间"
+        },
+        {
+          "text": "{main}蕾丝文胸套装，杯边的睫毛蕾丝和细肩带接缝压线整齐，腰间系一条{accent}细腰链，外搭一件敞开的{support}薄纱睡袍",
+          "requires": "private"
+        },
+        {
+          "text": "{main}缎面吊带娃娃裙，胸前的蕾丝杯面有不透明衬里，裙摆从胸下散开，领口滚边细窄",
+          "requires": "private"
+        },
+        {
+          "text": "{main}绑带束身内衣，前片交叉绑带收紧腰线，杯面有不透明衬里，接缝压线清楚",
+          "requires": "private"
+        },
+        {
+          "text": "{main}蕾丝连体衣，胸前杯面有不透明衬里，腰侧是镂空蕾丝，接缝压线整齐，{accent}细链垂在腰间",
+          "requires": "private"
+        },
+        {
+          "text": "{main}丝绒束身胸衣，竖向鱼骨压线收出细腰，上缘的蕾丝滚边贴着胸线",
+          "requires": "private"
+        },
+        {
+          "text": "{main}挂脖三角比基尼，细带在颈后系结，杯边滚边细窄，外搭{support}透明薄纱衬衫半敞",
+          "requires": "water"
+        }
+      ],
+      "full_body": [
+        {
+          "text": "{main}高开衩缎面长裙，开衩从大腿一直到裙摆，腰侧收省让缎面贴合身体",
+          "shoes": "{accent}细带高跟鞋"
+        },
+        {
+          "text": "{main}缎面吊带短裙，裙摆落在大腿中段，领口滚边细窄，腰间一条{accent}细链",
+          "shoes": "{support}细带凉鞋"
+        },
+        {
+          "text": "{main}束身胸衣搭配{support}高腰缎面短裙，胸衣竖向鱼骨压线清楚，腿上是{support}长筒丝袜",
+          "shoes": "黑色细跟鞋"
+        },
+        {
+          "text": "{main}挂脖连体泳衣，腰侧弧形镂空，接缝处缀着{accent}小金属环，外搭{support}透明薄纱罩衫",
+          "shoes": "透明细带凉鞋",
+          "requires": "water"
+        },
+        {
+          "text": "{main}深V贴身连体衣搭配{support}吊带丝袜，领口滚边细窄，腰间系一条{accent}细腰链",
+          "shoes": "细跟高跟鞋"
+        },
+        {
+          "text": "{main}露背长裙，背部的交叉细带接缝压线清楚，裙摆垂到脚踝",
+          "shoes": "{accent}细带高跟鞋"
+        },
+        {
+          "text": "{main}裹身缎面连衣裙，斜向交叠的前片在腰侧收省系结，裙摆落在膝盖上方",
+          "shoes": "{support}尖头高跟鞋"
+        },
+        {
+          "text": "{main}亮片吊带短裙，细肩带接缝压线整齐，裙摆的亮片在光下闪烁",
+          "shoes": "{accent}细带高跟鞋"
+        },
+        {
+          "text": "{main}高开衩露背长裙，开衩到大腿上方，背部开到腰窝，接缝压线整齐",
+          "shoes": "{accent}细带高跟鞋"
+        },
+        {
+          "text": "{main}缎面吊带短裙搭配{support}吊带丝袜，丝袜的蕾丝边在裙摆下若隐若现，腰侧收省贴合身体",
+          "shoes": "{accent}细带高跟鞋"
+        },
+        {
+          "text": "{main}挂脖连体泳衣，腰侧弧形镂空，外搭一件敞开的{support}薄纱长罩衫，接缝处压线整齐",
+          "shoes": "透明细带凉鞋",
+          "requires": "water"
+        },
+        {
+          "text": "{main}贴身针织长裙，细密罗纹紧贴身体曲线，侧缝开衩到大腿，领口折边整齐",
+          "shoes": "{support}尖头高跟鞋"
+        },
+        {
+          "text": "{main}束身胸衣搭配{support}高腰开衩纱裙，胸衣鱼骨压线清楚，纱裙开衩处露出腿线",
+          "shoes": "{accent}细带高跟鞋"
+        },
+        {
+          "text": "{main}蕾丝文胸套装搭配{support}吊袜带和长筒丝袜，吊袜带的细扣与丝袜蕾丝边相连，接缝压线整齐",
+          "shoes": "{accent}细跟高跟鞋",
+          "requires": "private"
+        },
+        {
+          "text": "{main}缎面吊带娃娃裙，裙摆落在大腿上方，杯面有不透明衬里，领口滚边细窄，外罩一件及地的{support}薄纱睡袍",
+          "shoes": "{support}缎面细跟拖鞋",
+          "requires": "private"
+        },
+        {
+          "text": "{main}蕾丝连体衣搭配{support}吊带丝袜，胸前杯面有不透明衬里，腰侧镂空蕾丝接缝压线整齐",
+          "shoes": "黑色细跟鞋",
+          "requires": "private"
+        },
+        {
+          "text": "{main}绑带束身内衣搭配同色高腰三角底裤，交叉绑带收紧腰线，接缝压线清楚，腿上是{support}网眼长筒袜",
+          "shoes": "{accent}细带高跟鞋",
+          "requires": "private"
+        },
+        {
+          "text": "{main}缎面睡袍松松地系在腰间，里面是{support}蕾丝文胸套装，领口滚边细窄",
+          "shoes": "{support}缎面细跟拖鞋",
+          "requires": "private"
+        },
+        {
+          "text": "{main}丝绒束身胸衣搭配同色高叉底裤和{support}吊袜带长筒丝袜，胸衣竖向鱼骨压线清楚",
+          "shoes": "黑色细跟鞋",
+          "requires": "private"
+        },
+        {
+          "text": "{main}挂脖三角比基尼，细带在颈后和腰侧系结，杯边滚边细窄，腰间系一条{support}透明薄纱围裙",
+          "shoes": "透明细带凉鞋",
+          "requires": "water"
+        }
+      ]
+    }
+  },
+  "COMPOSITION": {
+    "head_shot": [
+      "脸部位于画面上方三分之一处",
+      "脸部略偏向画面一侧，另一侧露出虚化的背景"
+    ],
+    "half_body": [
+      "人物略偏向画面一侧，身后保留场景纵深",
+      "人物位于画面中线，身后场景层次分明"
+    ],
+    "full_body": [
+      "人物位于画面三分线附近，脚下地面和身后场景完整可见",
+      "人物位于画面中部，四周都有真实的场景内容"
+    ]
+  },
+  "LENSES": {
+    "head_shot": [
+      "85mm 人像镜头，f/1.8 浅景深",
+      "105mm 中长焦，背景压缩成柔和的散景"
+    ],
+    "half_body": [
+      "85mm 人像镜头，f/2.2 适度景深",
+      "50mm 标准镜头，环境虚化但保留层次"
+    ],
+    "full_body": [
+      "35mm 镜头，f/4 保留场景纵深",
+      "50mm 标准镜头，f/2.8 背景柔和虚化"
+    ]
+  },
+  "OUTFITS_ANCIENT": {
+    "normal": {
+      "head_shot": [
+        {
+          "text": "{main}交领上衣，衣领边缘有{support}细窄滚边，发间插着一支{accent}发簪",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}宋制褙子，对襟领缘压着一道{support}绣边滚边，耳侧垂着{accent}耳坠",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}齐胸襦裙，胸前系带打成蝴蝶结，外罩的薄纱大袖衫领口滚边细窄",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}立领斜襟短袄，盘扣从领口斜向扣到腋下，领缘压线整齐",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}短袖旗袍，立领盘扣压线整齐，领口缀着一颗{accent}珍珠",
+          "style": "republic"
+        },
+        {
+          "text": "{main}敦煌飞天装，领缘缀着{accent}珠串，肩头绕着{support}飘带，接缝处压着金线",
+          "style": "dunhuang"
+        }
+      ],
+      "half_body": [
+        {
+          "text": "{main}交领襦裙，衣襟和袖口有{support}细窄滚边，腰间系一条{accent}绦带",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}宋制褙子叠穿{support}抹胸，对襟领缘有细窄的绣边滚边，腰间垂着{accent}玉佩",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}齐胸襦裙，外罩{support}薄纱大袖衫，胸前系带打成蝴蝶结，袖口滚边细窄",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}明制立领长袄，领口的{accent}金扣整齐排列，袖口折边压线清楚",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}改良旗袍，立领盘扣压线整齐，侧缝收省贴合腰线",
+          "style": "republic"
+        },
+        {
+          "text": "{main}敦煌飞天装，短上衣边缘有金线滚边，臂间缠着{support}飘带，腕上戴着{accent}臂钏",
+          "style": "dunhuang"
+        }
+      ],
+      "full_body": [
+        {
+          "text": "{main}明制马面裙搭配{support}立领短袄，短袄领缘滚边细窄，马面裙的褶在走动间展开，裙门绣着{accent}纹样，裸足从裙摆下方露出",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}齐胸襦裙，外罩{support}薄纱大袖衫，裙摆垂到脚面，胸前系带打成蝴蝶结，大袖衫袖口滚边细窄，裸足从裙摆下方露出",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}宋制褙子搭配{support}百迭裙，对襟领缘压着绣边滚边，腰间垂着{accent}玉佩，裸足从裙摆下方露出",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}交领曲裾深衣，衣襟绕身一周收在腰侧，领缘和袖口有{support}滚边，裸足从裙摆下方露出",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}长款旗袍，立领盘扣压线整齐，侧缝开衩到小腿，裸足踩在地面上",
+          "style": "republic"
+        },
+        {
+          "text": "{main}敦煌飞天长裙，裙腰压着金线滚边，臂间缠着{support}飘带，腕上戴着{accent}臂钏，裸足点在地面上",
+          "style": "dunhuang"
+        }
+      ]
+    },
+    "bold": {
+      "head_shot": [
+        {
+          "text": "{main}抹胸外罩{support}薄纱大袖衫，薄纱领口滚边细窄，发间插着{accent}步摇",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}露肩交领上衣，衣领滑到肩头，领缘有{accent}金线滚边",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}高立领旗袍，盘扣压线整齐，领口缀着一颗{accent}珍珠",
+          "style": "republic"
+        },
+        {
+          "text": "{main}敦煌舞姬装，领缘缀着{accent}珠串，接缝处压着金线滚边，额间垂着一枚花钿",
+          "style": "dunhuang"
+        },
+        {
+          "text": "{main}绣花肚兜的细带系在颈后，领缘绣边滚边整齐，肩头搭着一层{support}薄纱",
+          "style": "hanfu",
+          "requires": "private"
+        }
+      ],
+      "half_body": [
+        {
+          "text": "{main}抹胸襦裙，外罩一件半透明的{support}薄纱大袖衫，抹胸上缘有{accent}金线滚边",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}改良旗袍，立领盘扣压线整齐，侧缝收省贴合腰线，袖口开到上臂",
+          "style": "republic"
+        },
+        {
+          "text": "{main}敦煌舞姬装，短上衣边缘缀着{accent}珠串，臂间缠着{support}飘带，接缝处压着金线",
+          "style": "dunhuang"
+        },
+        {
+          "text": "{main}露肩交领短衫，衣领滑到肩头，领缘滚边细窄，腰间系一条{accent}绦带",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}绣花肚兜外罩一件{support}薄纱大袖衫，肚兜的绣边滚边整齐，颈后和腰后系着细带",
+          "style": "hanfu",
+          "requires": "private"
+        }
+      ],
+      "full_body": [
+        {
+          "text": "{main}高开衩旗袍，开衩从大腿一直到裙摆，立领盘扣压线整齐，裸足踩在地面上",
+          "style": "republic"
+        },
+        {
+          "text": "{main}抹胸长裙，外罩{support}薄纱大袖衫，抹胸上缘有{accent}金线滚边，裙摆曳地，裸足从裙摆下方露出",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}敦煌舞姬装，短上衣边缘缀着{accent}珠串，高腰长裙的裙腰压着金线滚边，裙摆开衩，臂间缠着{support}飘带，裸足点在地面上",
+          "style": "dunhuang"
+        },
+        {
+          "text": "{main}齐胸襦裙低系在胸口，外罩{support}薄纱披帛，裙腰压着{accent}绣边滚边，裸足从裙摆下方露出",
+          "style": "hanfu"
+        },
+        {
+          "text": "{main}绣花肚兜外罩及地的{support}薄纱大袖衫，肚兜的绣边滚边整齐，腰间系着{accent}绦带，裸足从纱衫下方露出",
+          "style": "hanfu",
+          "requires": "private"
+        }
+      ]
+    }
+  },
+  "LIGHT_TYPES": {
+    "backlight": {
+      "body_light": {
+        "head_shot": [
+          "逆光在发丝和颈侧勾出一道金边，下颌线被照得格外清晰"
+        ],
+        "half_body": [
+          "逆光沿着肩线、锁骨和腰侧勾出一道金色轮廓，身体曲线从背景里浮出来",
+          "逆光穿过发丝落在肩头，腰侧的弧线镶着一圈暖光"
+        ],
+        "full_body": [
+          "逆光把整个身体的轮廓勾成一道金边，从肩到腰再到腿的曲线清晰地浮在背景前",
+          "逆光从身后漫过来，腰线和修长的腿线镶着一圈暖金色的光边"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "迎着逆光拍摄，脸的一侧沉在柔和的暗部"
+        ],
+        "half_body": [
+          "人物半侧身对着光，身体轮廓落在画面三分线上"
+        ],
+        "full_body": [
+          "低机位迎着逆光拍摄，人物身体线条在画面中形成一道修长的弧线"
+        ]
+      }
+    },
+    "side_window": {
+      "body_light": {
+        "head_shot": [
+          "侧光从颧骨滑到颈侧，一半脸亮一半脸暗，明暗交界落在唇角"
+        ],
+        "half_body": [
+          "侧光斜切过锁骨和胸口，腰侧落进柔和的阴影，明暗交界勾出身体的起伏",
+          "一道窄窄的侧光落在肩头和腰侧，其余部分沉在暗处"
+        ],
+        "full_body": [
+          "侧光从一侧扫过全身，腰线和腿线一侧明亮、一侧沉在阴影里，身体像被光雕刻出来"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "脸部位于画面一侧，另一侧留出被光照亮的墙面"
+        ],
+        "half_body": [
+          "人物靠近画面一侧的光源，另一侧留出渐暗的空间"
+        ],
+        "full_body": [
+          "人物站在光影交界处，身体一半在光里一半在阴影里"
+        ]
+      }
+    },
+    "dappled": {
+      "body_light": {
+        "head_shot": [
+          "细碎的光斑落在脸颊和颈侧，像在皮肤上缀了几点亮片"
+        ],
+        "half_body": [
+          "光斑零星落在锁骨、肩头和腰侧，皮肤在明暗之间忽隐忽现"
+        ],
+        "full_body": [
+          "光斑洒在肩头、腰侧和腿上，整个人像被光点轻轻缀满"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "透过前景虚化的叶片拍摄，脸在叶影缝隙中"
+        ],
+        "half_body": [
+          "透过前景枝叶拍摄，人物在叶影缝隙中"
+        ],
+        "full_body": [
+          "透过前景虚化的枝叶拍摄，人物站在光斑中央"
+        ]
+      }
+    },
+    "hard_top": {
+      "body_light": {
+        "head_shot": [
+          "高处的强光在下颌下方和颈侧留下清晰的阴影，皮肤显得冷白透亮"
+        ],
+        "half_body": [
+          "强光在锁骨和腰侧留下利落的阴影，皮肤在饱和的色彩里显得格外白"
+        ],
+        "full_body": [
+          "强光把影子短短地压在脚下，腿线和腰线在高光里干净利落"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "脸部占据画面中心，背后是大面积纯色"
+        ],
+        "half_body": [
+          "人物占据画面中心，背后是大面积饱和的纯色"
+        ],
+        "full_body": [
+          "低机位仰拍，天空作为纯色背景，身体线条被拉得修长"
+        ]
+      }
+    },
+    "soft_diffuse": {
+      "body_light": {
+        "head_shot": [
+          "柔和的散射光让皮肤像瓷一样细腻，唇峰和鼻梁有一点湿润的高光"
+        ],
+        "half_body": [
+          "柔光包住肩颈和腰线，皮肤边缘泛着一层朦胧的亮"
+        ],
+        "full_body": [
+          "柔光从头到脚均匀地包住她，身体轮廓边缘泛着一层柔和的亮边"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "透过前景一层虚化的纱拍摄，脸在朦胧的光里"
+        ],
+        "half_body": [
+          "透过前景的纱或雾气拍摄，人物若隐若现"
+        ],
+        "full_body": [
+          "人物位于画面中部，四周留出朦胧的光感空间"
+        ]
+      }
+    },
+    "prism": {
+      "body_light": {
+        "head_shot": [
+          "彩色光斑落在脸颊和颈侧，像贴着皮肤的一片彩色玻璃"
+        ],
+        "half_body": [
+          "几块彩色光斑落在肩头、锁骨和腰侧，光把皮肤染上淡淡的色彩"
+        ],
+        "full_body": [
+          "彩色光斑落在肩头、腰侧和腿上，身体被一片片透明的彩光点缀"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "透过一块彩色玻璃的反光拍摄，画面边缘有柔和的彩色光晕"
+        ],
+        "half_body": [
+          "透过彩色玻璃的反光拍摄，画面边缘有柔和的彩色光晕"
+        ],
+        "full_body": [
+          "人物站在折射光最密的位置，墙面和身体上的彩光连成一片"
+        ]
+      }
+    },
+    "low_lamp": {
+      "body_light": {
+        "head_shot": [
+          "低处的暖灯从下颌方向照上来，唇峰和眼底有一点暖色高光，颈侧沉进暗影"
+        ],
+        "half_body": [
+          "暖灯只照亮她的锁骨、肩头和腰侧，身体其余部分隐在柔和的暗影里"
+        ],
+        "full_body": [
+          "暖光从一侧低低地扫过，照亮腰线和一侧的腿线，其余部分隐在暗影中"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "脸部靠近暖光一侧，画面其余部分沉在暗处"
+        ],
+        "half_body": [
+          "人物位于画面一侧，另一侧是沉在暗影里的房间"
+        ],
+        "full_body": [
+          "透过门框拍摄，人物被框在门框中的一片暖光里"
+        ]
+      }
+    },
+    "mirror_bulbs": {
+      "body_light": {
+        "head_shot": [
+          "镜前灯泡的光均匀地照亮脸庞，唇峰和眼尾有细小的亮点"
+        ],
+        "half_body": [
+          "灯泡的光照亮肩颈和锁骨，镜子里映出她光洁的背影"
+        ],
+        "full_body": [
+          "镜前的光照亮她的侧身，镜中映出另一个角度的身体曲线"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "镜子里映出她的侧脸，画面里同时有真人和镜像"
+        ],
+        "half_body": [
+          "镜子里映出她的背影，画面里同时有真人和镜像"
+        ],
+        "full_body": [
+          "镜子里映出她的另一面，画面里同时有真人和镜像"
+        ]
+      }
+    },
+    "moon_rim": {
+      "body_light": {
+        "head_shot": [
+          "冷白的月光在颈侧和耳后勾出一道细边"
+        ],
+        "half_body": [
+          "月光沿着肩线和腰侧勾出一道冷白的轮廓，另一侧被暖光轻轻照亮"
+        ],
+        "full_body": [
+          "月光在背部、腰线和腿线勾出冷白的轮廓，身体曲线浮在深色的夜里"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "脸的一侧浮在冷光里，另一侧沉进暖色的暗部"
+        ],
+        "half_body": [
+          "人物侧身站在夜色里，冷暖两种光分在身体两侧"
+        ],
+        "full_body": [
+          "人物侧身站在夜色里，冷暖两种光分在身体两侧"
+        ]
+      }
+    },
+    "water_ripple": {
+      "body_light": {
+        "head_shot": [
+          "水面反射的光纹在脸颊和颈侧轻轻晃动"
+        ],
+        "half_body": [
+          "粼粼的水光在锁骨和腰侧晃动，光纹像水波一样贴着皮肤"
+        ],
+        "full_body": [
+          "水光纹路在腰线和腿上游动，湿润的皮肤泛着细碎的亮光"
+        ]
+      },
+      "compositions": {
+        "head_shot": [
+          "贴近水面拍摄，下方有一片虚化的水光"
+        ],
+        "half_body": [
+          "贴近水面拍摄，水面的反光占据画面下方"
+        ],
+        "full_body": [
+          "低机位贴着水面拍摄，水面倒影占据画面下方"
+        ]
+      }
+    }
+  }
+}

@@ -83,7 +83,7 @@ from remote_preview_protocol import (
     websocket_connect_kwargs,
 )
 
-__all__ = sorted(["__all__", "_available_krea2_models", "_available_mobile_loras", "_available_mobile_zimage_models", "_available_zib_models", "_available_zimage_models", "_available_zit_models", "_clear_remote_mobile_runtime_state", "_download_remote_image", "_download_remote_video", "_ensure_mobile_session_jobs_loaded", "_load_mobile_session_jobs", "_local_uploaded_image_path_for_remote_result", "_lora_dir_display_path", "_mac_proxy_source_image_url", "_mac_proxy_video_upload_url", "_mobile_runtime_images_for_prompt", "_mobile_session_jobs_path", "_normalize_remote_krea2_model_name", "_normalize_remote_output_subfolder", "_normalize_remote_zimage_model_name", "_queue_local_guarded_workflow", "_queue_mobile_workflow", "_queue_remote_mobile_workflow", "_remote_bytes", "_remote_delete_output_file", "_remote_history", "_remote_image_extension_from_bytes", "_remote_json", "_remote_local_path_for_image", "_remote_local_path_for_video", "_remote_queue", "_remote_websocket_image_filename", "_remote_websocket_local_path", "_resolve_krea2_model", "_resolve_zib_model", "_resolve_zit_model", "_save_mobile_session_jobs", "_save_remote_websocket_image", "_sort_krea2_models", "_sort_zib_models", "_sort_zit_models", "_split_remote_krea2_models", "_split_remote_zimage_models", "_store_remote_runtime_image", "_template_krea2_models", "_watch_remote_websocket_outputs", "receive_remote_video"])
+__all__ = sorted(["__all__", "_available_krea2_models", "_available_mobile_loras", "_available_mobile_zimage_models", "_available_zib_models", "_available_zimage_models", "_available_zit_models", "_clear_remote_mobile_runtime_state", "_ensure_mobile_session_jobs_loaded", "_load_mobile_session_jobs", "_local_uploaded_image_path_for_remote_result", "_lora_dir_display_path", "_mac_proxy_source_image_url", "_mac_proxy_video_upload_url", "_mobile_session_jobs_path", "_normalize_remote_krea2_model_name", "_normalize_remote_output_subfolder", "_normalize_remote_zimage_model_name", "_queue_local_guarded_workflow", "_queue_mobile_workflow", "_queue_remote_mobile_workflow", "_remote_bytes", "_remote_delete_output_file", "_remote_history", "_remote_image_extension_from_bytes", "_remote_json", "_remote_local_path_for_image", "_remote_local_path_for_video", "_remote_queue", "_remote_websocket_image_filename", "_remote_websocket_local_path", "_resolve_krea2_model", "_resolve_zib_model", "_resolve_zit_model", "_save_mobile_session_jobs", "_save_remote_websocket_image", "_sort_krea2_models", "_sort_zib_models", "_sort_zit_models", "_split_remote_krea2_models", "_split_remote_zimage_models", "_template_krea2_models", "_watch_remote_websocket_outputs", "receive_remote_video"])
 
 def _available_zimage_models(prefix):
     try:
@@ -694,40 +694,6 @@ def _remote_websocket_image_filename(prompt_id, image_bytes, image_type=0):
     return f"{prefix}_{index:05d}{_remote_image_extension_from_bytes(image_bytes, image_type)}"
 
 
-def _store_remote_runtime_image(prompt_id, image_bytes, image_type=0):
-    if not prompt_id or not image_bytes:
-        return None
-    filename = _remote_websocket_image_filename(prompt_id, image_bytes, image_type)
-    content_type = "image/jpeg" if filename.lower().endswith((".jpg", ".jpeg")) else "image/png"
-    prompt = ""
-    for job in MOBILE_SESSION_JOBS:
-        if str(job.get("prompt_id") or "") == str(prompt_id):
-            prompt = str(job.get("prompt") or "")
-            break
-    item = {
-        "filename": filename,
-        "subfolder": "",
-        "type": "runtime",
-        "url": f"/random_photo_prompt/mobile/runtime_image/{urllib.parse.quote(str(prompt_id), safe='')}/{urllib.parse.quote(filename)}",
-        "content_type": content_type,
-        "bytes": bytes(image_bytes),
-        "mtime": int(time.time() * 1000),
-        "size": len(image_bytes),
-        "prompt": prompt,
-    }
-    MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID.setdefault(str(prompt_id), []).append(item)
-    print(f"[random_photo_prompt] remote websocket runtime image stored prompt_id={prompt_id} filename={filename} bytes={len(image_bytes)}", flush=True)
-    return item
-
-
-def _mobile_runtime_images_for_prompt(prompt_id):
-    items = MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID.get(str(prompt_id or ""), [])
-    result = []
-    for item in items:
-        result.append({key: value for key, value in item.items() if key != "bytes"})
-    return result
-
-
 def _save_remote_websocket_image(prompt_id, image_bytes, image_type=0):
     if not prompt_id or not image_bytes:
         return None
@@ -753,6 +719,30 @@ def _save_remote_websocket_image(prompt_id, image_bytes, image_type=0):
     REMOTE_WS_IMAGE_RECEIVED_BY_PROMPT_ID[str(prompt_id)] = True
     print(f"[random_photo_prompt] remote websocket image saved prompt_id={prompt_id} path={local_path} bytes={len(image_bytes)}", flush=True)
     return local_path
+
+
+async def _probe_remote_websocket():
+    """Exercise the image handshake in this service process without queuing work."""
+    result = {"time": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "pid": os.getpid()}
+    ready = asyncio.Event()
+    watcher = asyncio.create_task(_watch_remote_websocket_outputs(
+        {"value": ""}, f"rpp_diagnostic_{uuid.uuid4().hex}", ready_event=ready,
+    ))
+    waiter = asyncio.create_task(ready.wait())
+    try:
+        done, _ = await asyncio.wait({watcher, waiter}, timeout=10, return_when=asyncio.FIRST_COMPLETED)
+        if watcher in done:
+            watcher.result()
+        if not ready.is_set():
+            raise TimeoutError("远端未在 10 秒内完成 WebSocket 功能协商。")
+        result["ok"] = True
+    except Exception as exc:
+        result.update(ok=False, error=str(exc), error_type=type(exc).__name__)
+    finally:
+        watcher.cancel()
+        waiter.cancel()
+        await asyncio.gather(watcher, waiter, return_exceptions=True)
+    return result
 
 
 async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=None, output_nodes=None, output_prefix="", node_total=0, output_mode="mac", expect_image_frames=True):
@@ -905,7 +895,8 @@ async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=Non
                         received_image_count += 1
     except asyncio.CancelledError:
         raise
-    except Exception:
+    except Exception as exc:
+        print(f"[random_photo_prompt] websocket failure time={time.strftime('%Y-%m-%dT%H:%M:%S%z')} pid={os.getpid()} client_id={client_id} error={exc!r}", flush=True)
         traceback.print_exc()
         # The submitter must receive a failed pre-queue handshake immediately.
         # Swallowing this exception leaves the phone page waiting for a task
@@ -963,36 +954,6 @@ def _local_uploaded_image_path_for_remote_result(image):
     return None
 
 
-async def _download_remote_image(image):
-    uploaded_path = _local_uploaded_image_path_for_remote_result(image)
-    if uploaded_path:
-        return uploaded_path
-    local_path = _remote_local_path_for_image(image)
-    if local_path.is_file() and local_path.stat().st_size > 0:
-        await _remote_delete_output_file(image)
-        return local_path
-    params = urllib.parse.urlencode(
-        {
-            "filename": image.get("filename", ""),
-            "subfolder": image.get("subfolder", ""),
-            "type": image.get("type", "output"),
-        }
-    )
-    data, error = await _remote_bytes(f"/view?{params}")
-    if error:
-        raise RuntimeError(error.get("error") or "下载远端图片失败。")
-    if not data:
-        raise RuntimeError("下载远端图片失败：远端返回空文件。")
-    tmp_path = local_path.with_name(f".{local_path.name}.tmp")
-    tmp_path.write_bytes(data)
-    if not tmp_path.is_file() or tmp_path.stat().st_size <= 0:
-        raise RuntimeError("下载远端图片失败：本地临时文件未写入。")
-    tmp_path.replace(local_path)
-    if local_path.is_file() and local_path.stat().st_size > 0:
-        await _remote_delete_output_file(image)
-    return local_path
-
-
 def _remote_local_path_for_video(video):
     filename = Path(str(video.get("filename") or "")).name
     if not filename:
@@ -1003,34 +964,6 @@ def _remote_local_path_for_video(video):
     if local_path.parent != _mobile_video_output_dir():
         raise ValueError("远端视频本地路径不安全。")
     return local_path
-
-
-async def _download_remote_video(video):
-    local_path = _remote_local_path_for_video(video)
-    if local_path.is_file() and local_path.stat().st_size > 0:
-        await _remote_delete_output_file(video)
-        return local_path
-    params = urllib.parse.urlencode(
-        {
-            "filename": video.get("filename", ""),
-            "subfolder": video.get("subfolder", ""),
-            "type": video.get("type", "output"),
-        }
-    )
-    data, error = await _remote_bytes(f"/view?{params}", timeout=300)
-    if error:
-        raise RuntimeError(error.get("error") or "下载远端视频失败。")
-    if not data:
-        raise RuntimeError("下载远端视频失败：远端返回空文件。")
-    tmp_path = local_path.with_name(f".{local_path.name}.tmp")
-    tmp_path.write_bytes(data)
-    if not tmp_path.is_file() or tmp_path.stat().st_size <= 0:
-        raise RuntimeError("下载远端视频失败：本地临时文件未写入。")
-    tmp_path.replace(local_path)
-    if local_path.is_file() and local_path.stat().st_size > 0:
-        await _remote_delete_output_file(video)
-    return local_path
-
 
 
 def _mobile_session_jobs_path():

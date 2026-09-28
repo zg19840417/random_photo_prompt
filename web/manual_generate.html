@@ -201,9 +201,9 @@
 
     function updateModelFields() {
       const workflow = els.workflow.value;
-      els["zit-field"].hidden = !["zit_single","zitb_double","zimage_double_v2"].includes(workflow);
-      els["zib-field"].hidden = !["zib_single","zitb_double","zimage_double_v2"].includes(workflow);
-      els["krea2-field"].hidden = workflow !== "redcraft_krea2";
+      els["zit-field"].hidden = !["zit_single","zitb_double"].includes(workflow);
+      els["zib-field"].hidden = workflow !== "zitb_double";
+      els["krea2-field"].hidden = !["redcraft_krea2","krea2_double"].includes(workflow);
       els["negative-field"].hidden = workflow !== "zitb_double";
       if (workflow !== "zitb_double") els.negative.value = "";
     }
@@ -350,9 +350,9 @@
         negative_prompt:workflow === "zitb_double" ? els.negative.value.trim() : "",
         custom_resolution:`${width}x${height}`,
         client_id:clientId,
-        zit_model:["zit_single","zitb_double","zimage_double_v2"].includes(workflow) ? els["zit-model"].value : "",
-        zib_model:["zib_single","zitb_double","zimage_double_v2"].includes(workflow) ? els["zib-model"].value : "",
-        krea2_model:workflow === "redcraft_krea2" ? els["krea2-model"].value : "",
+        zit_model:["zit_single","zitb_double"].includes(workflow) ? els["zit-model"].value : "",
+        zib_model:workflow === "zitb_double" ? els["zib-model"].value : "",
+        krea2_model:["redcraft_krea2","krea2_double"].includes(workflow) ? els["krea2-model"].value : "",
         scale:"normal",
         shot:"full_body",
         era:"modern"

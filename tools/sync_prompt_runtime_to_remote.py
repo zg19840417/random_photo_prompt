@@ -23,20 +23,27 @@ FILES = [
     "prompt_data.py",
     "prompt_engine.py",
     "prompt_normalize.py",
-    "prompt_planner.py",
     "prompt_postprocess.py",
+    "prompt_composer.py",
+    "prompt_fluency.py",
     "negative_prompt_engine.py",
-    "k2_sfw_prompt_rule.py",
     "video_prompt_engine.py",
     "video_resolution.py",
     "prompt_resolution.py",
     "remote_preview_protocol.py",
     "workflow_cleanup_policy.py",
+    "mobile_workflow_api.json",
     "mobile_workflow_api_2.json",
+    "mobile_workflow_api_krea2.json",
+    "mobile_workflow_api_krea2_double.json",
+    "minimax_h3_workflow_api.json",
 ]
 SUBDIR_FILES = [
     "data/nsfw_pose_expression_options.json",
     "data/prompt_pools.json",
+    "data/art_direction_pools.json",
+    "web/mobile.html",
+    "web/manual_generate.html",
 ]
 
 
@@ -76,8 +83,10 @@ def main():
         path = PROJECT / file
         if not path.is_file():
             continue
-        remote_dir = f"{REMOTE_SSH}:D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/data/"
-        run(["ssh", REMOTE_SSH, "powershell", "-NoProfile", "-Command", "New-Item -ItemType Directory -Force 'D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/data' | Out-Null"])
+        parent = path.parent.name
+        remote_path = f"D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/{parent}"
+        remote_dir = f"{REMOTE_SSH}:{remote_path}/"
+        run(["ssh", REMOTE_SSH, "powershell", "-NoProfile", "-Command", f"New-Item -ItemType Directory -Force '{remote_path}' | Out-Null"])
         run(["scp", str(path), remote_dir])
     require_idle_queues()
     run(["python3", "tools/restart_windows_remote_comfyui.py"])

@@ -72,7 +72,9 @@
 | 图片/视频工作流 patch、清理节点、LoRA | `rpp_workflow.py`、`workflow_cleanup_policy.py` |
 | 共享常量、目录和运行时状态 | `rpp_globals.py`、`rpp_utils.py` |
 | 提示词总入口与拼装 | `prompt_engine.py`、`rpp_prompts.py` |
-| 提示词数据池 | `data/prompt_pools.json` |
+| 固定人物、妆容、质量尾、基础负面词 | `data/prompt_pools.json` |
+| 一至三档（现代与古装）艺术母题、地点、动作、神情、配色服装 | `data/art_direction_pools.json`、`prompt_composer.py` |
+| 最终提示词逐行通顺检查 | `prompt_fluency.py` |
 | 四档姿势池 | `data/nsfw_pose_expression_options.json` |
 | 提示词规划、标准化、裁剪、负面词、尺寸 | 对应的 `prompt_*.py`、`negative_prompt_engine.py`、`video_resolution.py` |
 | 手机页面 | `web/mobile.html` |
@@ -96,8 +98,8 @@
 
 - 图生视频提示词只写画面如何运动，不重述静态人物、衣着、场景或文生图六维度；具体写法遵循 `docs/VIDEO_PROMPT_OPTION_GUIDE.md`。
 - 视频提交只读取视频动作输入框；不得继承图片页残留的手动提示词或其他跨模式状态。非空自定义文本必须原样写入工作流，禁止二次加工；仅空输入允许自动生成。
-- 视频固定 24 FPS；文生视频为 `540x960`。
-- 图生视频按首帧比例缩放，宽高对齐 32 像素，最长边不超过 960，总像素不超过 620,000；实际尺寸由 `video_resolution.py` 写入 `MiniMaxH3ImageToVideo`。
+- 视频固定 24 FPS；文生视频为 `400x720`。
+- 图生视频按首帧比例缩放，宽高对齐 32 像素，最长边不超过 720（对齐后最大为 704），总像素不超过 620,000；实际尺寸由 `video_resolution.py` 写入 `MiniMaxH3ImageToVideo`。
 - 视频详情打开后延迟 1 秒静音自动播放；状态展示的是实际视频尺寸与真实队列状态，不能伪造采样步骤。
 
 ## 9. 远端内存与队列

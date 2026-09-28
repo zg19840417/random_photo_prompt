@@ -26,6 +26,8 @@ Mac 存在多张局域网网卡时，所有到远端计算主机的 HTTP 与 Web
 
 远端 WebSocket 在任务提交前的首次建连遇到瞬时网络错误时，可在同一直连路径上短暂重试三次；三次均失败才拒绝任务，不能把一次短暂失败直接显示为远端停机。
 
+普通状态接口只验证 HTTP 与模型列表。排查“模型列表正常、点击生成失败”时，调用 Mac `/random_photo_prompt/local/status?probe=websocket`，在服务进程内执行与图片提交相同的 WebSocket 功能协商，并返回时间、进程号和原始错误。该诊断只建连后关闭，不提交工作流、不生成资产；失败日志同时记录时间、进程号和连接标识，用于和系统网络事件对照。
+
 远端页面不能作为手机入口；误打开远端的 `/random_photo_prompt/mobile` 不具备访问 Mac 本地图库的能力。应关闭该页面并改用 Mac 当前局域网 IP 的 `8188` 地址。
 
 远端重启时会清除该节点的 Python 代码缓存，确保同步后的节点代码立即生效。
@@ -40,6 +42,8 @@ Mac ComfyUI 的 `custom_nodes/random_photo_prompt` 必须链接到本项目目�
 
 生成图片必须使用 WebSocket 直回 Mac：Mac 在提交前把工作流中的保存节点改为流式输出节点，远端将 PNG 二进制帧直接推送到 Mac。Mac 只在收到完整字节后，将文件原子写入本机 ComfyUI 输出目录；临时 `.tmp` 文件也只允许在 Mac 本机出现。
 
+Krea2 单采和双采只各保留一个最终图片输出：单采取第一采样解码，双采取第二采样解码。提交前的现有输出改写将它转换成 `RandomPhotoPromptStreamImage`；不得把附件里独立 `LoadImage` 的 SeedVR2 放大支线或 `BatchImageSaverCN` 带入远端执行图。
+
 远端不得创建 output、temp、input 或其他生成资产文件。生成结果只有 WebSocket 直回 Mac 这一条路径，不提供远端保存、下载、删除或其他回退方式。
 
 视频遵循同一资产驻留原则：远端内存编码后通过已授权的回传接口直接写入 Mac 本地视频目录；不得在远端落盘视频。
@@ -47,6 +51,8 @@ Mac ComfyUI 的 `custom_nodes/random_photo_prompt` 必须链接到本项目目�
 ## 启动与验证
 
 视频页提供远端模型选择，文生视频和图生视频共用该选择并保存页面偏好。列表从远端 `DiffusionModelLoaderKJ` 注册信息读取，目前允许 `minimax_h3_fl2va_pruned_int8_convrot.safetensors`、`h3ErosMax_beta5_fp8.safetensors` 和 `DasiwaMinimaxH3_dasiwaHybridV2_int8.safetensors`；视频模型及 MiniMax/LTX 专用编码器、VAE 存于 Windows `E:\ComfyUI_models`，图片模型仍存于 `F:\ComfyUI_models`。远端 `extra_model_paths.yaml` 同时注册两处目录，工作流按文件名从对应盘读取。提交必须携带有效 `video_model`，写入工作流模型加载节点并记录在任务中；不读取 Mac 模型库，不自动替换无效选择。文本编码器、视频/音频 VAE 与采样参数保持原流程配置。
+
+Windows 将视频模型根目录 `E:\ComfyUI_models` 以 SMB 共享名 `ComfyUIVideoModels` 开放给专用账号 `ComfyShare`；Mac 挂载点为 `/Users/zouge/远程视频模型文件夹`，Finder 可直接连接 `smb://192.168.123.111/ComfyUIVideoModels`。图片模型仍使用独立的 `ComfyUIModels` 共享与 `/Users/zouge/远程模型文件夹` 挂载点。共享只用于管理模型文件，不改变推理和生成资产的驻留规则。
 
 视频时长必须写入模板的 `Float (duration) 时长` 节点，再由原有表达式换算为符合模型要求的帧数，不能保留模板默认 5 秒。固定 24 FPS，帧数按 `17n+5` 向上对齐，因此成片时长可能略长于所选秒数（差值小于 17/24 秒）。
 
@@ -72,7 +78,7 @@ Mac 本机 8188 负责手机页面、提示词、工作流改写、本地图库�
 
 图生视频参考图只允许写入 Mac 本机 ComfyUI 的 `input/random_photo_prompt_mobile_video`；不得复制到 `output` 或任何图片瀑布流扫描目录。图片瀑布流必须排除 `output/random_photo_prompt_mobile_video` 中遗留的参考图，避免将输入误展示为新生成资产。
 
-图生视频的输出宽高必须按首帧长宽比计算并对齐到 32 像素网格，最长边不得超过 960 像素、总像素不得超过 620,000；实现直接写入 `MiniMaxH3ImageToVideo` 的宽高，不得使用模板固定的 `9:16` 分辨率选择器。文生视频没有首帧，使用 540x960 画布，亦满足两项限制。
+图生视频的输出宽高必须按首帧长宽比计算并对齐到 32 像素网格，最长边不得超过 720 像素（对齐后最大为 704）、总像素不得超过 620,000；实现直接写入 `MiniMaxH3ImageToVideo` 的宽高，不得使用模板固定的 `9:16` 分辨率选择器。文生视频没有首帧，使用 400x720 画布，亦满足两项限制。
 
 手机版任务状态栏显示的视频像素必须取实际写入 `MiniMaxH3ImageToVideo` 的宽高，不能复用文生图提示词的分辨率字段。
 

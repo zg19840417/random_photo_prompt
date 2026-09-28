@@ -283,12 +283,6 @@ def generate_video_action(
     }
 
 
-def validate_video_action_for_scope(action_text: str, scope: str) -> list[str]:
-    text = clean_video_action_text(action_text)
-    forbidden = list(FORBIDDEN_BY_SCOPE.get(scope, ()))
-    return [word for word in forbidden if word in text]
-
-
 def validate_nsfw_video_action(action_text: str) -> list[str]:
     text = str(action_text or "")
     return [word for word in NSFW_FORBIDDEN_MOTION if word in text]

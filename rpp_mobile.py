@@ -71,18 +71,11 @@ from video_prompt_engine import (
     video_prompt_from_action,
 )
 
-__all__ = sorted(["__all__", "_active_mobile_session_jobs", "_clean_video_action_text", "_copy_mobile_gallery_image_to_input", "_estimate_video_seconds", "_image_dimensions_for_file", "_infer_frame_scope_from_prompt", "_infer_pose_family_from_prompt", "_load_image_interrogator", "_load_mobile_favorite_metadata", "_load_mobile_prompt_index", "_mobile_active_job_count", "_mobile_favorite_backup_file", "_mobile_favorite_backup_images", "_mobile_favorite_metadata_path", "_mobile_gallery_images", "_mobile_gallery_videos", "_mobile_image_urls", "_mobile_job_output_prefix", "_mobile_job_status", "_mobile_local_images_for_prompt", "_mobile_output_file", "_mobile_output_file_from_item", "_mobile_output_file_key", "_mobile_output_relative_path", "_mobile_output_subfolder_for_path", "_mobile_prompt_for_gallery_file", "_mobile_prompt_for_video_file", "_mobile_prompt_index_path", "_mobile_prompt_metadata_for_gallery_file", "_mobile_remote_history_entry", "_mobile_session_job", "_mobile_video_input_dir", "_mobile_video_output_file", "_mobile_video_source_path", "_mobile_video_urls", "_mobile_video_urls_sync", "_mobile_video_view_url", "_mobile_view_subfolder", "_mobile_view_url", "_pregenerate_video_action_for_image", "_prompt_text_from_canvas_workflow_metadata", "_prompt_text_from_png_metadata", "_qview_image_path", "_remember_mobile_prompt_file", "_remember_mobile_prompt_images", "_remember_mobile_prompt_videos", "_remote_history_error_message", "_request_from_local_mac_browser", "_save_mobile_favorite_metadata", "_save_mobile_prompt_index", "_video_dimensions_for_file", "_video_motion_text", "_video_prompt_from_action"])
-
-def _video_motion_text(seed_text="", seconds=8):
-    return str(generate_video_action(seed_text=seed_text, seconds=seconds).get("action") or "")
+__all__ = sorted(["__all__", "_active_mobile_session_jobs", "_copy_mobile_gallery_image_to_input", "_image_dimensions_for_file", "_infer_frame_scope_from_prompt", "_load_image_interrogator", "_load_mobile_favorite_metadata", "_load_mobile_prompt_index", "_mobile_active_job_count", "_mobile_favorite_backup_file", "_mobile_favorite_backup_images", "_mobile_favorite_metadata_path", "_mobile_gallery_images", "_mobile_gallery_videos", "_mobile_image_urls", "_mobile_job_output_prefix", "_mobile_job_status", "_mobile_local_images_for_prompt", "_mobile_output_file", "_mobile_output_file_from_item", "_mobile_output_file_key", "_mobile_output_relative_path", "_mobile_output_subfolder_for_path", "_mobile_prompt_for_gallery_file", "_mobile_prompt_for_video_file", "_mobile_prompt_index_path", "_mobile_prompt_metadata_for_gallery_file", "_mobile_remote_history_entry", "_mobile_video_input_dir", "_mobile_video_output_file", "_mobile_video_source_path", "_mobile_video_urls", "_mobile_video_view_url", "_mobile_view_subfolder", "_mobile_view_url", "_pregenerate_video_action_for_image", "_prompt_text_from_canvas_workflow_metadata", "_prompt_text_from_png_metadata", "_qview_image_path", "_remember_mobile_prompt_file", "_remember_mobile_prompt_images", "_remember_mobile_prompt_videos", "_remote_history_error_message", "_request_from_local_mac_browser", "_save_mobile_favorite_metadata", "_save_mobile_prompt_index", "_video_dimensions_for_file", "_video_prompt_from_action"])
 
 
 def _infer_frame_scope_from_prompt(prompt):
     return infer_video_scope(prompt)
-
-
-def _infer_pose_family_from_prompt(prompt):
-    return infer_video_pose_family(prompt)
 
 
 def _pregenerate_video_action_for_image(filename, scale="", seed_text="", seconds=8, previous_action=""):
@@ -100,14 +93,6 @@ def _pregenerate_video_action_for_image(filename, scale="", seed_text="", second
         if not previous_text or str(result.get("action") or "").strip() != previous_text:
             break
     return result["action"], result["pose_family"], result["used_source_prompt"], result["scope"]
-
-
-def _clean_video_action_text(value):
-    return clean_video_action_text(value)
-
-
-def _estimate_video_seconds(action_text):
-    return estimate_video_seconds(action_text)
 
 
 def _video_prompt_from_action(action_text, seed_text="", seconds=None, source_prompt="", filename=""):
@@ -877,38 +862,6 @@ async def _mobile_video_urls(prompt_id):
     return videos
 
 
-def _mobile_video_urls_sync(prompt_id):
-    local_videos = _mobile_local_videos_for_prompt(prompt_id)
-    if local_videos:
-        return local_videos
-    history = PromptServer.instance.prompt_queue.get_history(prompt_id=prompt_id) or {}
-    entry = history.get(prompt_id) if isinstance(history, dict) else None
-    videos = []
-    if isinstance(entry, dict):
-        for output in (entry.get("outputs") or {}).values():
-            if not isinstance(output, dict):
-                continue
-            for key in ("videos", "gifs"):
-                for video in output.get(key) or []:
-                    filename = video.get("filename", "")
-                    if not filename:
-                        continue
-                    params = urllib.parse.urlencode(
-                        {
-                            "filename": filename,
-                            "subfolder": video.get("subfolder", ""),
-                            "type": video.get("type", "output"),
-                        }
-                    )
-                    item = {"url": f"/view?{params}", **video}
-                    if video.get("subfolder") == MOBILE_VIDEO_OUTPUT_SUBFOLDER and filename:
-                        path = _mobile_video_output_file(filename)
-                        if path.is_file():
-                            item.update(_video_dimensions_for_file(path))
-                    videos.append(item)
-    return videos
-
-
 def _mobile_local_videos_for_prompt(prompt_id):
     """Return videos that the remote upload node has already written on this Mac."""
     job = next(
@@ -1079,19 +1032,6 @@ async def _mobile_active_job_count():
         if (await _mobile_job_status(item.get("prompt_id", ""))).get("status") in {"running", "pending"}:
             count += 1
     return count
-
-
-async def _mobile_session_job(item):
-    status = await _mobile_job_status(item.get("prompt_id", ""))
-    return {
-        **item,
-        "status": status.get("status", "unknown"),
-        "images": status.get("images", []),
-        "videos": status.get("videos", []),
-        "node_total": item.get("node_total", 0),
-        "progress": status.get("progress"),
-        "queue_ahead": status.get("queue_ahead"),
-    }
 
 
 async def _active_mobile_session_jobs():

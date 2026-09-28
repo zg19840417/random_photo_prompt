@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+import sys
+sys.path.insert(0, str(ROOT))
 DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "generated_prompt_audit.md"
 
 SCALES = ("normal", "bold", "bold_no_outfit", "nsfw")
@@ -72,7 +74,6 @@ TONGUE_DISTAL = ("舌尖", "舌头", "伸舌", "探出舌尖")
 # 质量行至少应包含其一才算是「有摄影真实感」
 QUALITY_REALISM = ("高光不过曝", "真实", "自然", "景深", "肤质", "纹理", "胶片", "调色", "锐利", "清晰", "层次", "反光", "明暗", "柔光", "颗粒")
 # 概念族冗余：同一概念在全文出现 >=3 次才算冗余（引擎已做质量行去重，触发即真实）
-REDUNDANT_CONCEPT_MARKERS = ("颗粒", "色块", "高光")
 
 CLAUSE_SPLIT_RE = re.compile(r"[。；;，,、\n]+")
 EMPTY_PLACEHOLDERS = {"", "无", "——", "无。", "。"}
@@ -132,11 +133,6 @@ def split_clauses(text: str) -> list[str]:
 def ensure_sentence(text: str) -> str:
     text = str(text or "").strip("，。 \n\t")
     return f"{text}。" if text else ""
-
-
-def prompt_from_parts(parts: dict[str, str]) -> str:
-    order = ("camera", "character", "outfit", "makeup", "pose_expression", "scene_light", "quality")
-    return "\n".join(ensure_sentence(parts.get(name, "")) for name in order if parts.get(name))
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +270,19 @@ def audit_item(engine, scale, shot, aspect, sample, item) -> list[Finding]:
     findings.extend(coherence_findings(engine, scale, shot, aspect, sample, parts, prompt))
     findings.extend(quality_findings(scale, shot, aspect, sample, parts, prompt))
     findings.extend(length_findings(scale, shot, aspect, sample, parts, prompt))
+    findings.extend(fluency_findings(engine, scale, shot, aspect, sample, parts, prompt))
     return findings
+
+
+def fluency_findings(engine, scale, shot, aspect, sample, parts, prompt) -> list[Finding]:
+    """逐行通顺度：规则与生成流程共用 prompt_fluency，避免审计与生成漂移。"""
+    from prompt_fluency import fluency_defects
+
+    lines = engine.render_prompt_lines({**parts, "shot_key": shot, "scale": scale, "aspect": aspect})
+    return [
+        Finding("warning", scale, shot, aspect, sample, f"fluency:{defect.rule}", f"{defect.line}: {defect.detail}", prompt)
+        for defect in fluency_defects(lines, scale, shot)
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -327,6 +335,7 @@ CHECK_CATALOG = [
     ("tongue_in_distal_shot (error)", "半身/全身镜头出现舌头动作（看不清）。"),
     ("camera_aspect_mismatch (info)", "画幅朝向与镜头朝向词不一致（轻量提示）。"),
     ("photo_realism_missing (info)", "全文未见任何摄影真实感标记。"),
+    ("fluency:* (warning)", "逐行通顺度（prompt_fluency）：冗余表情尾巴、构图词混入姿势、否定式正向词、非视觉场景、服装语法、抽象评价、断句、视线/笑容重复、调色叠加、焦段与镜头不符、超长子句、同一只手两个动作、镜头外部位、场景过短、服装细节堆叠。"),
 ]
 
 

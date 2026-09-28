@@ -6,14 +6,11 @@ import re
 import time
 
 import folder_paths
-from k2_sfw_prompt_rule import RULE_KEY as K2_SFW_RULE_KEY
-from k2_sfw_prompt_rule import generate_prompt_item as generate_k2_sfw_prompt_item
 
 from rpp_globals import (
     ANCIENT_SHOE_REPLACEMENTS,
     CHARACTER_BY_SHOT,
     FIXED_CHARACTER_IDENTITY,
-    K2_SFW_RULE_KEY,
     KREA2_PORTRAIT_HORIZONTAL_MARKERS,
     MOBILE_CUSTOM_RESOLUTION_PRESETS,
     MOBILE_DEFAULT_RESOLUTIONS,
@@ -46,7 +43,7 @@ from prompt_resolution import (
 )
 from prompt_postprocess import clean_prompt_text
 
-__all__ = sorted(["__all__", "_apply_krea2_portrait_orientation_guard", "_apply_krea2_prompt_item_orientation_guard", "_apply_mobile_framing", "_build_desktop_prompt_with_mobile_logic", "_build_mobile_prompt_for_scope", "_build_mobile_prompt_item", "_build_mobile_prompt_item_for_rule", "_build_prompt", "_build_prompt_item", "_build_prompt_with_mobile_logic", "_clamp_mobile_resolution", "_clean_mobile_prompt_parts", "_custom_mobile_prompt_item", "_display_prompt_text", "_enforce_mobile_ancient_barefoot_parts", "_enforce_mobile_ancient_barefoot_text", "_ensure_scoped_character_prompt", "_krea2_upright_pose_fallback", "_mobile_custom_resolution", "_mobile_ground_anchor", "_mobile_prompt_text_for_resolution", "_mobile_resolution_for_custom_prompt", "_mobile_resolution_for_prompt", "_mobile_shot_config", "_normalize_mobile_prompt_rule", "_prompt_text", "_rebuild_prompt_text_from_parts", "_resolve_mobile_framing", "_use_chinese_negative_prompt"])
+__all__ = sorted(["__all__", "_apply_krea2_portrait_orientation_guard", "_apply_krea2_prompt_item_orientation_guard", "_apply_mobile_framing", "_build_desktop_prompt_with_mobile_logic", "_build_mobile_prompt_for_scope", "_normalize_mobile_orientation", "_resolve_mobile_orientation", "MOBILE_ORIENTATIONS", "_build_mobile_prompt_item", "_build_prompt_item", "_build_prompt_with_mobile_logic", "_clamp_mobile_resolution", "_clean_mobile_prompt_parts", "_custom_mobile_prompt_item", "_display_prompt_text", "_enforce_mobile_ancient_barefoot_parts", "_enforce_mobile_ancient_barefoot_text", "_ensure_scoped_character_prompt", "_krea2_upright_pose_fallback", "_mobile_custom_resolution", "_mobile_ground_anchor", "_mobile_prompt_text_for_resolution", "_mobile_resolution_for_custom_prompt", "_mobile_resolution_for_prompt", "_mobile_shot_config", "_prompt_text", "_rebuild_prompt_text_from_parts", "_resolve_mobile_framing", "_use_chinese_negative_prompt"])
 
 def _build_prompt_item(scale, shot, seed_text="", aspect="portrait", width=None, height=None, era="modern"):
     generate_prompt_items = _load_prompt_generator()
@@ -84,22 +81,6 @@ def _build_prompt_item(scale, shot, seed_text="", aspect="portrait", width=None,
 
 
 def _build_mobile_prompt_item(scale, shot_config, seed_text, era="modern"):
-    return _build_mobile_prompt_item_for_rule(scale, shot_config, seed_text, era)
-
-
-def _normalize_mobile_prompt_rule(value):
-    rule = str(value or "").strip()
-    if not rule or rule == "standard":
-        return "standard"
-    if rule == K2_SFW_RULE_KEY:
-        return rule
-    raise ValueError(f"不支持的提示词规则：{rule}")
-
-
-def _build_mobile_prompt_item_for_rule(scale, shot_config, seed_text, era="modern", prompt_rule="standard"):
-    rule = _normalize_mobile_prompt_rule(prompt_rule)
-    if rule == K2_SFW_RULE_KEY:
-        return generate_k2_sfw_prompt_item(seed_text)
     shot = shot_config["shot"]
     aspect = shot_config["aspect"]
     width = shot_config["width"]
@@ -144,8 +125,6 @@ def _mobile_prompt_text_for_resolution(prompt_item):
 
 
 def _prompt_text(prompt_item):
-    if str(prompt_item.get("prompt_rule") or "") == K2_SFW_RULE_KEY:
-        return str(prompt_item.get("compact_prompt") or prompt_item["positive_prompt"]).strip()
     return clean_prompt_text(prompt_item.get("compact_prompt") or prompt_item["positive_prompt"])
 
 
@@ -229,13 +208,14 @@ def _enforce_mobile_ancient_barefoot_text(text, era):
     return cleaned
 
 
-def _enforce_mobile_ancient_barefoot_parts(parts, era):
+def _enforce_mobile_ancient_barefoot_parts(parts, era, shot_key="full_body"):
     cleaned = dict(parts or {})
     if not _is_ancient_mobile_era(era):
         return cleaned
     for name in ("camera", "outfit", "pose_expression", "scene_light"):
         cleaned[name] = _enforce_mobile_ancient_barefoot_text(cleaned.get(name, ""), era)
-    if cleaned.get("outfit") and "裸足" not in str(cleaned["outfit"]):
+    # 脚只在全身镜头可见，头部和半身不补写裸足。
+    if shot_key == "full_body" and cleaned.get("outfit") and "裸足" not in str(cleaned["outfit"]):
         cleaned["outfit"] = f'{cleaned["outfit"]}，裙摆下方保持裸足'
     return cleaned
 
@@ -258,7 +238,7 @@ def _clean_mobile_prompt_parts(parts, shot_key, era="modern"):
                 cleaned.get(name, ""),
                 ("胸部", "胸前", "乳沟", "腰", "臀", "腿", "脚"),
             )
-    cleaned = _enforce_mobile_ancient_barefoot_parts(cleaned, era)
+    cleaned = _enforce_mobile_ancient_barefoot_parts(cleaned, era, shot_key)
     return cleaned
 
 
@@ -406,12 +386,51 @@ def _apply_mobile_framing(prompt_item, resolution, era="modern"):
     return item
 
 
-def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern", prompt_rule="standard"):
-    rule = _normalize_mobile_prompt_rule(prompt_rule)
-    if rule == K2_SFW_RULE_KEY:
-        item = generate_k2_sfw_prompt_item(seed_text)
-        return item, {**item["resolution"], "framing": ""}
-    initial = _build_mobile_prompt_item_for_rule(scale, shot_config, seed_text, era, rule)
+MOBILE_ORIENTATIONS = ("auto", "landscape", "portrait")
+_FORCED_LANDSCAPE_FRAMING = {
+    "head_shot": "横向头部构图，头顶完整",
+    "half_body": "横向半身镜头，腰部及以上入镜",
+    "full_body": "横向全身构图，身体沿宽画幅展开，从头到脚完整入镜",
+}
+
+
+def _normalize_mobile_orientation(value):
+    text = str(value or "").strip().lower()
+    aliases = {"自动": "auto", "横向": "landscape", "横": "landscape", "竖向": "portrait", "竖": "portrait"}
+    text = aliases.get(text, text)
+    return text if text in MOBILE_ORIENTATIONS else "auto"
+
+
+def _resolve_mobile_orientation(orientation, seed_text):
+    """自动模式按本张种子各一半概率取横或竖，同一种子结果可复现。"""
+    orientation = _normalize_mobile_orientation(orientation)
+    if orientation != "auto":
+        return orientation
+    return "landscape" if random.Random(f"{seed_text}|orientation").random() < 0.5 else "portrait"
+
+
+def _forced_mobile_resolution(prompt_item, shot, aspect):
+    if aspect == "landscape":
+        return _clamp_mobile_resolution(
+            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": _FORCED_LANDSCAPE_FRAMING[shot]}
+        )
+    inferred = _mobile_resolution_for_prompt(prompt_item, shot)
+    if inferred["aspect"] == "portrait":
+        return inferred
+    return _clamp_mobile_resolution(MOBILE_DEFAULT_RESOLUTIONS[shot])
+
+
+def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern", orientation=None):
+    if orientation is not None:
+        # 用户选定方向（或自动抽定）后，提示词与分辨率都按该方向生成，不再由姿势文本反推。
+        aspect = _resolve_mobile_orientation(orientation, seed_text)
+        width, height = (1536, 1024) if aspect == "landscape" else (1024, 1536)
+        oriented_config = {**shot_config, "aspect": aspect, "width": width, "height": height}
+        item = _build_mobile_prompt_item(scale, oriented_config, seed_text, era)
+        item = _ensure_scoped_character_prompt(item, era)
+        resolution = _forced_mobile_resolution(item, shot_config["shot"], aspect)
+        return _apply_mobile_framing(item, resolution, era), resolution
+    initial = _build_mobile_prompt_item(scale, shot_config, seed_text, era)
     initial = _ensure_scoped_character_prompt(initial, era)
     resolution = _mobile_resolution_for_prompt(initial, shot_config["shot"])
     if resolution["aspect"] != shot_config["aspect"]:
@@ -421,7 +440,7 @@ def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern", 
             "width": resolution["width"],
             "height": resolution["height"],
         }
-        initial = _build_mobile_prompt_item_for_rule(scale, resolved_config, f"{seed_text}-{resolution['aspect']}", era, rule)
+        initial = _build_mobile_prompt_item(scale, resolved_config, f"{seed_text}-{resolution['aspect']}", era)
         initial = _ensure_scoped_character_prompt(initial)
         resolution = _mobile_resolution_for_prompt(initial, shot_config["shot"])
     return _apply_mobile_framing(initial, resolution, era), resolution
@@ -437,10 +456,6 @@ def _build_desktop_prompt_with_mobile_logic(scale, shot, seed_text="", era="mode
     shot_config = _mobile_shot_config(shot)
     item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era)
     return item, resolution
-
-
-def _build_prompt(scale, shot, seed_text="", aspect="portrait", width=None, height=None, era="modern"):
-    return _build_prompt_with_mobile_logic(scale, shot, seed_text, era)
 
 
 def _mobile_shot_config(value):

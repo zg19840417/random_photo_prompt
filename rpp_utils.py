@@ -16,7 +16,7 @@ from rpp_globals import (
 )
 from prompt_resolution import MOBILE_RESOLUTION_MULTIPLE
 
-__all__ = sorted(["__all__", "_as_bool", "_clean_mobile_prompt_clause_text", "_image_longest_side", "_is_ancient_mobile_era", "_load_prompt_generator", "_looks_internal_prompt_link", "_looks_negative_text", "_mobile_local_output_dir", "_mobile_output_dir", "_mobile_validation_error_message", "_mobile_video_output_dir", "_node_meta", "_node_title", "_normalize_aspect", "_nsfw_pose_data_hash", "_prompt_clauses", "_prompt_signature", "_queue_client_id", "_queue_contains", "_queue_waiting_count", "_remote_transfer_source_is_allowed", "_remove_mobile_clauses_with_markers", "_round_to_multiple", "_route_exists", "_strip_outfit_palette_clause"])
+__all__ = sorted(["__all__", "_clean_mobile_prompt_clause_text", "_image_longest_side", "_is_ancient_mobile_era", "_load_prompt_generator", "_looks_internal_prompt_link", "_looks_negative_text", "_mobile_local_output_dir", "_mobile_output_dir", "_mobile_validation_error_message", "_mobile_video_output_dir", "_node_meta", "_node_title", "_normalize_aspect", "_nsfw_pose_data_hash", "_prompt_clauses", "_prompt_signature", "_queue_contains", "_queue_waiting_count", "_remote_transfer_source_is_allowed", "_remove_mobile_clauses_with_markers", "_round_to_multiple", "_route_exists", "_strip_outfit_palette_clause"])
 
 def _load_prompt_generator():
     if str(NODE_DIR) not in sys.path:
@@ -53,20 +53,6 @@ def _nsfw_pose_data_hash():
 
 def _prompt_signature(scale, shot, aspect="portrait", era="modern"):
     return f"mobile-logic-v15-ancient-barefoot|{_nsfw_pose_data_hash()}|{scale or ''}|{shot or ''}|{era or 'modern'}"
-
-
-def _as_bool(value, default=True):
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    if isinstance(value, str):
-        text = value.strip().lower()
-        if text in {"false", "0", "off", "no"}:
-            return False
-        if text in {"true", "1", "on", "yes"}:
-            return True
-    return default
 
 
 def _route_exists(method, path):
@@ -163,14 +149,6 @@ def _queue_contains(prompt_id, items):
     return any(len(item) > 1 and item[1] == prompt_id for item in items)
 
 
-def _queue_client_id(prompt_id, items):
-    prompt_id = str(prompt_id or "")
-    for item in items:
-        if len(item) > 3 and str(item[1]) == prompt_id and isinstance(item[3], dict):
-            return str(item[3].get("client_id") or "")
-    return ""
-
-
 def _queue_waiting_count(prompt_id, running, pending):
     """Return the number of ComfyUI jobs ahead of this prompt, if queued."""
     prompt_id = str(prompt_id or "")
@@ -182,7 +160,6 @@ def _queue_waiting_count(prompt_id, running, pending):
         if len(item) > 1 and str(item[1]) == prompt_id:
             return len(running) + index
     return None
-
 
 
 def _mobile_output_dir():

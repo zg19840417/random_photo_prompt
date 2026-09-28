@@ -3,7 +3,7 @@
     "class_type": "KSampler",
     "inputs": {
       "seed": 0,
-      "steps": 10,
+      "steps": 8,
       "cfg": 1,
       "sampler_name": "euler",
       "scheduler": "simple",
@@ -72,7 +72,7 @@
   "10": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "Krea2\\redcraftKREA2RedMix_krea2Edition.safetensors",
+      "unet_name": "Krea2\\moodyKrea2Mix_v50.safetensors",
       "weight_dtype": "default"
     },
     "_meta": {
@@ -132,7 +132,7 @@
         "8",
         0
       ],
-      "filename_prefix": "RedCraft_Krea2"
+      "filename_prefix": "Krea2_single"
     },
     "_meta": {
       "title": "Save Image"

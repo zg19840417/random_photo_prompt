@@ -17,13 +17,11 @@ DEFAULT_DISTRIBUTION_SAMPLES = 20
 ACTIVE_SCALES = ("normal", "bold", "bold_no_outfit", "nsfw")
 ACTIVE_SHOTS = ("头部", "半身", "全身")
 
+# 一至三档的母题、地点、姿势、服装在 data/art_direction_pools.json，由 tests/test_prompt_composer.py 与生成审查覆盖。
 ACTIVE_POOLS = (
-    "CAMERA_OPTIONS",
     "CHARACTER_IDENTITY_BY_SHOT",
     "MAKEUP_OPTIONS",
-    "OUTFIT_OPTIONS",
     "POSE_EXPRESSION_OPTIONS",
-    "SCENE_LIGHT_OPTIONS",
 )
 
 ALLOWED_PUBLIC_NAMES = set(ACTIVE_POOLS) | {
@@ -33,6 +31,7 @@ ALLOWED_PUBLIC_NAMES = set(ACTIVE_POOLS) | {
     "SCALES",
     "SHOTS",
     "SHOT_LABELS",
+    "NSFW_POSE_EXPRESSION_SOURCE",
     "_POSE_NORMALIZE_REPLACEMENTS",
 }
 

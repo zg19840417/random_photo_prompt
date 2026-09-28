@@ -8,7 +8,6 @@ import folder_paths
 
 from rpp_globals import (
     BLOCK_REMOTE_ASSET_SAVE,
-    K2_SFW_RULE_KEY,
     LORA_MODEL_EXTENSIONS,
     MOBILE_DEFAULT_WORKFLOW_KEY,
     MOBILE_MAX_LORAS,
@@ -40,40 +39,9 @@ from prompt_resolution import (
     workflow_output_scale,
 )
 from prompt_postprocess import clean_prompt_text
-from video_resolution import image_to_video_resolution
+from video_resolution import MAXIMUM_VIDEO_SIDE, image_to_video_resolution
 
-__all__ = sorted(["__all__", "_append_mobile_lora_nodes", "_available_loras", "_block_remote_asset_save_on_prompt", "_bypass_lora_nodes", "_bypass_mobile_upscale_outputs", "_force_websocket_only_image_outputs", "_insert_exact_output_scale", "_is_krea2_workflow", "_is_mobile_lora_node", "_is_zib_distilled_model_name", "_is_zit_turbo_model_name", "_krea2_unet_value", "_linked_float_value", "_load_mobile_workflow", "_mobile_base_resolution_for_workflow", "_mobile_image_workflows", "_mobile_lora_nodes", "_mobile_workflow_config", "_mobile_workflow_output_scale", "_mobile_workflow_statuses", "_next_workflow_node_id", "_node_depends_on_any", "_patch_existing_lora_nodes", "_patch_krea2_negative_text_node", "_patch_mobile_video_workflow", "_patch_mobile_workflow", "_patch_remote_websocket_outputs", "_patch_zib_single_sampler_settings", "_patch_zitb_double_sampler_settings", "_prune_non_final_image_outputs", "_remove_mobile_auxiliary_outputs", "_remove_unreferenced_mobile_prompt_nodes", "_remove_unreferenced_workflow_nodes", "_reroute_lora_model_consumers", "_resolve_lora_name", "_resolve_lora_strength", "_resolve_mobile_loras", "_route_zib_single_outputs", "_set_lora_inputs", "_set_mobile_ultimate_upscale_by", "_ultimate_sd_upscale_node_ids", "_unpatched_remote_save_node_classes", "_workflow_has_mobile_upscale", "_workflow_link_consumers", "_workflow_model_consumers", "_workflow_status_item", "_zimage_unet_value"])
-
-def _patch_krea2_negative_text_node(workflow, negative_prompt):
-    if not isinstance(workflow, dict):
-        return 0
-    clip_link = None
-    for node in workflow.values():
-        if not isinstance(node, dict):
-            continue
-        if str(node.get("class_type") or "") != "CLIPTextEncode":
-            continue
-        inputs = node.get("inputs")
-        if isinstance(inputs, dict) and isinstance(inputs.get("clip"), list):
-            clip_link = list(inputs["clip"])
-            break
-    if not clip_link:
-        return 0
-    changed = 0
-    for node in workflow.values():
-        if not isinstance(node, dict):
-            continue
-        if str(node.get("class_type") or "") != "ConditioningZeroOut":
-            continue
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict) or "conditioning" not in inputs:
-            continue
-        node["class_type"] = "CLIPTextEncode"
-        node["_meta"] = {"title": "Negative Prompt"}
-        node["inputs"] = {"clip": clip_link, "text": negative_prompt}
-        changed += 1
-    return changed
-
+__all__ = sorted(["__all__", "_append_mobile_lora_nodes", "_available_loras", "_block_remote_asset_save_on_prompt", "_bypass_lora_nodes", "_force_websocket_only_image_outputs", "_insert_exact_output_scale", "_is_krea2_workflow", "_is_mobile_lora_node", "_is_zib_distilled_model_name", "_is_zit_turbo_model_name", "_krea2_unet_value", "_load_mobile_workflow", "_mobile_image_workflows", "_mobile_lora_nodes", "_mobile_workflow_config", "_mobile_workflow_statuses", "_next_workflow_node_id", "_node_depends_on_any", "_patch_existing_lora_nodes", "_patch_mobile_video_workflow", "_patch_mobile_workflow", "_patch_remote_websocket_outputs", "_patch_zitb_double_sampler_settings", "_prune_non_final_image_outputs", "_remove_mobile_auxiliary_outputs", "_remove_unreferenced_mobile_prompt_nodes", "_remove_unreferenced_workflow_nodes", "_reroute_lora_model_consumers", "_resolve_lora_name", "_resolve_lora_strength", "_resolve_mobile_loras", "_set_lora_inputs", "_set_mobile_ultimate_upscale_by", "_ultimate_sd_upscale_node_ids", "_unpatched_remote_save_node_classes", "_workflow_model_consumers", "_workflow_status_item", "_zimage_unet_value"])
 
 def _mobile_workflow_config(value=None):
     key = str(value or MOBILE_DEFAULT_WORKFLOW_KEY).strip()
@@ -107,7 +75,7 @@ def _krea2_unet_value(model_name):
 
 
 def _is_krea2_workflow(workflow_key):
-    return str(workflow_key or "") in {"redcraft_krea2", "krea2_cc"}
+    return str(workflow_key or "") in {"redcraft_krea2", "krea2_double"}
 
 
 def _is_mobile_lora_node(node):
@@ -212,21 +180,6 @@ def _append_mobile_lora_nodes(workflow, source_node_id, template_node, loras):
 
 
 def _patch_existing_lora_nodes(workflow, loras, workflow_key=""):
-    if workflow_key == "krea2_cc":
-        if not loras:
-            return 0
-        lora_nodes = _mobile_lora_nodes(workflow, include_preserved=True)
-        upstream_lora_ids = {
-            str(node.get("inputs", {}).get("model", [""])[0])
-            for _, node in lora_nodes
-            if isinstance(node.get("inputs", {}).get("model"), list)
-        }
-        terminal_nodes = [(node_id, node) for node_id, node in lora_nodes if node_id not in upstream_lora_ids]
-        if len(terminal_nodes) != 1:
-            raise ValueError("Krea2+CC 工作流里没有找到唯一的 LoRA 链末端。")
-        terminal_node_id, terminal_node = terminal_nodes[0]
-        return _append_mobile_lora_nodes(workflow, terminal_node_id, terminal_node, loras)
-
     if not loras:
         return _bypass_lora_nodes(workflow)
     lora_nodes = _mobile_lora_nodes(workflow)
@@ -322,25 +275,6 @@ def _mobile_workflow_statuses():
     return {key: _workflow_status_item(key, config) for key, config in MOBILE_WORKFLOWS.items()}
 
 
-def _linked_float_value(workflow, value, default=1.0):
-    return linked_float_value(workflow, value, default)
-
-
-def _mobile_workflow_output_scale(workflow, include_ultimate=True):
-    return workflow_output_scale(workflow, include_ultimate)
-
-
-def _workflow_has_mobile_upscale(workflow):
-    return any(
-        isinstance(node, dict) and str(node.get("class_type") or "") == "UltimateSDUpscale"
-        for node in workflow.values()
-    )
-
-
-def _mobile_base_resolution_for_workflow(template, width, height):
-    return base_resolution_for_workflow(template, width, height)
-
-
 def _set_mobile_ultimate_upscale_by(workflow, scale):
     if not isinstance(workflow, dict):
         return 0
@@ -425,129 +359,6 @@ def _remove_unreferenced_workflow_nodes(workflow):
     return removed
 
 
-def _bypass_mobile_upscale_outputs(workflow):
-    if not isinstance(workflow, dict):
-        return 0
-    upscale_image_inputs = {}
-    for node_id, node in workflow.items():
-        if not isinstance(node, dict) or str(node.get("class_type") or "") != "UltimateSDUpscale":
-            continue
-        image_input = (node.get("inputs") or {}).get("image")
-        if isinstance(image_input, list) and image_input:
-            upscale_image_inputs[str(node_id)] = [str(image_input[0]), int(image_input[1] if len(image_input) > 1 else 0)]
-    if not upscale_image_inputs:
-        return 0
-    changed = 0
-    for node in workflow.values():
-        inputs = node.get("inputs") if isinstance(node, dict) else None
-        if not isinstance(inputs, dict):
-            continue
-        images = inputs.get("images")
-        if isinstance(images, list) and images and str(images[0]) in upscale_image_inputs:
-            inputs["images"] = upscale_image_inputs[str(images[0])]
-            changed += 1
-    changed += _remove_unreferenced_workflow_nodes(workflow)
-    return changed
-
-
-def _route_zib_single_outputs(workflow):
-    if not isinstance(workflow, dict) or ("170" not in workflow and "129" not in workflow):
-        return 0
-    output_node_id = "170" if "170" in workflow else "129"
-    changed = 0
-    for node in workflow.values():
-        inputs = node.get("inputs") if isinstance(node, dict) else None
-        if not isinstance(inputs, dict):
-            continue
-        images = inputs.get("images")
-        if isinstance(images, list) and images:
-            inputs["images"] = [output_node_id, 0]
-            changed += 1
-    changed += _remove_unreferenced_workflow_nodes(workflow)
-    return changed
-
-
-def _patch_zib_single_sampler_settings(workflow, model_name):
-    if not isinstance(workflow, dict):
-        return 0
-    changed = 0
-    first_sampler = workflow.get("501")
-    latent_upscale = workflow.get("502")
-    second_sampler = workflow.get("500")
-    upscale_output = workflow.get("129")
-    final_upscale = workflow.get("170")
-    if isinstance(first_sampler, dict) and str(first_sampler.get("class_type") or "") == "KSamplerAdvanced":
-        inputs = first_sampler.setdefault("inputs", {})
-        if isinstance(inputs, dict):
-            updates = {
-                "add_noise": "enable",
-                "steps": 30,
-                "cfg": 4,
-                "sampler_name": "euler",
-                "scheduler": "simple",
-                "start_at_step": 0,
-                "end_at_step": 25,
-                "return_with_leftover_noise": "enable",
-            }
-            for key, value in updates.items():
-                if inputs.get(key) != value:
-                    inputs[key] = value
-                    changed += 1
-    if isinstance(latent_upscale, dict) and str(latent_upscale.get("class_type") or "") == "LatentUpscaleBy":
-        inputs = latent_upscale.setdefault("inputs", {})
-        if isinstance(inputs, dict):
-            updates = {"upscale_method": "bislerp", "scale_by": 1.7, "samples": ["501", 0]}
-            for key, value in updates.items():
-                if inputs.get(key) != value:
-                    inputs[key] = value
-                    changed += 1
-    if isinstance(second_sampler, dict) and str(second_sampler.get("class_type") or "") == "KSamplerAdvanced":
-        inputs = second_sampler.setdefault("inputs", {})
-        if isinstance(inputs, dict):
-            updates = {
-                "add_noise": "enable",
-                "steps": 30,
-                "cfg": 4,
-                "sampler_name": "dpmpp_2m_sde",
-                "scheduler": "sgm_uniform",
-                "start_at_step": 17,
-                "end_at_step": 999,
-                "return_with_leftover_noise": "disable",
-                "model": ["483", 0],
-                "positive": ["45", 0],
-                "negative": ["490", 0],
-                "latent_image": ["502", 0],
-            }
-            for key, value in updates.items():
-                if inputs.get(key) != value:
-                    inputs[key] = value
-                    changed += 1
-    if isinstance(upscale_output, dict) and str(upscale_output.get("class_type") or "") == "VAEDecode":
-        inputs = upscale_output.setdefault("inputs", {})
-        if isinstance(inputs, dict) and inputs.get("samples") != ["500", 0]:
-            inputs["samples"] = ["500", 0]
-            changed += 1
-    if isinstance(final_upscale, dict) and str(final_upscale.get("class_type") or "") == "UltimateSDUpscale":
-        inputs = final_upscale.setdefault("inputs", {})
-        if isinstance(inputs, dict):
-            updates = {
-                "steps": 30,
-                "cfg": 4,
-                "sampler_name": "dpmpp_2m_sde",
-                "scheduler": "sgm_uniform",
-                "denoise": 0.2,
-                "model": ["483", 0],
-                "positive": ["45", 0],
-                "negative": ["490", 0],
-                "image": ["129", 0],
-            }
-            for key, value in updates.items():
-                if inputs.get(key) != value:
-                    inputs[key] = value
-                    changed += 1
-    return changed
-
-
 def _patch_zitb_double_sampler_settings(workflow, model_name):
     if not isinstance(workflow, dict) or not _is_zib_distilled_model_name(model_name):
         return 0
@@ -571,20 +382,6 @@ def _patch_zitb_double_sampler_settings(workflow, model_name):
             inputs[key] = value
             changed += 1
     return changed
-
-
-def _workflow_link_consumers(workflow):
-    consumers = {}
-    if not isinstance(workflow, dict):
-        return consumers
-    for node_id, node in workflow.items():
-        inputs = node.get("inputs") if isinstance(node, dict) else None
-        if not isinstance(inputs, dict):
-            continue
-        for value in inputs.values():
-            if isinstance(value, list) and value:
-                consumers.setdefault(str(value[0]), set()).add(str(node_id))
-    return consumers
 
 
 def _ultimate_sd_upscale_node_ids(workflow):
@@ -855,12 +652,6 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
             width,
             height,
         )
-    use_zib_single = bool(resolved_zib_model and not resolved_zit_model)
-    zib_single_output_rerouted = 0
-    zib_single_sampler_settings = 0
-    if use_zib_single:
-        zib_single_output_rerouted = _route_zib_single_outputs(workflow)
-        zib_single_sampler_settings = _patch_zib_single_sampler_settings(workflow, resolved_zib_model)
     zitb_sampler_settings = 0
     if workflow_key == "zitb_double":
         zitb_sampler_settings = _patch_zitb_double_sampler_settings(workflow, resolved_zib_model)
@@ -887,20 +678,15 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
         "exact_output_scale_nodes": 0,
         "removed_auxiliary_outputs": removed_auxiliary_outputs,
         "bypassed_upscale_nodes": 0,
-        "zib_single_output_rerouted": zib_single_output_rerouted,
-        "zib_single_sampler_settings": zib_single_sampler_settings,
         "zitb_sampler_settings": zitb_sampler_settings,
-        "krea2_negative_text_node": 0,
         "sampler_steps": None,
     }
     text_nodes = []
-    if is_krea2:
-        patched["krea2_negative_text_node"] = _patch_krea2_negative_text_node(workflow, negative_prompt)
     patched["lora"] = _patch_existing_lora_nodes(workflow, loras or [], workflow_key)
     if workflow_key == "zit_single":
         sampler_steps = 10 if resolved_zit_model == ZIT_SINGLE_TEN_STEP_MODEL else 8
     else:
-        sampler_steps = 10 if is_krea2 else 8
+        sampler_steps = 8
     zit_unet_value = _zimage_unet_value(resolved_zit_model)
     zib_unet_value = _zimage_unet_value(resolved_zib_model)
     krea2_unet_value = _krea2_unet_value(resolved_krea2_model)
@@ -953,7 +739,7 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
             current_unet = str(inputs.get("unet_name") or "")
             normalized_unet = current_unet.replace("/", "\\").lower()
             consumers = model_consumers.get(str(node_id), set())
-            is_zib_slot = normalized_unet.startswith("z_image\\zib") or "483" in consumers or (use_zib_single and _is_zit_turbo_model_name(current_unet))
+            is_zib_slot = normalized_unet.startswith("z_image\\zib") or "483" in consumers
             if is_zib_slot:
                 inputs["unet_name"] = zib_unet_value
                 if inputs.get("weight_dtype") in {"fp8_e4m3fn", "fp8_e4m3fn_fast", "fp8_e5m2", "bf16"}:
@@ -978,7 +764,7 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
                 inputs["sampler_name"] = "euler"
             if "scheduler" in inputs:
                 inputs["scheduler"] = "simple"
-        if not use_zib_single and class_type == "KSampler" and "steps" in inputs and isinstance(inputs.get("steps"), (int, float, str)):
+        if not is_krea2 and class_type == "KSampler" and "steps" in inputs and isinstance(inputs.get("steps"), (int, float, str)):
             inputs["steps"] = sampler_steps
             patched["steps"] += 1
         if "filename_prefix" in inputs and isinstance(inputs.get("filename_prefix"), str):
@@ -1006,8 +792,7 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
         raise ValueError("工作流模板里没有找到可替换的 ZIB 模型节点。")
     if is_krea2 and resolved_krea2_model and patched["krea2_model"] < 1:
         raise ValueError("工作流模板里没有找到可替换的 Krea2 模型节点。")
-    if not use_zib_single:
-        patched["sampler_steps"] = sampler_steps
+    patched["sampler_steps"] = sampler_steps
     patched["exact_output_scale_nodes"] = _insert_exact_output_scale(workflow, width, height)
     patched["removed_prompt_nodes"] = _remove_unreferenced_mobile_prompt_nodes(workflow)
     return workflow, patched
@@ -1019,8 +804,8 @@ def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_
     positive_prompt = positive_prompt or _prompt_text(prompt_item)
     negative_prompt = prompt_item.get("negative_prompt", "")
     is_image_to_video = str(video_mode or "image").strip().lower() == "image"
-    # 图生视频保留首帧比例，并受 960 长边与 62 万像素上限约束；文生视频固定画布已满足两项限制。
-    video_width, video_height = image_to_video_resolution(source_image_path) if is_image_to_video else (540, 960)
+    # 图生视频保留首帧比例并对齐网格；文生视频使用接近 9:16 的偶数画布。
+    video_width, video_height = image_to_video_resolution(source_image_path) if is_image_to_video else (400, MAXIMUM_VIDEO_SIDE)
     seconds = max(1, min(30, int(seconds or 6)))
     # MiniMax H3 的原工作流按 24 FPS 计算长度并封装视频，其他帧率会破坏时长映射。
     fps = 24
@@ -1126,7 +911,6 @@ def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_
     if patched["filename_prefix"] < 1:
         raise ValueError("视频工作流模板里没有找到 SaveVideo 文件名前缀。")
     return workflow, patched, {"width": video_width, "height": video_height, "seconds": seconds, "fps": fps}
-
 
 
 def _available_loras():

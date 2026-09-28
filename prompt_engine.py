@@ -5,263 +5,47 @@ import random
 import re
 import sys
 import time
-from collections import deque
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from prompt_data import *  # noqa: F403
 from negative_prompt_engine import build_negative_prompt
+from prompt_composer import COMPOSER_SCALES, compose_parts
 from prompt_constants import (
     PROMPT_PART_ORDER,
     RESOLUTIONS,
 )
-from prompt_normalize import normalize_aspect, normalize_scale, normalize_shot, prompt_pool_scale, shot_label, skips_outfit
-from prompt_planner import (
-    choose,
-    choose_color_palette,
-    choose_directed,
-    choose_director,
-    choose_emotion_intent,
-    choose_filter_grade,
-    choose_pose_family,
-    choose_scene_light,
-    choose_visual_focus,
-    classify_pose_family,
-    intent_keywords,
-    palette_keywords,
-    scene_context_keywords,
+from prompt_normalize import (
+    normalize_aspect,
+    normalize_scale,
+    normalize_shot,
+    shot_label,
 )
 from prompt_postprocess import (
-    apply_conflict_cleaner,
     clean_global_prompt_text,
     clean_prompt_text,
     clean_sentence,
-    enrich_visual_finish,
     ensure_sentence,
     feedback_tags,
-    order_pose_before_expression,
-    polish_photographic_naturalness,
-    score_prompt_parts,
+    naturalize_pose_framing,
+    normalize_quality_line,
     simplify_pose_language,
     strengthen_expression,
-    strengthen_seductive_scene_and_pose,
 )
 
 
-def _bold_no_outfit_stocking_outfit(shot: str, rng: random.Random, era: str = "modern") -> str:
-    return ""
+def choose(values, rng: random.Random) -> str:
+    return rng.choice(values) if values else ""
 
 
 def _is_ancient_era(era: str) -> bool:
     return str(era or "").strip() in {"ancient", "古装", "古代"}
 
 
-_ANCIENT_SHOE_REPLACEMENTS = (
-    ("脚下是浅色云头绣鞋", "裸足踩在浅色裙摆下方"),
-    ("脚下是红色软底绣鞋", "裸足从红色裙摆下方露出"),
-    ("脚下是浅色软底绣鞋", "裸足从浅色裙摆下方露出"),
-    ("脚下是软底绣鞋", "裸足从裙摆下方露出"),
-    ("脚下是软底舞鞋", "裸足点在地面上"),
-    ("脚下是浅色绣鞋", "裸足从浅色裙摆下方露出"),
-    ("脚下是软底鞋", "裸足从裙摆下方露出"),
-    ("脚下是浅色软底鞋", "裸足从浅色裙摆下方露出"),
-    ("云头绣鞋", "裸足"),
-    ("云头鞋", "裸足"),
-    ("软底绣鞋", "裸足"),
-    ("软底舞鞋", "裸足"),
-    ("浅色绣鞋", "裸足"),
-    ("红色软底绣鞋", "裸足"),
-    ("浅色软底绣鞋", "裸足"),
-    ("细跟绣鞋", "裸足"),
-    ("浅金绣鞋", "裸足"),
-    ("绣鞋", "裸足"),
-    ("软底鞋", "裸足"),
-)
-
-
-def _enforce_ancient_barefoot(parts: dict[str, str], era: str) -> dict[str, str]:
-    if not _is_ancient_era(era):
-        return parts
-    enforced = dict(parts)
-    for name in ("outfit", "pose_expression", "scene_light", "camera"):
-        text = str(enforced.get(name) or "")
-        if not text:
-            continue
-        for old, new in _ANCIENT_SHOE_REPLACEMENTS:
-            text = text.replace(old, new)
-        text = text.replace("和裸足完整入镜", "，裸足完整入镜")
-        text = text.replace("配裸足", "，裸足")
-        enforced[name] = text
-    if enforced.get("outfit") and "裸足" not in str(enforced["outfit"]):
-        enforced["outfit"] = f'{enforced["outfit"]}，裙摆下方保持裸足'
-    return enforced
-
-
-def _enforce_ancient_outfit(parts: dict[str, str], scale: str, shot: str, aspect: str, era: str, rng: random.Random) -> dict[str, str]:
-    if not _is_ancient_era(era) or skips_outfit(scale) or scale == "bold_no_outfit":
-        return parts
-    outfit = str(parts.get("outfit") or "")
-    strict_ancient_markers = (
-        "古装",
-        "古典",
-        "汉服",
-        "唐制",
-        "宋制",
-        "明制",
-        "敦煌",
-        "胡姬",
-        "宫廷",
-        "花魁",
-        "马面裙",
-        "襦裙",
-        "褙子",
-        "披帛",
-        "云头",
-        "绣鞋",
-        "云肩",
-    )
-    if any(marker in outfit for marker in strict_ancient_markers):
-        return parts
-    pool_scale = prompt_pool_scale(scale)
-    if scale == "normal":
-        pool_scale = "bold"
-    options = outfit_options_by_aspect(pool_scale, shot, aspect, "ancient")  # noqa: F405
-    if not options:
-        return parts
-    enforced = dict(parts)
-    enforced["outfit"] = choose(options, rng)
-    return enforced
-
-
-_FULL_BODY_FOOT_RISK_REPLACEMENTS = (
-    ("前脚脚尖和黑色脚趾甲靠近画面下缘", "前脚整只脚自然落在地面边缘，脚趾放松不朝向镜头"),
-    ("双脚靠近身体但前脚脚尖朝向镜头", "双脚自然靠近身体，脚趾放松并避开正对镜头"),
-    ("裸足或脚尖成为近景张力点", "整只脚自然落地，只作为画面下缘的稳定落点"),
-    ("前脚脚背靠近画面下缘", "前脚自然落在画面下缘，脚背不过度弯折"),
-    ("脚踝和脚尖形成前景线条", "小腿斜向伸到画面下缘，脚踝侧面朝向镜头"),
-    ("脚掌和黑色脚趾甲朝向镜头", "整只脚自然侧向落地，脚趾放松不朝向镜头"),
-    ("脚尖靠近水边反光", "整只脚自然落在水边反光旁"),
-    ("裸足靠近画面下缘", "整只脚自然落在画面下缘"),
-    ("前脚贴近画面下缘", "前脚自然落在画面下缘"),
-    ("脚尖落在水光边缘", "整只脚自然落在水光边缘"),
-    ("前脚踩在湿地面反光上", "前脚自然踩在湿地面反光上"),
-    ("右腿向侧前方点地", "右腿向侧前方自然落地"),
-    ("右脚点地", "右脚自然落地"),
-    ("右腿向后点地", "右腿向后自然落地"),
-    ("一腿承重一腿向侧前方点地", "一腿承重一腿向侧前方自然落地"),
-    ("一条腿交叉点地", "一条腿自然交叠落地"),
-    ("强透视", "低机位"),
-    ("近大远小", "自然纵深"),
-)
-
-_FULL_BODY_FOOT_RISK_TERMS = (
-    "脚掌朝向镜头",
-    "脚尖朝向镜头",
-    "脚趾甲朝向镜头",
-    "脚伸到镜头",
-    "脚掌和脚尖靠近镜头",
-    "脚部在画面下方放大",
-    "前景脚掌",
-    "前景脚尖",
-    "足弓前景",
-)
-
-
-def _reduce_full_body_foot_deformation_risk(parts: dict[str, str], scale: str, shot: str) -> dict[str, str]:
-    if normalize_shot(shot) != "full_body" or normalize_scale(scale) == "nsfw":
-        return parts
-    reduced = dict(parts)
-    for name in ("camera", "pose_expression", "scene_light"):
-        text = str(reduced.get(name) or "")
-        if not text:
-            continue
-        for old, new in _FULL_BODY_FOOT_RISK_REPLACEMENTS:
-            text = text.replace(old, new)
-        text = text.replace("黑色脚趾甲", "脚踝链")
-        reduced[name] = text
-    combined = "，".join(str(reduced.get(name) or "") for name in ("camera", "pose_expression", "scene_light"))
-    if any(term in combined for term in _FULL_BODY_FOOT_RISK_TERMS):
-        reduced["pose_expression"] = (
-            "人物双腿自然错开，一只脚平稳落地，脚趾放松，"
-            "一只手停在腰侧，头部回望镜头"
-        )
-    reduced["foot_deformation_guard"] = "1"
-    return reduced
-
-
-_MODERN_SCENE_MARKERS_FOR_ANCIENT = (
-    "玻璃小桌",
-    "藤椅",
-    "藤编",
-    "露台",
-    "阳台",
-    "城市",
-    "泳池",
-    "玻璃栏杆",
-    "现代",
-    "天台",
-    "屋顶",
-    "白色栏杆",
-    "躺椅",
-)
-
 _BAR_COUNTER_MIST_SCENE = "环境光设定：夜店吧台后方大团紫色烟雾被冷紫逆光照亮，右后方红色射灯切过暗部，幽蓝霓虹散景包住背景，黑色湿润吧台从左下角斜向延伸，前景酒瓶和玻璃杯虚化反光，淡粉补光落在脸、锁骨和手指上"
 _BAR_COUNTER_BOLD_OUTFIT = "夜店吧台半身造型，黑色细带亮钻胸衣配银色身体链，锁骨链、手链、臂环和腰链在紫色灯光下反光，关键部位由黑色布料完整覆盖，肩颈、胸线边缘和细腰成为视觉重点"
 _BAR_COUNTER_HALF_BODY_POSE = "人物侧坐在吧台高脚椅上，上身前倾靠近黑色吧台，左前臂压在吧台边缘，右手举着威士忌杯停在肩线外侧，肩膀转向镜头，腰臀向画面右下方延伸，头部回望镜头，眼神直视镜头，嘴角轻轻上扬"
-_BAR_COUNTER_CAMERA = "竖向夜店吧台半身近景，人物从头到大腿上侧入镜，黑色吧台从左下角斜向延伸，身体沿右下角形成对角线，脸部靠近画面中心"
-_DOUBLE_GIRL_CAMERA = "竖向双人贴身半身构图，两名女性从头到大腿上侧入镜，脸部和嘴唇靠近画面中心，肩颈、手部、腰线和身体接触点清楚，背景保持简单"
-_DOUBLE_GIRL_SCENE = "环境光设定：灰色墙面和浅色室内地面保持极简背景，左侧大窗柔光照亮两名女性的脸、肩颈、手指和腰腹，身体贴合处保留柔和阴影，整体是安静室内私房半身近景"
-_BEACH_CAT_CAMERA = "竖向海边沙滩低机位全身构图，镜头贴近沙地和脚下落点，脚部自然落在画面下方，腿部向后延伸，人物从脚到头完整入镜，远处海平线保持水平"
-_BEACH_CAT_POSE = "人物背向镜头跪坐在蓝色复古手提箱上，双腿一前一后打开，前脚靠近镜头形成强透视，身体前倾后扭腰回头看向镜头，肩膀微微转开，眼神直视镜头，嘴唇微开，唇角微放松、眼神直率"
-_BEACH_CAT_OUTFIT = "海边猫系私房全身造型，白色猫耳发箍配白色蕾丝边连体泳装，腰臀边缘露肤明显，白色大腿袜带蕾丝袜口，白色厚底高跟鞋带深蓝蝴蝶结和珍珠装饰，整体是沙滩局部阳光下的清透诱惑造型"
-_BEACH_CAT_SCENE = "环境光设定：海边沙滩被镜头压低曝光，远处海面和晴空只保留柔和蓝色虚化，局部阳光从左上方切到人物腿部、腰线和肩颈，沙地只在脚边形成小面积反光，蓝色复古手提箱处在主体附近，背景不展开全景"
-_CINEMA_CUP_CAMERA = "竖向电影院座椅半身构图，人物坐在红色影院座椅中，从头到大腿上侧入镜，脸部靠近画面中心，手部和白色纸杯挡在嘴唇前方，后排红色座椅虚化成背景层次"
-_CINEMA_CUP_OUTFIT = "电影院日常半身造型，黑色高领修身针织长袖上衣贴合肩颈和上身线条，衣料细密柔软，袖口自然包住手腕，整体干净低调，红色座椅衬出黑色衣料轮廓"
-_CINEMA_CUP_POSE = "人物坐在电影院红色座椅里，身体轻轻靠向椅背，右手拿着白色纸杯停在嘴唇前方，左手自然放在大腿上，眼睛越过纸杯直视镜头，嘴唇被纸杯边缘遮住，眼神平稳专注"
-_CINEMA_CUP_SCENE = "电影院红色座椅半身场景，成排红色软椅在背景中虚化，暖色放映光从画面上方和后方落下，照亮头发边缘、眼睛、鼻梁、手指和白色纸杯，暗部保持柔和，整体像安静观影前的生活方式写真"
 
-_BRIGHT_SEDUCTIVE_SCENE_TIMES = ("morning", "noon", "afternoon")
-_DARK_SEDUCTIVE_SCENE_TIMES = ("sunset", "night")
-
-
-_MODERN_KEYWORD_THEME_PACKS = (
-    {
-        "name": "nightclub_bar",
-        "scene": ("夜店", "吧台", "霓虹", "酒杯", "冷紫", "淡粉", "黑色", "金属"),
-        "outfit": ("黑色", "亮钻", "胸衣", "身体链", "银色", "腰链"),
-        "pose": ("坐", "吧台", "酒杯", "前倾", "回望", "手"),
-    },
-    {
-        "name": "mist_bedroom",
-        "scene": ("卧室", "床边", "纱帘", "淡粉", "冷紫", "薄雾", "柔光"),
-        "outfit": ("蕾丝", "吊带", "短裙", "网纱", "丝袜", "腰链", "薄纱", "短上衣", "斜肩"),
-        "pose": ("坐", "床沿", "床边", "侧躺", "斜靠", "后靠", "双腿", "裸足", "跨步", "腰侧"),
-    },
-    {
-        "name": "mirror_bathroom",
-        "scene": ("浴室", "镜面", "水汽", "湿光", "幽蓝", "冷紫", "反光"),
-        "outfit": ("连体泳装", "薄纱", "挂脖", "细带", "水光", "银扣"),
-        "pose": ("镜头", "锁骨", "肩颈", "前倾", "手指", "腰侧"),
-    },
-    {
-        "name": "pool_noon",
-        "scene": ("泳池", "正午", "水光", "湖蓝", "遮阳棚", "强天光", "玻璃温室", "绿植"),
-        "outfit": ("连体泳装", "开襟纱衫", "脚踝链", "薄纱", "湖蓝"),
-        "pose": ("低机位", "全身", "脚尖", "裸足", "腿", "俯视"),
-    },
-    {
-        "name": "garden_fog",
-        "scene": ("雨后", "庭院", "湿石板", "植物", "森林", "木栈道", "银蓝", "薄雾", "冷白"),
-        "outfit": ("薄纱", "蕾丝", "浅色", "花边", "吊带", "银色"),
-        "pose": ("站", "倚靠", "侧身", "回望", "脚下", "手指", "低坐", "跪坐", "大腿"),
-    },
-    {
-        "name": "cinematic_lounge",
-        "scene": ("酒廊", "包厢", "暗红", "蓝紫", "冷紫", "灯带", "低雾", "全黑背景", "黑色镜面", "吧椅", "沙发"),
-        "outfit": ("黑色", "缎面", "胸衣", "金属扣", "身体链", "吊带丝袜"),
-        "pose": ("坐", "吧椅", "沙发", "前倾", "后仰", "锁骨", "腰线", "大腿", "回望"),
-    },
-)
 
 _SCENE_CATEGORY_MARKERS = {
     "nightclub": ("夜店", "吧台", "酒吧", "酒廊", "包厢", "霓虹", "威士忌杯", "酒杯"),
@@ -281,156 +65,6 @@ def _scene_category(parts: dict[str, str]) -> str:
         if any(marker in text for marker in markers):
             return category
     return "other"
-
-
-def _scene_category_count(items: list[dict], category: str) -> int:
-    return sum(1 for item in items if _scene_category(item.get("dimension_parts") or {}) == category)
-
-
-_RECENT_SCENE_CATEGORIES: deque[str] = deque(maxlen=6)
-
-
-def _recent_scene_category_count(category: str) -> int:
-    return sum(1 for recent in _RECENT_SCENE_CATEGORIES if recent == category)
-
-
-def _accept_scene_category(category: str, items: list[dict], count: int) -> bool:
-    if category == "nightclub":
-        return _scene_category_count(items, category) == 0 and _recent_scene_category_count(category) == 0
-    if count > 1 and _scene_category_count(items, category) >= 2:
-        return False
-    if _recent_scene_category_count(category) >= 2:
-        return False
-    return True
-
-_MODERN_HEAD_KEYWORD_THEME_PACKS = (
-    {
-        "name": "head_mirror_mist",
-        "scene": ("镜面", "浴室", "水汽", "湿光", "冷紫", "淡粉", "头部"),
-        "outfit": ("网纱", "薄纱", "细带", "领口", "锁骨链", "银色", "胸衣", "金属扣", "深V领", "法式短上衣", "细项圈"),
-        "pose": ("下巴", "脸侧", "耳侧", "镜边", "颈侧", "俯视", "舌尖"),
-    },
-    {
-        "name": "head_bedroom_veil",
-        "scene": ("卧室", "纱帘", "迷雾", "淡粉", "幽蓝", "头部"),
-        "outfit": ("蕾丝", "吊带", "领口", "肩带", "细链", "薄纱", "胸衣", "金属扣", "深V领", "短上衣"),
-        "pose": ("下巴", "耳侧", "发丝", "纱帘", "颈侧", "肩线", "舌尖"),
-    },
-    {
-        "name": "head_fog_lake",
-        "scene": ("雾林", "湖边", "芦苇", "森林", "冷白", "银蓝", "头部"),
-        "outfit": ("浅色", "薄纱", "领口", "花边", "银色", "肩线"),
-        "pose": ("脸侧", "下颌", "手指", "眼神", "发丝", "回望"),
-    },
-    {
-        "name": "head_jazz_bar",
-        "scene": ("酒吧", "酒廊", "暗红", "蓝紫", "黄铜", "窄光", "头部"),
-        "outfit": ("黑色", "缎面", "领口", "细链", "金属扣", "锁骨链"),
-        "pose": ("下巴", "颈侧", "耳饰", "酒杯", "俯视", "眼神"),
-    },
-    {
-        "name": "head_garden_dusk",
-        "scene": ("花园", "庭院", "薄雾", "黄昏", "花影", "侧逆光", "头部"),
-        "outfit": ("蕾丝", "薄纱", "花边", "领口", "浅色", "细链"),
-        "pose": ("脸旁", "发丝", "手指", "回望", "下巴", "眼神"),
-    },
-)
-
-_ANCIENT_KEYWORD_THEME_PACKS = (
-    {
-        "name": "ancient_rain_corridor",
-        "scene": ("古代", "雨夜廊下", "青瓦", "木柱", "灯笼", "湿石阶", "冷紫"),
-        "outfit": ("交领", "披帛", "绣边", "腰链", "薄纱", "裸足"),
-        "pose": ("廊下", "站", "侧身", "回望", "手扶", "脚下"),
-    },
-    {
-        "name": "ancient_palace_banquet",
-        "scene": ("古代", "宫苑夜宴", "屏风", "酒案", "宫灯", "暗色帷幕", "暖金"),
-        "outfit": ("唐制", "夜宴", "织金", "披帛", "短襦", "高腰裙"),
-        "pose": ("坐", "低案", "酒案", "回望", "手", "侧身"),
-    },
-    {
-        "name": "ancient_study_candle",
-        "scene": ("古代", "书房夜读", "卷轴", "香炉", "烛台", "低案", "琥珀"),
-        "outfit": ("宋制", "褙子", "月白", "交领", "披帛", "玉坠"),
-        "pose": ("低案", "坐", "手指", "侧身", "回望", "低头"),
-    },
-    {
-        "name": "dunhuang_dancer",
-        "scene": ("古典敦煌", "壁画", "薄纱帷幕", "粉金", "金色小灯"),
-        "outfit": ("舞姬", "披帛", "臂钏", "流苏", "珠片", "薄纱"),
-        "pose": ("舞", "抬手", "扭腰", "侧身", "手臂", "回望"),
-    },
-    {
-        "name": "ancient_hot_spring",
-        "scene": ("古代", "温泉", "石壁", "竹帘", "水汽", "湿润木地板", "暖白湿光"),
-        "outfit": ("月白", "薄纱", "披帛", "交领", "湿润", "细带"),
-        "pose": ("坐", "水边", "前倾", "肩颈", "手指", "回望"),
-    },
-    {
-        "name": "ancient_boat_night",
-        "scene": ("古代", "画舫", "雕花窗", "湖面灯影", "船舷", "薄纱帘", "幽蓝水光"),
-        "outfit": ("江南", "交领", "薄衫", "抹胸", "玉坠", "高腰裙"),
-        "pose": ("船舷", "坐", "窗边", "侧身", "回望", "手扶"),
-    },
-    {
-        "name": "ancient_bamboo_moon",
-        "scene": ("古代", "竹林月色", "竹影", "石径", "雾气", "银蓝月光"),
-        "outfit": ("青绿山水", "玉坠", "交领", "披帛", "月白", "绣边"),
-        "pose": ("竹林", "站", "侧身", "回望", "脚下", "手指"),
-    },
-    {
-        "name": "ancient_theater_backstage",
-        "scene": ("古代", "戏台后台", "红木妆台", "铜镜", "戏服架", "纸灯笼", "暖红"),
-        "outfit": ("花魁", "步摇", "织金", "交领", "披帛", "盘扣"),
-        "pose": ("妆台", "铜镜", "坐", "回望", "手指", "侧身"),
-    },
-    {
-        "name": "miao_silver_night",
-        "scene": ("苗疆", "黑蓝", "幽蓝", "夜色", "木楼", "银光"),
-        "outfit": ("苗疆", "银饰", "银链", "银铃", "刺绣", "异域"),
-        "pose": ("站", "坐", "侧身", "回望", "手腕", "腰链"),
-    },
-    {
-        "name": "republic_lace",
-        "scene": ("民国", "复古", "暖光", "老洋房", "木窗", "台灯"),
-        "outfit": ("民国", "蕾丝立领", "象牙白", "浅金缎面", "珍珠"),
-        "pose": ("坐", "窗边", "侧身", "回望", "手指", "肩颈"),
-    },
-)
-
-_ANCIENT_HEAD_KEYWORD_THEME_PACKS = (
-    {
-        "name": "head_ancient_copper_mirror",
-        "scene": ("古代", "铜镜", "红木妆台", "戏台后台", "暖红", "头部"),
-        "outfit": ("花魁", "步摇", "交领", "披帛", "盘扣", "织金"),
-        "pose": ("铜镜", "脸侧", "手指", "回望", "下巴", "发丝"),
-    },
-    {
-        "name": "head_ancient_candle_study",
-        "scene": ("古代", "书房", "卷轴", "香炉", "烛台", "琥珀", "头部"),
-        "outfit": ("宋制", "褙子", "月白", "交领", "玉坠", "珍珠"),
-        "pose": ("低头", "抬眸", "手指", "下颌", "眼神", "侧脸"),
-    },
-    {
-        "name": "head_ancient_bamboo_moon",
-        "scene": ("古代", "竹林", "竹影", "石径", "银蓝月光", "头部"),
-        "outfit": ("青绿山水", "玉坠", "交领", "披帛", "月白", "绣边"),
-        "pose": ("脸旁", "手指", "回望", "下巴", "发丝", "眼神"),
-    },
-    {
-        "name": "head_ancient_boat_window",
-        "scene": ("古代", "画舫", "雕花窗", "湖面灯影", "薄纱帘", "头部"),
-        "outfit": ("江南", "交领", "薄衫", "抹胸", "玉坠", "绣边"),
-        "pose": ("窗边", "侧脸", "回望", "手指", "下巴", "眼神"),
-    },
-    {
-        "name": "head_republic_lace",
-        "scene": ("民国", "老洋房", "木窗", "台灯", "复古", "暖光", "头部"),
-        "outfit": ("民国", "蕾丝立领", "象牙白", "浅金缎面", "珍珠", "盘扣"),
-        "pose": ("窗边", "侧脸", "手指", "肩颈", "下巴", "回望"),
-    },
-)
 
 
 _MODERN_THEME_BLUEPRINTS = {
@@ -718,58 +352,11 @@ def _theme_blueprint_for(theme_name: str, era: str) -> dict[str, object]:
     return _MODERN_THEME_BLUEPRINTS.get(theme_name) or {}
 
 
-def _variant_index(value_count: int, variant_seed: str, key: str, shot: str) -> int:
-    if value_count <= 1:
-        return 0
-    digest_source = f"{variant_seed}|{key}|{shot}"
-    return sum(ord(ch) for ch in digest_source) % value_count
-
-
 def _theme_blueprint_value(blueprint: dict[str, object], key: str, shot: str, variant_seed: str = "") -> str:
     value = blueprint.get(key)
     if isinstance(value, dict):
         value = value.get(shot) or value.get("default") or ""
-    if isinstance(value, (tuple, list)):
-        options = tuple(str(item) for item in value if item)
-        if not options:
-            return ""
-        return options[_variant_index(len(options), variant_seed, key, shot)]
     return str(value or "")
-
-
-def _outfit_visible_details(outfit: str, shot: str) -> str:
-    """沿用母题服装，只补该服装自身可见的材质与结构，不另选一套衣服。"""
-    details = []
-    if "蕾丝" in outfit:
-        details.append("蕾丝花纹在领缘由密变疏，镂空处透出底层衣料")
-    elif "薄纱" in outfit or "网纱" in outfit:
-        details.append("轻薄纱层在肩侧交叠，透光处能看见细密网纹")
-    elif "缎面" in outfit:
-        details.append("缎面随转身形成柔亮细褶，折痕处留下窄窄的高光")
-    elif "绣边" in outfit or "刺绣" in outfit:
-        details.append("衣缘的细密绣线在侧光下有高低起伏")
-    elif "牛仔" in outfit:
-        details.append("牛仔斜纹在翻折处明暗分明，布边有细小的车缝线")
-    elif "针织" in outfit:
-        details.append("针织罗纹顺着肩头转弯，贴近光的针脚有柔软阴影")
-    if "短外套" in outfit and "袖窿" not in outfit:
-        details.append("外套前襟留出内搭的领口，肩部硬挺衣片在袖窿处收成清楚的接缝")
-    elif "开衫" in outfit and "罗纹" not in outfit:
-        details.append("开襟两侧露出内搭，衣摆在上腰处收成柔软的窄边")
-    elif "短袖上衣" in outfit and "袖口" not in outfit:
-        details.append("袖口的滚边贴住上臂，前片沿肩线向胸前自然垂落")
-    if "宽肩带" in outfit:
-        details.append("宽肩带与领缘的接缝压线清楚，肩头布面微微起伏")
-    elif "细带" in outfit or "肩带" in outfit or "挂脖" in outfit:
-        details.append("细带沿颈侧斜向肩头，连接处有一小截清晰的接缝压线")
-    elif "翻领" in outfit or "立领" in outfit:
-        details.append("领缘沿肩线折出清楚的夹角，内外两层衣料的厚薄有别")
-    elif "披帛" in outfit:
-        details.append("披帛在肩头自然堆起一折，边缘顺着衣领垂落")
-    if shot == "head_shot":
-        details = [detail for detail in details if not any(word in detail for word in ("腰", "裙摆", "脚"))]
-    details = [detail for detail in details if detail not in outfit]
-    return "，".join((outfit, *details)) if details else outfit
 
 
 def _apply_theme_blueprint(parts: dict[str, str], scale: str, shot: str, aspect: str, era: str) -> dict[str, str]:
@@ -786,635 +373,9 @@ def _apply_theme_blueprint(parts: dict[str, str], scale: str, shot: str, aspect:
             return parts
     locked = dict(parts)
     variant_seed = str(parts.get("variant_seed") or "")
-    pose = _theme_blueprint_value(blueprint, "pose", shot, variant_seed)
-    outfit = _theme_blueprint_value(blueprint, "outfit", shot, variant_seed)
-    quality_tail = _theme_blueprint_value(blueprint, "quality", shot, variant_seed)
-    if pose and scale != "nsfw":
-        locked["pose_expression"] = pose
-    if skips_outfit(scale) or scale == "bold_no_outfit":
-        locked["outfit"] = ""
-    elif outfit:
-        locked["outfit"] = _outfit_visible_details(outfit, shot)
-    if quality_tail and scale != "normal" and _is_ancient_era(era):
-        base_quality = "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝"
-        locked["quality"] = f"{base_quality}，{quality_tail}"
+    # 旧流程只剩四档使用：四档不输出服装，姿势来自四档专用池。
+    locked["outfit"] = ""
     locked["theme_blueprint_locked"] = "1"
-    return locked
-
-
-def _director_plan_subject_position(shot: str, theme_name: str, scene_light: str) -> str:
-    if shot == "head_shot":
-        return "角色肩部及以上近景，眼睛、湿润嘴唇、颈侧和肩线清楚"
-    if shot == "half_body":
-        return "角色大腿及以上半身镜头，她微微前倾靠近镜头"
-    return "腰线和长腿完整"
-
-
-def _director_plan_visual_path(shot: str) -> str:
-    if shot == "head_shot":
-        return "一只手停在脸侧下方，黑色手指甲靠近肩颈边缘"
-    if shot == "half_body":
-        return "左手轻搭在胸前，右手贴在腰侧"
-    return "手部和腿部都在画面内"
-
-
-def _director_plan_light(shot: str, scale: str) -> str:
-    if scale == "normal":
-        return "一束自然光落在脸、发丝、衣料纹理和手部"
-    if shot == "head_shot":
-        return "窄光照亮眼尾、鼻梁、下颌和指尖"
-    if shot == "half_body":
-        if scale in {"bold_no_outfit", "nsfw"}:
-            return "一束窄光从侧面落在肩颈、手指和腰侧"
-        return "一束窄光从侧面落在肩颈、手指和上衣纹理上"
-    return "窄光照亮脸侧、锁骨、腰线、腿部边缘和脚下地面反光"
-
-
-def _director_plan_material(scale: str, outfit: str, scene_light: str) -> str:
-    material_terms = []
-    for marker in ("蕾丝", "缎面", "薄纱", "丝袜", "金属", "银色", "水汽", "镜面", "木质", "石阶", "石板", "湿润"):
-        if marker in outfit or marker in scene_light:
-            material_terms.append(marker)
-    if not material_terms:
-        material_terms = ["皮肤纹理", "发丝", "环境反光"]
-    material_text = "、".join(dict.fromkeys(material_terms[:3]))
-    return f"{material_text}在亮处有小面积反光，暗处保留真实纹理"
-
-
-def _apply_visual_director_plan(parts: dict[str, str], scale: str, shot: str, aspect: str, era: str) -> dict[str, str]:
-    if str(parts.get("director_plan_locked") or "") == "1":
-        return parts
-    if aspect != "portrait":
-        return parts
-    planned = dict(parts)
-    theme_name = str(planned.get("theme_name") or "")
-    subject_position = _director_plan_subject_position(shot, theme_name, planned.get("scene_light", ""))
-    visual_path = _director_plan_visual_path(shot)
-    light = _director_plan_light(shot, scale)
-    material = _director_plan_material(scale, planned.get("outfit", ""), planned.get("scene_light", ""))
-    plan = f"{subject_position}，{visual_path}，{light}，{material}"
-    planned["director_plan"] = plan.strip("，。 \n\t")
-    planned["director_plan_locked"] = "1"
-    return planned
-
-
-_ENVIRONMENT_ANCHOR_POSES = (
-    {
-        "markers": ("木栈道", "湿木板"),
-        "shots": {
-            "half_body": (
-                "人物坐在湿木栈道边缘，上身向镜头前倾，一只手撑住木板水光，另一只手停在大腿上，头部回望镜头",
-                "人物跪坐在木栈道转角处，手指贴着湿木板边缘，肩线侧转，眼神从树影下看向镜头",
-            ),
-            "full_body": (
-                "人物坐在湿木栈道边缘，一条腿弯在木板上，另一条腿沿栈道向画面下方延伸，左手撑住身侧木板，右手停在大腿上，头部回望镜头",
-                "人物跪坐在木栈道转角处，双腿沿木板方向错开，前脚自然落在画面下缘，脚趾放松不朝向镜头，左手扶住湿木板边缘，右手停在腰侧，头部俯视镜头",
-                "人物坐在湿木栈道前缘，双膝弯曲向两侧打开成宽大的M形坐姿，双脚靠近身体，左手撑住身侧木板，右手压在大腿上，身体半侧面面对镜头",
-            ),
-        },
-    },
-    {
-        "markers": ("森林", "树影", "深绿色植物", "竹林", "竹影"),
-        "shots": {
-            "head_shot": (
-                "头部靠近树干阴影，手指拨开脸侧枝叶，眼神从叶影缝隙看向镜头，嘴唇微开",
-                "脸侧贴近竹影边缘，指尖停在叶片旁，头部微低，抬眸看向镜头",
-            ),
-            "half_body": (
-                "人物侧身贴近树干，一只手抱住树身边缘，另一只手停在腰侧，肩颈从叶影里转向镜头",
-                "人物蹲在灌木旁，手指拨开前景枝叶，腰线侧转，头部从树影下回望镜头",
-            ),
-            "full_body": (
-                "人物侧身抱住树干，前腿弯曲贴近树根，后腿沿湿地面拉长，手臂绕过树身边缘，头部从肩侧回望镜头",
-                "人物蹲在树影和灌木旁，一只手扶住低垂枝叶，另一只手停在大腿上，裸足踩在草叶覆盖的地面，头部俯视镜头",
-            ),
-        },
-    },
-    {
-        "markers": ("泳池", "池边", "池水"),
-        "shots": {
-            "half_body": (
-                "人物坐在泳池边缘，手掌撑住池边瓷砖，半身向镜头前倾，水面反光只贴着手臂和腰线",
-                "人物单膝抵在池边瓷砖上，一只手扶住池沿，另一只手停在大腿上，头部俯视镜头",
-            ),
-            "full_body": (
-                "人物坐在泳池边缘，双手撑住身侧瓷砖，一条腿弯在池沿上，另一条腿向水面方向自然伸长，整只脚落在水边反光旁，脚趾放松不朝向镜头，头部俯视镜头",
-                "人物单膝踩在池边瓷砖上，另一条腿向后拉长，左手扶住池沿，右手停在大腿上，身体向镜头侧转",
-                "人物坐在池边瓷砖上，双膝弯曲向两侧打开成宽大的M形坐姿，双脚靠近身体，左手撑住池沿，右手停在大腿上，半侧面面对镜头",
-            ),
-        },
-    },
-    {
-        "markers": ("床沿", "床边", "床头", "床铺"),
-        "shots": {
-            "half_body": (
-                "人物跪在床沿前，前臂压住床面边缘，肩颈向镜头前倾，手指抓住床单褶皱，头部抬眼看镜头",
-                "人物坐在床边前缘，一只手撑在床面，另一只手停在腰侧，身体后靠让床沿成为支撑点",
-            ),
-            "full_body": (
-                "人物跪在床沿前，双手抓住床单边缘，上身向床面前倾，双腿在床边地面错开，头部抬眼看向镜头",
-                "人物坐在床沿前缘，上身后靠，双手撑住床面，双腿斜向画面下方延展，裸足落在床边地面，头部回望镜头",
-                "人物坐在床边地面，双膝弯曲向两侧打开成宽大的M形坐姿，双脚靠近身体，左手抓住床单边缘，右手压在大腿上，半侧面面对镜头",
-            ),
-        },
-    },
-    {
-        "markers": ("吧台", "吧椅"),
-        "shots": {
-            "half_body": (
-                "人物侧坐在吧台高脚椅上，前臂压住黑色吧台边缘，另一只手停在脸侧，肩膀转向镜头，头部回望",
-                "人物半身趴近吧台边缘，手指扣住吧台反光边，吧台反光留在画面一侧虚化，眼神从吧台上方向镜头看去",
-            ),
-            "full_body": (
-                "人物坐在吧椅前缘，一只脚踩住吧椅横档，另一条腿向画面下方伸长，左手扶住吧台边缘，右手停在大腿上，头部回望镜头",
-                "人物倚在吧台转角，髋部贴近台面边缘，一条腿交叉点地，手掌撑住黑色吧台反光面，头部俯视镜头",
-            ),
-        },
-    },
-    {
-        "markers": ("沙发",),
-        "shots": {
-            "half_body": (
-                "人物坐在沙发前缘，上身向镜头前倾，一只手压住沙发扶手，另一只手停在腰侧，头部侧偏直视镜头",
-                "人物半身斜靠在沙发靠背上，手指抓住丝绒边缘，肩线侧转，眼神从暗红背景前看向镜头",
-            ),
-            "full_body": (
-                "人物坐在沙发前缘，上身后靠，左手撑住沙发坐垫，右手停在大腿上，一条腿弯曲贴近沙发，另一条腿斜向伸长",
-                "人物侧身倚在沙发扶手旁，髋部贴近坐垫边缘，前腿沿地毯伸向画面下方，手掌压住沙发扶手，头部回望镜头",
-                "人物坐在沙发前的地毯上，双膝弯曲向两侧打开成宽大的M形坐姿，双脚靠近身体，左手撑住沙发坐垫边缘，右手停在大腿上，半侧面面对镜头",
-            ),
-        },
-    },
-    {
-        "markers": ("浴室", "雾面镜"),
-        "shots": {
-            "head_shot": (
-                "头部贴近雾面镜边缘，指尖停在镜面水汽旁，眼神越过镜中暗光看向镜头，嘴唇微开",
-                "脸侧靠近浴室镜面反光，手指轻触下颌旁的水汽边缘，头部微低，抬眸看镜头",
-            ),
-            "half_body": (
-                "人物半身靠近雾面镜，一只手撑住镜台边缘，另一只手停在腰侧，肩颈从水汽暗部里转向镜头",
-                "人物侧身贴近浴室镜面，指尖划过镜面水汽边缘，腰线向镜头侧转，头部回望镜头",
-            ),
-            "full_body": (
-                "人物站在雾面镜和湿润瓷砖之间，一只手扶住镜台边缘，前脚踩在湿地面反光上，后腿拉长，头部回望镜头",
-                "人物侧身倚近浴室玻璃边缘，手掌贴住雾面玻璃，双腿沿湿润瓷砖错开，脚尖落在水光边缘，眼神看向镜头",
-            ),
-        },
-    },
-    {
-        "markers": ("卧室床",),
-        "shots": {
-            "head_shot": (
-                "头部靠近半透明纱帘，手指轻轻勾住帘边，眼神从纱影后看向镜头，嘴唇微开",
-                "脸侧贴近床头暗光，指尖停在纱帘褶皱旁，头部微低，抬眸看镜头",
-            ),
-            "half_body": (
-                "人物坐在床沿旁并轻轻勾住纱帘边缘，另一只手撑在床面上，肩颈向镜头前倾，眼神从帘影里看向镜头",
-                "人物半身靠近床头纱帘，一只手抓住床单褶皱，另一只手停在腰侧，身体向床沿前倾",
-            ),
-            "full_body": (
-                "人物跪在床沿前，一只手抓住床单边缘，另一只手轻勾纱帘，双腿在床边地面错开，头部抬眼看向镜头",
-                "人物坐在床沿前缘，双手撑住床面和纱帘边缘，双腿斜向画面下方延展，裸足落在床边地面，头部回望镜头",
-            ),
-        },
-    },
-    {
-        "markers": ("窗框", "木窗", "雕花窗", "纸拉门"),
-        "shots": {
-            "head_shot": (
-                "头部靠近窗框侧光，指尖停在窗框边缘，眼神越过窗影看向镜头，嘴唇微开",
-                "脸侧贴近雕花窗边，手指轻扶窗棂，头部微低，抬眸看向镜头",
-            ),
-            "half_body": (
-                "人物侧坐在窗边，一只手扶住窗框，另一只手停在腰侧，身体向窗光方向微微前倾，头部回望镜头",
-                "人物半身倚在木窗旁，手指扣住窗棂边缘，肩颈从窗影里转向镜头",
-            ),
-            "full_body": (
-                "人物站在窗框旁，一只手扶住窗棂，双腿自然错开，身体侧身向镜头前倾，头部回望",
-                "人物站在纸拉门或木窗旁，一只手扶住门框，另一只手停在腰侧，一腿承重一腿向侧前方点地，头部从窗影里看向镜头",
-            ),
-        },
-    },
-    {
-        "markers": ("低案", "酒案", "妆台", "桌"),
-        "shots": {
-            "head_shot": (
-                "头部靠近桌案边缘，手指停在卷轴或铜镜旁，眼神从低处抬向镜头，嘴角轻轻上扬",
-                "脸侧贴近桌面反光，指尖扣住案沿，头部微低，抬眸看镜头",
-            ),
-            "half_body": (
-                "人物跪坐在低案旁，一只手扶住案沿，另一只手停在腰侧，身体向桌面前倾，头部抬眼看镜头",
-                "人物趴近桌案边缘，前臂压住桌面，手指停在卷轴或杯盏旁，肩线侧转回望镜头",
-            ),
-            "full_body": (
-                "人物跪坐在低案旁，双膝贴近案前地面，一只手扶住案沿，另一只手停在大腿上，身体向桌面前倾，头部抬眼看镜头",
-                "人物侧坐在桌案旁，髋部贴近案边，前腿沿地面伸向画面下方，手掌撑住案沿，头部回望镜头",
-            ),
-        },
-    },
-)
-
-
-def _apply_environment_anchor_pose(parts: dict[str, str], scale: str, shot: str, aspect: str) -> dict[str, str]:
-    scale = normalize_scale(scale)
-    if scale == "nsfw":
-        return parts
-    shot = normalize_shot(shot)
-    context = str(parts.get("scene_light") or "")
-    if not context:
-        return parts
-    for group in _ENVIRONMENT_ANCHOR_POSES:
-        if not any(marker in context for marker in group["markers"]):
-            continue
-        options = group["shots"].get(shot)
-        if not options:
-            return parts
-        digest = sum(ord(ch) for ch in f"{context}|{shot}|{aspect}|{scale}|{parts.get('variant_seed') or ''}")
-        anchored = dict(parts)
-        anchored["pose_expression"] = options[digest % len(options)]
-        anchored["environment_anchor_locked"] = "1"
-        return anchored
-    return parts
-
-
-_ENVIRONMENT_INTERACTION_TERMS = (
-    "木栈道",
-    "木板",
-    "树干",
-    "树身",
-    "树根",
-    "枝叶",
-    "灌木",
-    "草叶",
-    "池边",
-    "池沿",
-    "瓷砖",
-    "水面",
-    "床沿",
-    "床边",
-    "床面",
-    "床单",
-    "纱帘",
-    "吧台",
-    "吧椅",
-    "酒杯",
-    "台面",
-    "沙发",
-    "扶手",
-    "坐垫",
-    "镜面",
-    "镜台",
-    "玻璃",
-    "窗框",
-    "窗棂",
-    "门框",
-    "低台",
-    "低案",
-    "案沿",
-    "桌案",
-    "桌面",
-    "卷轴",
-    "铜镜",
-    "柱",
-    "栏杆",
-    "地毯",
-    "地面反光",
-)
-
-def _enforce_environment_interaction_pose(parts: dict[str, str], scale: str, shot: str, aspect: str) -> dict[str, str]:
-    scale = normalize_scale(scale)
-    shot = normalize_shot(shot)
-    if scale == "nsfw" or shot == "head_shot":
-        return parts
-    pose = str(parts.get("pose_expression") or "")
-    if any(term in pose for term in _ENVIRONMENT_INTERACTION_TERMS):
-        return parts
-    anchored = _apply_environment_anchor_pose(parts, scale, shot, aspect)
-    anchored_pose = str(anchored.get("pose_expression") or "")
-    if any(term in anchored_pose for term in _ENVIRONMENT_INTERACTION_TERMS):
-        anchored["environment_interaction_enforced"] = "1"
-        return anchored
-    return parts
-
-
-_SEDUCTIVE_FACE_BY_SHOT = {
-    "head_shot": (
-        "下巴微抬形成俯视感，上眼睑压低，狐狸眼半眯看向镜头，眼尾向上挑，左侧嘴角轻轻挑起，薄唇微开露出一点上齿，眉梢放松、唇角保持上提",
-        "头部贴近画面前缘，睫毛阴影压住眼下，视线从上眼睑下方向下俯视镜头，鼻梁和唇峰有湿润高光，右侧嘴角挑出清冷上扬的笑弧",
-        "脸侧微微靠近耳侧发丝，眼神半睁但焦点很准，眼尾斜斜压向镜头，下唇轻轻放松，嘴角一侧上提露出一点牙尖，眉梢上挑、唇角放松",
-        "一只手停在肩头衣料边缘，黑亮指甲清楚，狐狸眼轻微对眼却仍锁住镜头，下眼睑收紧，眼尾上扬，嘴角偏向一侧，眉梢放松、唇角保持偏向一侧",
-        "手指停在肩线下方衣料边缘，黑色亮面指甲清楚，舌尖轻轻抵住唇缝边缘，上眼睑压住视线，眼神虚浮但很锋利，嘴角一侧挑起，眉梢上挑、唇角保持单侧挑起",
-        "极近距离怼脸特写，画面几乎被脸部占满，狐狸眼半眯并向下俯视镜头，眉尾高高挑起，眼尾上挑，薄唇微开露出一点上齿，嘴角偏向一侧，眉梢放松、唇角偏向一侧，冷紫主光让冷白皮肤呈现淡紫湿润高光",
-    ),
-    "half_body": (
-        "下巴微收后抬眸，眼尾向镜头斜挑，下眼睑微收，嘴唇轻启不露齿，唇角一侧微微上扬，锁骨随呼吸轻微起伏",
-        "头部从肩线后方回望，眼尾斜斜压向镜头，下眼睑微收，视线先落在镜头下方再抬起锁住镜头，唇角一侧挑起，颈侧微微绷紧",
-        "肩颈向前压近，狐狸眼半眯斜看镜头，眼尾有湿润高光，眉尾微微上挑，薄唇轻抿后微微松开，唇角带放松上扬的弧度",
-        "头部微微后仰，眼尾微挑，下眼睑压住视线，嘴角轻轻挑起，眉梢放松、唇角保持挑起",
-        "一只手停在胸前衣料边缘，细长手指微微弯曲，黑亮指甲和指节高光清楚，狐狸眼轻微对眼，眼神迷离却死死盯住镜头，嘴角一侧轻轻向上挑起",
-        "头部后仰并微微歪向一侧，眉尾上挑，眼尾上扬，视线略失焦却黏住镜头，嘴角带上扬的笑弧，眉梢放松、唇角保持上扬",
-        "正面胸部以上近距离构图，头部大幅后仰，下巴高高抬起后仍用狐狸眼虚眼盯住镜头，眉尾微挑，嘴唇微张，嘴角一侧轻轻挑起，一只手停在胸前衣料边缘，黑色哑光指甲清楚",
-    ),
-    "full_body": (
-        "头部微低，抬眼看镜头，眼尾斜斜上挑，下眼睑收紧，嘴唇轻启不露齿，唇角一侧微微抬起，眉梢放松、唇角保持抬起",
-        "头部侧转回望镜头，视线先越过肩线再压回镜头，狐狸眼半眯而黏着，眉尾微微上挑，唇角轻挑，呼吸让锁骨和肩颈有轻微起伏",
-        "下巴轻轻抬起，眼神从上眼睑下方俯视镜头，薄唇微开，唇峰带小面积高光，嘴角一侧向上挑起，眉梢放松、唇角保持向上挑起",
-        "头部大幅仰起并微微歪向一侧，狐狸眼半眯盯住镜头，眼尾上挑，眉尾微微上挑，嘴角明显上扬，眉梢上挑、唇角保持上扬",
-        "头部仰起并歪向一侧，狐狸眼轻微对眼，眼神迷离虚浮但仍盯住镜头，眼尾上扬，嘴角明显上扬，眉梢放松、唇角保持上扬",
-        "头部微微侧偏，狐狸眼斜看镜头，瞳孔湿润明亮，眉尾高挑，眼尾上扬，嘴角微微上勾成清冷的笑，眉梢放松、唇角保持上勾",
-    ),
-}
-
-_NORMAL_FACE_BY_SHOT = {
-    "head_shot": (
-        "下巴微低，抬眸，眼神柔和但有焦点，嘴唇轻闭，唇角只有很浅的弧度",
-        "头部轻轻侧偏，眼尾放松，视线稳定看向镜头，嘴角带克制的浅淡笑意",
-    ),
-    "half_body": (
-        "头部从肩线旁回望镜头，眼神清亮，嘴唇轻闭，唇角带很浅的笑意，肩颈自然舒展",
-        "下巴微收，视线平稳看向镜头，嘴角轻轻上扬，呼吸让锁骨线条保持自然",
-    ),
-    "full_body": (
-        "头部微低，抬眼看镜头，眼神清亮，嘴唇轻闭，唇角带克制笑意，肩颈自然放松",
-        "头部侧转回望镜头，视线稳定，嘴角轻轻上扬，表情自然但有镜头感",
-    ),
-}
-
-
-def _apply_emotional_seduction_expression(parts: dict[str, str], scale: str, shot: str, aspect: str) -> dict[str, str]:
-    scale = normalize_scale(scale)
-    shot = normalize_shot(shot)
-    if scale == "nsfw":
-        return parts
-    pose = str(parts.get("pose_expression") or "").strip("，。 \n\t")
-    if not pose or any(marker in pose for marker in ("双女", "两名女性", "接吻")):
-        return parts
-    options = _NORMAL_FACE_BY_SHOT.get(shot, ()) if scale == "normal" else _SEDUCTIVE_FACE_BY_SHOT.get(shot, ())
-    if not options:
-        return parts
-    digest = sum(ord(ch) for ch in f"{pose}|{parts.get('scene_light') or ''}|{parts.get('variant_seed') or ''}|{scale}|{shot}|{aspect}")
-    face = options[digest % len(options)]
-    # 已有动作和头部方向是主句，只补缺失的眼神/嘴角，避免另一套表情覆盖原动作。
-    if scale == "normal":
-        additions = []
-        if not any(word in pose for word in ("眼神", "视线", "目光", "抬眼", "抬眸", "眼尾", "直视")):
-            additions.append(("眼神清亮地看向镜头", "视线从侧面缓缓转回镜头")[digest % 2])
-        if not any(word in pose for word in ("嘴", "唇", "笑")):
-            additions.append(("嘴唇轻闭，唇角有浅淡笑意", "嘴唇放松，嘴角轻轻上扬")[digest % 2])
-        if not additions:
-            return parts
-        face = "，".join(additions)
-    expressive = dict(parts)
-    expressive["pose_expression"] = f"{pose}，{face}"
-    expressive["emotional_expression_locked"] = "1"
-    return expressive
-
-
-_REFERENCE_STYLE_POSE_BY_SHOT = {
-    "head_shot": (
-        "极近距离怼脸特写，画面几乎被脸部占满，头部微微后仰，下巴抬起形成俯视镜头的角度，狐狸眼半眯，上眼睑压住瞳孔，眉尾高高挑起，左侧嘴角单独上提露出一点上齿，眉梢放松、唇角保持上提",
-        "正面近距离肖像，左手停在肩线下方衣料边缘，舌尖若隐若现地贴近唇缝边缘，狐狸眼轻微向内对视但视线仍钉住镜头，眼尾微微上挑，眼神迷离虚浮却很锋利，右侧嘴角挑出清冷上扬的笑",
-        "脸部贴近镜头前缘，冷白皮肤和毛孔细节清楚，头部向一侧轻歪后抬起下巴，一只手停在肩头衣料边缘，狐狸眼从睫毛阴影下半眯看向镜头，眼尾上扬，薄唇微开露出一点上齿，嘴角偏向一侧，眉梢放松、唇角保持偏向一侧",
-        "侧脸微微侧转，眼神先从侧光暗部偏开半寸再压回镜头，眼尾被窄光勾亮，下眼睑微微收紧，一只手拨开耳侧发丝，黑色指甲只作为小面积亮点，嘴唇轻启，唇角一侧挑起，眉梢放松、唇角保持挑起",
-        "头部贴近肩线，颈侧被窄光勾亮，一只手搭在肩头或衣领边缘，指尖停在肩线下方，眼尾斜看镜头，上眼睑压低，唇角单侧上提，薄唇保持微开，眉梢放松、唇角保持微开",
-        "头部大幅后仰后又用眼尾向下俯视镜头，一只手停在肩头衣料边缘，黑色指甲清楚，狐狸眼虚着眼睛，视线黏在镜头上不移开，嘴唇微张，唇峰和下唇有湿润高光，嘴角一侧明显上挑，眉梢上挑、唇角保持上挑",
-        "脸颊贴近肩线暗部，黑色亮面指甲停在胸前衣料边缘，下眼睑收紧，狐狸眼斜斜压向镜头，左侧嘴角轻轻挑起，唇釉高光清楚",
-        "头部微微侧偏，耳侧发丝落在脸颊边，发丝自然从脸侧分开，眼神从发丝缝隙里直直看向镜头，眼尾高挑，下唇轻轻放松，嘴角轻轻上扬，眉梢放松、视线锐利",
-        "下巴微低，缓慢抬眼，镜头只看见脸和肩线，狐狸眼半睁半闭，睫毛阴影压住眼下，薄唇轻启，舌尖只在唇缝里露出一点，黑色指甲停在胸前衣料边缘，嘴角一侧挑起，整张脸贴近到有呼吸感",
-        "头部微微侧偏，冷光切过眼尾和唇峰，一只手轻触下颌边缘，视线从镜头下方抬起后锁住镜头，眼神湿润迷离，右侧嘴角慢慢挑起，眉梢放松、唇角保持挑起",
-    ),
-    "half_body": (
-        "人物半身靠近镜头，肩膀略向一侧转开，右手指尖停在锁骨下方，左手扣住腰侧，下巴微抬，狐狸眼从上眼睑下直视镜头，嘴唇轻启，单侧嘴角扬起一点冷笑",
-        "人物上身略微后仰，肩颈舒展，左手搭在肩头，右手停在腰侧，头部向右轻歪，半垂的眼睛从侧面望向镜头，薄唇微开，唇角有一抹克制的笑",
-        "人物半身前倾，肩线一高一低，左手轻触自己的颈侧，右手扶住腰侧，下巴微收后抬眼看镜头，半垂的眼睑带一点挑衅，嘴唇轻抿，嘴角微微扬起",
-        "人物半身微微侧转，右手沿腰线停在侧腰，左手轻拢耳后发丝，头部回望镜头，眼尾收紧而视线明亮，嘴唇微开，单侧嘴角挑出克制的笑",
-        "人物站直后将一侧肩头转向镜头，右手指尖搭在颈侧，左手自然贴住上腰，下巴微收再抬眼直视镜头，眼睑半垂，唇角轻轻上扬",
-        "人物坐姿保持上身挺直，肩膀斜向镜头，左手拢住垂在胸前的发尾，右手按在上腰，下巴侧偏，视线从发丝旁看向镜头，嘴唇微抿成浅笑",
-        "人物上身向侧前方倾斜，一只手扶住自己的腰侧，另一只手顺着颈侧停在锁骨上缘，头部微歪，半眯的眼睛直视镜头，嘴唇轻启，笑意只落在一侧嘴角",
-        "人物肩背稍向后展，双臂自然错开，一只手贴着肩头，另一只手停在腰前，头部侧转后回望镜头，眼尾微挑，嘴角轻抿成冷淡的笑",
-        "人物半身正对镜头，肩线轻轻倾斜，左手把发丝拨到肩后，右手扶住腰侧，下巴低垂而眼神向上望来，嘴唇微开，唇角带一点若有若无的笑",
-    ),
-    "full_body": (
-        "人物坐在地面，一条腿弯曲贴近身体，另一条腿沿地面斜向伸出形成不对称腿部张力，前脚整只脚自然落在画面下缘，脚趾放松不朝向镜头，上身后仰，一只手撑在身后地面，另一只手停在锁骨下方，头部稍向肩侧转回，狐狸眼越过肩线看向镜头，唇角轻轻挑起",
-        "人物低坐在地面，双膝向两侧打开成宽大的M形坐姿，双脚自然靠近身体并平稳落地，脚趾放松避开正对镜头，腰线自然形成S形，手掌撑在身旁地面，头部仰起并歪向一侧，狐狸眼半眯盯住镜头，嘴角带轻俏上扬的笑弧",
-        "人物侧身站立，髋部朝向镜头一侧转出，前腿沿地面伸向画面下方，整只脚自然落地只作为画面下缘稳定落点，肩颈后仰，手指停在胸前或大腿上，眼尾上挑，狐狸眼俯视镜头，嘴角轻轻挑起",
-        "人物跪坐在地面，双腿沿地面错开，前脚自然落在画面下缘，脚背不过度弯折，左手撑在身侧地面，右手从大腿滑到腰侧，上身后仰后扭向镜头，头部高高抬起，狐狸眼压低视线，嘴角带上扬的笑弧",
-        "人物斜坐在地面，一条腿屈起压近身体，另一条腿沿地面斜向伸出，小腿斜向伸到画面下缘，脚踝侧面朝向镜头，手掌撑在身侧地面，肩颈后仰，眼尾微挑，视线看向镜头，单侧唇角轻轻上扬",
-    ),
-}
-
-_REFERENCE_STYLE_SCENE_BY_SHOT = {
-    "head_shot": (
-        "环境光设定：极暗近景空间，背景压成近乎全黑的黑灰色块，冷紫主光从正前方或侧前方切到脸部，淡粉和幽蓝霓虹只在空气薄雾里形成模糊光晕，皮肤呈现淡紫湿润高光，毛孔和唇峰细节清楚",
-        "环境光设定：深夜暗调头部近景，背景几乎不展开，只保留冷紫、粉色和蓝色微弱散景，窄光只照亮眼尾、鼻梁、唇峰、下颌和黑色指甲，暗部保持压抑神秘",
-    ),
-    "half_body": (
-        "环境光设定：深夜极暗包厢式半身场景，无主灯设计，背景大幅压暗到黑灰色调，只有微弱冷紫、粉色和幽蓝霓虹在薄雾中晕开，窄光只落在脸、锁骨、胸前衣料边缘、手指和腰线，高光湿润但不过曝",
-        "环境光设定：暗调私房半身近景，空间边缘几乎沉入黑色，冷紫主光和淡粉补光只切过脸侧、唇峰、锁骨、肩颈和黑色指甲，背景保持模糊，人物比环境更清楚",
-    ),
-    "full_body": (
-        "环境光设定：深夜极暗全身场景，环境物件和地面几乎沉入黑灰暗部，只有极弱紫色、粉色和幽蓝霓虹在空气薄雾里形成梦幻光雾，窄光沿脸侧、腰线、腿部轮廓、脚尖和黑色脚趾甲滑过，背景不展开",
-        "环境光设定：低曝光高对比全身私房场景，背景压暗成少量色块和反光，冷紫侧光勾出肩颈、胸前衣料、腰线、大腿和脚下边缘，薄雾只保留在远处暗部，皮肤高光保留真实灰度",
-    ),
-}
-
-_REFERENCE_STYLE_ANCIENT_SCENE_BY_SHOT = {
-    "head_shot": (
-        "环境光设定：古代暗调头部近景，背景压成深黑灰色块，只保留铜镜、烛火、雕花窗或薄纱帘的模糊轮廓，冷紫月光和微弱暖金灯影只托住眼尾、鼻梁、唇峰、下颌和黑色指甲，皮肤有湿润高光但不过曝",
-        "环境光设定：古装夜色近景，屏风、花窗或竹影沉入暗部，冷月光从侧前方切到脸部，极弱灯影在薄雾里晕开，毛孔、唇峰和指尖细节清楚，背景不展开",
-    ),
-    "half_body": (
-        "环境光设定：古代深夜半身场景，屏风、低案、竹帘或雕花窗压成黑灰暗部，冷紫月光和暖金烛影只切过脸侧、锁骨、胸前衣料边缘、手指和腰线，薄雾让光线柔和但空间不变亮",
-        "环境光设定：古装暗调私房半身近景，宫灯、铜镜或木窗只保留模糊轮廓，人物比环境更清楚，窄光只照亮眼尾、唇峰、肩颈、锁骨和黑色指甲，暗部压抑神秘",
-    ),
-    "full_body": (
-        "环境光设定：古代深夜全身场景，屏风、低案、竹帘、雕花窗或木地面几乎沉入黑灰暗部，冷紫月光和微弱暖金灯影只沿脸侧、腰线、腿部轮廓、脚尖和裸足边缘滑过，背景不展开",
-        "环境光设定：古装低曝光高对比全身场景，画舫、宫苑、书房或竹林只作为暗部色块出现，冷月光勾出肩颈、胸前衣料、腰线、大腿和脚下边缘，薄雾停在远处，皮肤高光保留真实灰度",
-    ),
-}
-
-
-def _apply_reference_seduction_style(parts: dict[str, str], scale: str, shot: str, aspect: str) -> dict[str, str]:
-    scale = normalize_scale(scale)
-    shot = normalize_shot(shot)
-    if scale not in {"bold", "bold_no_outfit"}:
-        return parts
-    if any(marker in str(parts.get("pose_expression") or "") for marker in ("双女", "两名女性", "接吻")):
-        return parts
-    pose_options = _REFERENCE_STYLE_POSE_BY_SHOT.get(shot, ())
-    context = "，".join(
-        str(parts.get(name) or "")
-        for name in ("scene_light", "theme_scene_keywords", "theme_name")
-    )
-    ancient_context = _is_ancient_era(str(parts.get("era") or "")) or any(
-        marker in context
-        for marker in ("古代", "宫苑", "画舫", "书房", "竹林", "铜镜", "民国", "苗疆", "敦煌", "雨夜廊下")
-    )
-    styled = dict(parts)
-    digest_source = (
-        f"{parts.get('theme_name') or ''}|{parts.get('theme_pose_keywords') or ''}|"
-        f"{parts.get('pose_expression') or ''}|{parts.get('scene_light') or ''}|"
-        f"{parts.get('variant_seed') or ''}|{parts.get('color_palette') or ''}|"
-        f"{parts.get('emotion_intent') or ''}|{parts.get('visual_focus') or ''}|{scale}|{shot}|{aspect}"
-    )
-    digest = int(hashlib.sha1(digest_source.encode("utf-8")).hexdigest(), 16)
-    if pose_options:
-        styled["pose_expression"] = pose_options[digest % len(pose_options)]
-    styled["reference_seduction_style_locked"] = "1"
-    return styled
-
-
-def _choose_seductive_scene_time(rng: random.Random) -> str:
-    if rng.choice((True, False)):
-        return rng.choice(_BRIGHT_SEDUCTIVE_SCENE_TIMES)
-    return rng.choice(_DARK_SEDUCTIVE_SCENE_TIMES)
-
-
-_DARK_ENCLOSED_THEME_MARKERS = (
-    "夜店",
-    "吧台",
-    "卧室",
-    "床边",
-    "浴室",
-    "镜面",
-    "酒廊",
-    "暗红",
-    "幽蓝",
-    "冷紫",
-    "霓虹",
-    "灯带",
-    "低雾",
-    "黑色",
-)
-
-
-def _choose_scene_time_for_selection(
-    scale: str,
-    shot: str,
-    era: str,
-    rng: random.Random,
-    theme_keywords: tuple[str, ...] = (),
-) -> str:
-    if not _is_ancient_era(era) and any(keyword in _DARK_ENCLOSED_THEME_MARKERS for keyword in theme_keywords):
-        return "night"
-    if normalize_scale(scale) == "bold" and normalize_shot(shot) == "full_body" and not _is_ancient_era(era):
-        return rng.choice(_DARK_SEDUCTIVE_SCENE_TIMES)
-    return _choose_seductive_scene_time(rng)
-
-
-def _choose_keyword_theme(scale: str, shot: str, aspect: str, era: str, rng: random.Random) -> dict[str, object]:
-    if shot == "head_shot":
-        packs = _ANCIENT_HEAD_KEYWORD_THEME_PACKS if _is_ancient_era(era) else _MODERN_HEAD_KEYWORD_THEME_PACKS
-    else:
-        packs = _ANCIENT_KEYWORD_THEME_PACKS if _is_ancient_era(era) else _MODERN_KEYWORD_THEME_PACKS
-    candidates = list(packs)
-    if shot == "head_shot":
-        head_keywords = {"镜面", "水汽", "湿光", "卧室", "纱帘", "红木妆台", "铜镜", "民国", "老洋房", "书房夜读", "烛台", "竹林月色", "竹影"}
-        candidates = [
-            item
-            for item in candidates
-            if "全身" not in _theme_keywords(item)
-            and not any(keyword in _theme_lane_keywords(item, "pose") for keyword in ("全身", "低机位", "脚尖", "裸足", "大腿", "吧椅"))
-            and any(keyword in _theme_keywords(item) for keyword in head_keywords)
-        ] or candidates
-    elif shot == "full_body":
-        candidates = [
-            item
-            for item in candidates
-            if "半身" not in _theme_keywords(item)
-            and not any(keyword in _theme_lane_keywords(item, "pose") for keyword in ("锁骨", "肩颈"))
-        ] or candidates
-    if aspect == "landscape":
-        candidates = [item for item in candidates if "横向" in _theme_keywords(item) or "侧躺" in _theme_keywords(item)] or candidates
-    theme = dict(rng.choice(candidates))
-    theme["scene"] = tuple(theme.get("scene") or ())
-    theme["outfit"] = tuple(theme.get("outfit") or ())
-    theme["pose"] = tuple(theme.get("pose") or ())
-    theme["keywords"] = _theme_keywords(theme)
-    theme["scale"] = scale
-    theme["shot"] = shot
-    theme["aspect"] = aspect
-    theme["era"] = "ancient" if _is_ancient_era(era) else "modern"
-    return theme
-
-
-def _theme_keywords(theme: dict[str, object]) -> tuple[str, ...]:
-    return _keyword_tuple(theme.get("scene", ()), theme.get("outfit", ()), theme.get("pose", ()), theme.get("keywords", ()))
-
-
-def _theme_lane_keywords(theme: dict[str, object], lane: str) -> tuple[str, ...]:
-    return tuple(theme.get(lane) or ())
-
-
-def _keyword_tuple(*groups) -> tuple[str, ...]:
-    values: list[str] = []
-    for group in groups:
-        if not group:
-            continue
-        if isinstance(group, str):
-            values.append(group)
-            continue
-        values.extend(str(item) for item in group if item)
-    return tuple(dict.fromkeys(values))
-
-
-def _is_valid_ancient_scene(text: str) -> bool:
-    scene = str(text or "")
-    if any(marker in scene for marker in _MODERN_SCENE_MARKERS_FOR_ANCIENT):
-        return False
-    return any(marker in scene for marker in ANCIENT_SCENE_MARKERS)  # noqa: F405
-
-
-def _lock_era_dimensions(
-    parts: dict[str, str],
-    scale: str,
-    shot: str,
-    aspect: str,
-    era: str,
-    rng: random.Random,
-    theme_keywords: tuple[str, ...] = (),
-    director: dict | None = None,
-    palette: dict | None = None,
-) -> dict[str, str]:
-    locked = dict(parts)
-    pool_scale = prompt_pool_scale(scale)
-    if scale == "bold_no_outfit":
-        locked["outfit"] = ""
-    elif not skips_outfit(scale):
-        outfit_options = outfit_options_by_aspect(pool_scale, shot, aspect, era)
-        if outfit_options:
-            locked["outfit"] = choose_directed(outfit_options, rng, director, theme_keywords)
-    scene_options = scene_light_options_by_aspect(scale, shot, aspect, era)
-    scene_director = dict(director or {})
-    scene_director["keywords"] = _keyword_tuple(scene_director.get("keywords", ()), theme_keywords)
-    scene_light = choose_scene_light(scene_options, rng, scene_director, palette)
-    if scene_light:
-        locked["scene_light"] = scene_light
-    if _is_ancient_era(era) and not _is_valid_ancient_scene(locked.get("scene_light", "")):
-        scene_light = choose_scene_light(scene_light_options_by_aspect(scale, shot, aspect, "ancient"), rng, scene_director, palette)
-        if scene_light:
-            locked["scene_light"] = scene_light
-    double_girl_pose = str(locked.get("pose_expression") or "")
-    if shot == "half_body" and any(marker in double_girl_pose for marker in ("双女", "两名女性", "接吻")):
-        locked["camera"] = _DOUBLE_GIRL_CAMERA
-        locked["scene_light"] = _DOUBLE_GIRL_SCENE
-        locked["quality"] = "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝，柔和室内侧光调色，肤色自然明亮，阴影保留层次"
-    beach_cat_context = "，".join(str(locked.get(name) or "") for name in ("camera", "pose_expression", "scene_light", "outfit"))
-    if shot == "full_body" and any(marker in beach_cat_context for marker in ("蓝色复古手提箱", "猫耳", "前景高跟鞋")):
-        locked["camera"] = _BEACH_CAT_CAMERA
-        locked["pose_expression"] = _BEACH_CAT_POSE
-        locked["scene_light"] = _BEACH_CAT_SCENE
-        locked["quality"] = "高级私房写真调色，肤质细腻但保留真实纹理，光影有层次，高光不过曝，白天欠曝背景调色，人物局部受光，环境压暗虚化"
-        if scale == "bold":
-            locked["outfit"] = _BEACH_CAT_OUTFIT
-    cinema_context = "，".join(str(locked.get(name) or "") for name in ("camera", "pose_expression", "scene_light", "outfit"))
-    if scale == "normal" and shot == "half_body" and any(marker in cinema_context for marker in ("电影院", "影院座椅", "白色纸杯", "观影")):
-        locked["camera"] = _CINEMA_CUP_CAMERA
-        locked["outfit"] = _CINEMA_CUP_OUTFIT
-        locked["pose_expression"] = _CINEMA_CUP_POSE
-        locked["scene_light"] = _CINEMA_CUP_SCENE
-        locked["quality"] = "真实镜头质感，主体清晰，脸部焦点锐利，自然皮肤纹理，高光不过曝，暖色电影厅生活方式调色，背景座椅柔和虚化"
     return locked
 
 
@@ -1428,18 +389,6 @@ def _scene_is_night(scene_light: str) -> bool:
     return any(marker in (scene_light or "") for marker in _NIGHT_SCENE_MARKERS)
 
 
-def _filter_makeup_by_scene_atmosphere(scene_light: str, candidates: list[str]) -> list[str]:
-    if not candidates:
-        return candidates
-    if _scene_is_night(scene_light):
-        # 夜景：保留夜系妆与中性妆，排除明确白天妆
-        kept = [c for c in candidates if not any(m in c for m in _DAY_MAKEUP_MARKERS)]
-        return kept or candidates
-    # 白天/棚拍/室内明亮场景：排除夜系妆
-    kept = [c for c in candidates if not any(m in c for m in _NIGHT_MAKEUP_MARKERS)]
-    return kept or candidates
-
-
 def _makeup_mismatches_scene(scene_light: str, makeup: str) -> bool:
     """白天场景却配了夜系妆才算失配；夜景配中性/白天妆是可接受的。"""
     if not scene_light or not makeup:
@@ -1447,123 +396,6 @@ def _makeup_mismatches_scene(scene_light: str, makeup: str) -> bool:
     s_night = _scene_is_night(scene_light)
     m_night = any(m in makeup for m in _NIGHT_MAKEUP_MARKERS)
     return (not s_night) and m_night
-
-
-def prompt_parts(scale: str, shot: str, rng: random.Random, aspect: str = "portrait", era: str = "modern") -> dict[str, str]:
-    scale = normalize_scale(scale)
-    pool_scale = prompt_pool_scale(scale)
-    theme = _choose_keyword_theme(scale, shot, aspect, era, rng)
-    theme_keywords = tuple(theme.get("keywords") or ())
-    theme_scene_keywords = _theme_lane_keywords(theme, "scene")
-    theme_outfit_keywords = _theme_lane_keywords(theme, "outfit")
-    theme_pose_keywords = _theme_lane_keywords(theme, "pose")
-    director = choose_director(pool_scale, shot, aspect, rng)
-    director = dict(director)
-    director["keywords"] = _keyword_tuple(director.get("keywords", ()), theme_keywords)
-    palette = choose_color_palette(director, pool_scale, shot, aspect, rng)
-    emotion_intent = choose_emotion_intent(pool_scale, director, rng)
-    visual_focus, focus_keywords = choose_visual_focus(shot, director, rng)
-    pose_family = choose_pose_family(shot, aspect, visual_focus, rng)
-    visual_keywords = palette_keywords(palette)
-    coordination_keywords = intent_keywords(theme_scene_keywords, theme_pose_keywords, visual_keywords, emotion_intent, focus_keywords)
-    camera = choose_directed(camera_options_by_aspect(shot, aspect), rng, director, coordination_keywords)
-    character = choose(character_identity_options_by_aspect(shot, aspect), rng)
-    scene_light = choose_scene_light(
-        scene_light_options_by_aspect(scale, shot, aspect, era),
-        rng,
-        {**director, "keywords": intent_keywords(tuple(director.get("keywords", ())), theme_scene_keywords, visual_keywords, focus_keywords)},
-        palette,
-    )
-    filter_grade = choose_filter_grade(pool_scale, director, palette, scene_light, rng)
-    scene_context = scene_context_keywords(scene_light)
-    outfit_keywords = intent_keywords(theme_outfit_keywords, theme_scene_keywords, scene_context, visual_keywords, emotion_intent, focus_keywords)
-    pose_keywords = intent_keywords(theme_pose_keywords, theme_scene_keywords, scene_context, visual_keywords, emotion_intent, focus_keywords)
-    outfit = ""
-    if scale == "bold_no_outfit":
-        outfit = ""
-    elif not skips_outfit(scale):
-        outfit = choose_directed(outfit_options_by_aspect(pool_scale, shot, aspect, era), rng, director, outfit_keywords)
-    pose_pool_scale = "nsfw" if scale == "nsfw" else pool_scale
-    pose_expression = choose_directed(
-        pose_expression_options_by_aspect(pose_pool_scale, shot, aspect),
-        rng,
-        director,
-        pose_keywords,
-        required_family=pose_family,
-    )
-    parts = {
-        "camera": camera,
-        "character": character,
-        "makeup": choose_directed(
-            _filter_makeup_by_scene_atmosphere(scene_light, makeup_options_by_aspect(pool_scale, aspect)),
-            rng,
-            director,
-            coordination_keywords,
-        ),
-        "outfit": outfit,
-        "pose_expression": pose_expression,
-        "scene_light": scene_light,
-        "quality": "",
-        "director": director["name"],
-        "theme_name": str(theme.get("name") or ""),
-        "theme_keywords": "，".join(theme_keywords),
-        "theme_scene_keywords": "，".join(theme_scene_keywords),
-        "theme_outfit_keywords": "，".join(theme_outfit_keywords),
-        "theme_pose_keywords": "，".join(theme_pose_keywords),
-        "era": "ancient" if _is_ancient_era(era) else "modern",
-        "variant_seed": str(rng.random()),
-    }
-    parts = enrich_visual_finish(parts, palette, filter_grade, scale)
-    cleaned = {
-        name: clean_sentence(value, shot, scale)
-        for name, value in parts.items()
-        if name not in {"director", "theme_name", "theme_keywords", "theme_scene_keywords", "theme_outfit_keywords", "theme_pose_keywords", "variant_seed"}
-    }
-    cleaned["director"] = director["name"]
-    cleaned["theme_name"] = str(theme.get("name") or "")
-    cleaned["theme_keywords"] = "，".join(theme_keywords)
-    cleaned["theme_scene_keywords"] = "，".join(theme_scene_keywords)
-    cleaned["theme_outfit_keywords"] = "，".join(theme_outfit_keywords)
-    cleaned["theme_pose_keywords"] = "，".join(theme_pose_keywords)
-    cleaned["era"] = "ancient" if _is_ancient_era(era) else "modern"
-    cleaned["variant_seed"] = parts["variant_seed"]
-    cleaned["color_palette"] = palette["name"]
-    cleaned["filter_grade"] = filter_grade["name"]
-    cleaned["emotion_intent"] = emotion_intent["name"]
-    cleaned["visual_focus"] = visual_focus
-    cleaned["pose_family"] = classify_pose_family(cleaned.get("pose_expression", ""))
-    cleaned = clean_global_prompt_text(cleaned, shot, scale)
-    # Camera pool entries and mobile framing already carry the crop boundary.
-    # Avoid appending a second full framing sentence here; it bloats prompts and
-    # repeats body-part constraints across dimensions.
-    cleaned = apply_conflict_cleaner(cleaned, scale, shot, aspect)
-    cleaned = simplify_pose_language(cleaned)
-    cleaned = strengthen_expression(cleaned, scale, rng)
-    cleaned = simplify_pose_language(cleaned)
-    cleaned = order_pose_before_expression(cleaned)
-    cleaned = polish_photographic_naturalness(cleaned, scale, shot)
-    cleaned = _lock_era_dimensions(cleaned, scale, shot, aspect, era, rng, _keyword_tuple(theme_scene_keywords, theme_outfit_keywords), director, palette)
-    cleaned = _apply_theme_blueprint(cleaned, scale, shot, aspect, era)
-    cleaned = clean_global_prompt_text(cleaned, shot, scale)
-    cleaned = _apply_theme_blueprint(cleaned, scale, shot, aspect, era)
-    cleaned = _apply_environment_anchor_pose(cleaned, scale, shot, aspect)
-    cleaned = _enforce_environment_interaction_pose(cleaned, scale, shot, aspect)
-    cleaned = _apply_emotional_seduction_expression(cleaned, scale, shot, aspect)
-    cleaned = _apply_reference_seduction_style(cleaned, scale, shot, aspect)
-    cleaned = _enforce_ancient_outfit(cleaned, scale, shot, aspect, era, rng)
-    cleaned = _enforce_ancient_barefoot(cleaned, era)
-    cleaned = _reduce_full_body_foot_deformation_risk(cleaned, scale, shot)
-    cleaned = clean_global_prompt_text(cleaned, shot, scale)
-    cleaned = _apply_visual_director_plan(cleaned, scale, shot, aspect, era)
-    # 妆容与最终场景氛围对齐：scene_light 经过多步改写后可能与初始选择时不一致，
-    # 这里用最终定稿的 scene_light 复核，若白天场景误配了夜系妆则按最终场景重选。
-    _final_scene = cleaned.get("scene_light", "")
-    if _makeup_mismatches_scene(_final_scene, cleaned.get("makeup", "")):
-        _makeup_pool = _filter_makeup_by_scene_atmosphere(_final_scene, makeup_options_by_aspect(pool_scale, aspect))
-        cleaned["makeup"] = choose_directed(_makeup_pool, rng, director, coordination_keywords)
-    cleaned["feedback_tags"] = ",".join(feedback_tags(cleaned, scale, shot, aspect))
-    cleaned["prompt_score"] = str(score_prompt_parts(cleaned, scale, shot, aspect))
-    return cleaned
 
 
 def build_prompt(parts: dict[str, str]) -> str:
@@ -1574,197 +406,6 @@ def _strip_dimension_labels(text: str) -> str:
     cleaned = str(text or "").strip("，。 \n\t")
     cleaned = re.sub(r"^环境光设定[:：]?", "", cleaned).strip("，。 \n\t")
     return cleaned
-
-
-def _novelize_camera(text: str) -> str:
-    text = _strip_dimension_labels(text)
-    if not text:
-        return ""
-    camera_replacements = (
-        ("肩膀以上入镜", "镜头贴近她的脸，只让颈侧和肩线在画面边缘露出一点"),
-        ("大腿以上镜头", "角色大腿及以上半身镜头"),
-        ("略低机位全身构图", "角色脚底及以上全身镜头，机位略低"),
-        ("竖向全身写真构图", "角色脚底及以上竖向全身镜头"),
-        ("竖向头部写真构图", "竖向近景把她的脸、颈侧和肩线压到画面前方"),
-        ("贴近镜头的头部肖像", "镜头贴得很近，脸部和眼神几乎占住画面"),
-        ("头部近景", "镜头靠近她的脸，只留下颈侧和肩线的一点边缘"),
-        ("全身镜头", "角色脚底及以上全身镜头"),
-    )
-    for source, replacement in camera_replacements:
-        if text == source:
-            return ensure_sentence(replacement)
-    if any(marker in text for marker in ("镜头", "构图", "近景", "全身", "半身")):
-        return f"镜头以{text}贴近她。"
-    return ensure_sentence(text)
-
-
-def _novelize_outfit(text: str) -> str:
-    text = _strip_dimension_labels(text)
-    if not text:
-        return ""
-    if any(marker in text for marker in ("领口贴近画面下缘", "画面边缘", "颈部边缘", "只露出")):
-        text = text.replace("领口贴近画面下缘", "一字领领口")
-        text = text.replace("贴近画面下缘", "停在画面下缘")
-        text = text.replace("一字领一字领领口", "一字领领口")
-        text = text.replace("只露出", "只带出")
-        return f"画面下缘只带到{text}，衣料和饰边只作为脸部附近的细节。"
-    outfit_replacements = (
-        ("深V领口压出利落线条", "深V领露出锁骨下方的皮肤"),
-        ("腰侧只有细窄收省线", "腰侧有两条很细的竖向缝线"),
-        ("弧形杯线和竖向鱼骨压线清楚", "弧形杯线贴着胸前，细细的鱼骨压线把衣料收得很紧"),
-        ("胸衣鱼骨线和金属扣清楚", "胸衣的鱼骨线压住衣料，细小金属扣在暗光里露出一点亮"),
-        ("胸衣鱼骨线、花边肩带和细银扣清楚", "胸衣的鱼骨线、花边肩带和细银扣贴着身体"),
-        ("材质柔亮", "缎面在暗处泛着柔柔的光"),
-    )
-    for source, replacement in outfit_replacements:
-        text = text.replace(source, replacement)
-    return ensure_sentence(f"她穿着{text}")
-
-
-def _novelize_pose(text: str) -> str:
-    text = _strip_dimension_labels(text)
-    if not text:
-        return ""
-    text = text.replace("人物", "她")
-    text = text.replace("整体带", "神情里带着")
-    pose_replacements = (
-        ("身前支撑面", "身前位置"),
-        ("身前的支撑面", "身前位置"),
-        ("身旁支撑面", "身旁位置"),
-        ("身旁的支撑面", "身旁位置"),
-        ("环境支撑面", "近处边缘"),
-        ("近处的边沿前缘", "近处边缘"),
-        ("支撑面边缘", "边沿"),
-        ("支撑面前缘", "边沿前方"),
-        ("支撑面", "边沿"),
-        ("形成不对称腿部张力", "前后两条腿错开摆放"),
-        ("眼神先偏开半寸再锁回镜头", "眼神斜看镜头，上眼睑压低，眼尾上挑"),
-        ("眼神先从侧光暗部偏开半寸再压回镜头", "眼神斜看镜头，上眼睑压低，眼尾上挑"),
-        ("正面胸部以上近距离构图", "上半身离镜头很近"),
-        ("近距离构图", "离镜头很近"),
-        ("被窄光勾亮", "被一条细长侧光照亮"),
-        ("窄光勾亮", "细长侧光照亮"),
-        ("暗部", "黑灰色阴影"),
-        ("扶住环境边缘", "扶住窗框边缘"),
-        ("下巴微低，缓慢抬眼", "下巴微低，眼睛从下方向上盯住镜头"),
-        ("视线从镜头下方抬起后锁住镜头", "眼睛从镜头下方向上盯住镜头"),
-        ("手指停在胸前上衣", "左手横在胸前"),
-        ("右手停在胸前上衣", "右手横在胸前"),
-        ("胸前的黑亮指甲带着小面积高光", "黑色指甲只作为手部小面积亮点"),
-    )
-    for source, replacement in pose_replacements:
-        text = text.replace(source, replacement)
-    return ensure_sentence(clean_prompt_text(text))
-
-
-def _novelize_scene(text: str) -> str:
-    text = _strip_dimension_labels(text)
-    if not text:
-        return ""
-    scene_replacements = (
-        ("镜面只作为近处环境锚点出现", "近处只留下一点镜面反光"),
-        ("泳池只作为近处环境锚点出现", "近处只留下一小片泳池水光"),
-        ("卧室只作为近处环境锚点出现", "近处只看得出床沿和柔暗的卧室轮廓"),
-        ("浴室只作为近处环境锚点出现", "近处只看得出雾面镜子和暗色瓷砖"),
-        ("庭院只作为近处环境锚点出现", "近处只留下一点湿石板和植物暗影"),
-        ("夜店只作为近处环境锚点出现", "近处只留下一点吧台反光和霓虹色块"),
-        ("背景不展开", "远处只画黑色墙面和少量家具边缘"),
-        ("背景几乎不展开", "远处只画黑色墙面、深色窗帘和两三枚小灯点"),
-        ("背景大幅压暗到黑灰色调", "墙面、窗帘和地面都画成黑灰色"),
-        ("无主灯设计", "空间里没有明显主灯"),
-        ("高光湿润但不过曝", "皮肤和衣料边缘带着湿润高光，却没有被照白"),
-        ("只切过肩线与胸前衣料边缘保持清楚", "从肩线和胸前衣料边缘轻轻掠过去"),
-        ("胸前衣料边缘保持清楚", "胸前衣料边缘仍能看清"),
-        ("保持清楚", "仍能看清"),
-    )
-    for source, replacement in scene_replacements:
-        text = text.replace(source, replacement)
-    scene_openings = (
-        ("深夜暗调头部近景", "深夜房间里只画黑色墙面、深色窗帘和床沿轮廓"),
-        ("极暗近景空间", "近处只画黑色墙面和一小段家具边缘"),
-        ("深夜极暗包厢式半身场景", "深夜包厢里只画深色沙发、黑灰墙面和桌沿"),
-        ("暗调私房半身近景", "私房房间里只画床沿、深色窗帘和黑灰墙面"),
-        ("深夜极暗全身场景", "深夜房间里只画黑灰墙面、深色地毯和一小段家具边缘"),
-        ("低曝光高对比全身私房场景", "私房房间里只画深色地面、黑色墙面和少量家具轮廓"),
-        ("古代暗调头部近景", "古代室内只画深色屏风、木窗边缘和一盏小烛火"),
-        ("古装夜色近景", "她身后只画深色屏风、花窗边缘和几片竹影"),
-        ("古代深夜半身场景", "古代室内只画屏风、低案、竹帘和雕花窗边缘"),
-        ("古装暗调私房半身近景", "古装室内只画宫灯、铜镜边缘和深色木窗"),
-        ("古代深夜全身场景", "古代室内只画屏风、低案、竹帘、雕花窗和深色木地板"),
-        ("古装低曝光高对比全身场景", "古装空间里只画画舫木窗、宫苑屏风、书房低案或竹林石径"),
-    )
-    for source, replacement in scene_openings:
-        text = text.replace(source, replacement)
-    text = re.sub(r"([^，。]+)只作为近处环境锚点出现", r"近处只看得出\1的一点轮廓", text)
-    text = text.replace("近处只看得出竹林的一点轮廓", "近处只看得出竹影和石径的一点轮廓")
-    text = text.replace("头部近景", "近处")
-    text = text.replace("半身场景", "近处空间")
-    text = text.replace("全身场景", "空间")
-    text = text.replace("场景", "空间")
-    text = text.replace("散景", "模糊灯点")
-    text = text.replace("虚化", "画得模糊")
-    text = text.replace("窄光只照亮", "一条细长的光只落在")
-    text = text.replace("窄光只落在", "一条细长的光只落在")
-    text = text.replace("窄光沿", "一条细长的光沿着")
-    text = text.replace("窄光照亮", "一条细长的光照在")
-    text = text.replace("窄光切过", "一条细长的光切过")
-    text = text.replace("窄光只托住", "一条细长的光只托住")
-    text = text.replace("冷紫侧窄光", "一条冷紫色细长侧光")
-    text = text.replace("暖粉窄光", "一条暖粉色细长侧光")
-    text = text.replace("暖金窄光", "一条暖金色细长侧光")
-    text = text.replace("冷白窄光", "一条冷白色细长侧光")
-    text = text.replace("背景几乎全退在暗处，只保留", "远处只画")
-    text = text.replace("，只保留冷紫、粉色和蓝色微弱模糊灯点", "，远处有冷紫、粉色和蓝色的小灯点")
-    text = text.replace("，只保留冷紫、粉色和蓝色微弱", "，远处有冷紫、粉色和蓝色微弱")
-    text = text.replace("空间里没有明显主灯", "看不见明显的主灯")
-    text = text.replace("压成黑灰暗部", "沉成黑灰色的暗部")
-    text = text.replace("暗部保持压抑神秘", "黑色墙面和深色窗帘占住大部分画面")
-    text = text.replace("压抑神秘", "黑墙和深色窗帘包住画面")
-    text = text.replace("暗部", "黑灰色阴影")
-    text = text.replace("沉在暗处", "画成黑灰色")
-    text = text.replace("退在暗处", "画成黑灰色")
-    text = text.replace("梦幻光雾", "淡紫、淡粉和幽蓝色雾气")
-    text = text.replace("在薄雾中晕开", "变成几团模糊的彩色光斑")
-    text = text.replace("在空气薄雾里形成模糊光晕", "在雾气里变成几团模糊的彩色光斑")
-    text = text.replace("背景压成近乎全黑的黑灰色块", "后方只画近乎全黑的墙面和窗帘")
-    text = text.replace("黑灰色块", "黑灰色墙面和窗帘")
-    text = text.replace("冷紫主光从正前方或侧前方切到脸部", "一条冷紫色细长光从正前方或侧前方落在脸上")
-    text = text.replace("主光", "主要光线")
-    text = text.replace("切到脸部", "落在脸上")
-    text = text.replace("变成几团模糊的彩色光斑", "变成几枚模糊的彩色小灯点")
-    text = text.replace("几乎没有亮处", "大部分画面是黑灰色")
-    text = text.replace("压得很暗", "画成黑灰色")
-    text = text.replace("压暗", "画成黑灰色")
-    if any(marker in text for marker in ("包厢", "沙发", "吧台", "夜店", "酒廊")):
-        text = re.sub(r"，近处只留下一点湿石板和植物暗影", "，近处只留下一点桌沿、酒杯和沙发边缘", text)
-        text = re.sub(r"，近处只留下一小片泳池水光", "，近处只留下一点玻璃杯和桌面反光", text)
-    if any(marker in text for marker in ("卧室", "床沿", "床头")):
-        text = re.sub(r"，近处只留下一点湿石板和植物暗影", "，近处只看得出床沿和窗帘下摆", text)
-        text = re.sub(r"，近处只留下一小片泳池水光", "，近处只看得出床沿和一小片床单褶皱", text)
-    if any(marker in text for marker in ("庭院", "竹影", "石径", "森林", "植物")):
-        text = re.sub(r"，近处只留下一点吧台反光和霓虹色块", "，近处只留下一点湿石板和植物影子", text)
-    text = text.replace("不变亮", "没有被照亮")
-    text = text.replace("沉成黑灰色的黑灰色阴影", "画成黑灰色")
-    text = text.replace("背景画成黑灰色成", "背景只剩")
-    return ensure_sentence(text)
-
-
-def _novelize_quality(text: str) -> str:
-    text = _strip_dimension_labels(text)
-    if not text:
-        return ""
-    return ensure_sentence("肤质保留真实纹理，高光不过曝，阴影有层次")
-
-
-def _build_novelistic_prompt_legacy(parts: dict[str, str]) -> str:
-    camera = _novelize_camera(clean_prompt_text(parts.get("camera", "")))
-    character = ensure_sentence(clean_prompt_text(parts.get("character", "")))
-    outfit = _novelize_outfit(clean_prompt_text(parts.get("outfit", "")))
-    pose = _novelize_pose(clean_prompt_text(parts.get("pose_expression", "")))
-    scene = _novelize_scene(clean_prompt_text(parts.get("scene_light", "")))
-    quality = _novelize_quality(clean_prompt_text(parts.get("quality", "")))
-    ordered = [camera, character, outfit, pose, scene, quality]
-    return "\n\n".join(part for part in ordered if part)
 
 
 _HUMAN_ABSTRACT_MARKERS = (
@@ -1798,6 +439,8 @@ def _human_clauses(text: str) -> list[str]:
 
 
 def _human_camera(parts: dict[str, str]) -> str:
+    if parts.get("camera_line"):
+        return ensure_sentence(str(parts["camera_line"]))
     camera = clean_prompt_text(parts.get("camera", ""))
     shot = str(parts.get("shot_key") or "")
     if not shot:
@@ -1832,7 +475,7 @@ def _human_pose(parts: dict[str, str]) -> str:
     if not clauses:
         return ""
     chosen = [clause.replace("人物", "她") for clause in clauses]
-    text = "，".join(chosen)
+    text = naturalize_pose_framing("，".join(chosen))
     text = re.sub(r"，{2,}", "，", text).strip("，。 ")
     return ensure_sentence(text)
 
@@ -1871,12 +514,17 @@ def _human_outfit(parts: dict[str, str]) -> str:
 
 def _human_scene(parts: dict[str, str]) -> str:
     clauses = [clause for clause in _human_clauses(parts.get("scene_light", "")) if clause != "肩部以上近景"]
-    # 去掉与人物/服装重复的身体部位描述，保留环境、氛围、光影、感官细节
-    clauses = [
-        clause
-        for clause in clauses
-        if not any(marker in clause for marker in ("黑发", "皮肤", "锁骨", "肩颈", "衣料", "手指", "嘴唇"))
-    ]
+    # 旧流程（四档）去掉与人物/服装重复的身体部位描述；构图器的场景句是按镜头写好的，整句保留。
+    if not parts.get("art_direction"):
+        clauses = [
+            clause
+            for clause in clauses
+            if not any(marker in clause for marker in ("黑发", "皮肤", "锁骨", "肩颈", "衣料", "手指", "嘴唇"))
+            or any(marker in clause for marker in ("照亮", "光", "照"))
+        ]
+    if str(parts.get("shot_key") or "") != "full_body":
+        # 脚边、脚下地面只在全身镜头可见。
+        clauses = [clause for clause in clauses if not any(marker in clause for marker in ("脚边", "脚下"))]
     if not clauses:
         return ""
     text = "，".join(clauses)
@@ -1903,115 +551,29 @@ def _human_makeup(parts: dict[str, str]) -> str:
 def _human_quality(parts: dict[str, str]) -> str:
     raw_quality = str(parts.get("quality") or "").strip("。， ")
     if raw_quality:
+        if str(parts.get("scale") or "") != "nsfw":
+            raw_quality = normalize_quality_line(raw_quality)
         return ensure_sentence(raw_quality)
     if str(parts.get("scale") or "") == "normal":
         return "时尚人像摄影，肤色自然，光线干净，带轻微胶片颗粒。"
     return "高级人像写真，肤质细腻，曝光自然，带轻微胶片颗粒。"
 
 
+def render_prompt_lines(parts: dict[str, str]) -> dict[str, str]:
+    """按最终输出顺序渲染各维度行；空行保留为空字符串，便于逐行检查。"""
+    return {
+        "pose": _human_pose(parts),
+        "scene": _human_scene(parts),
+        "quality": _human_quality(parts),
+        "camera": _human_camera(parts),
+        "character": ensure_sentence(clean_prompt_text(parts.get("character", ""))),
+        "outfit": _human_outfit(parts),
+        "makeup": _human_makeup(parts),
+    }
+
+
 def _build_human_prompt(parts: dict[str, str]) -> str:
-    camera = _human_camera(parts)
-    pose = _human_pose(parts)
-    scene = _human_scene(parts)
-    character = ensure_sentence(clean_prompt_text(parts.get("character", "")))
-    outfit = _human_outfit(parts)
-    makeup = _human_makeup(parts)
-    quality = _human_quality(parts)
-    ordered = [pose, scene, quality, camera, character, outfit, makeup]
-    return "\n\n".join(part for part in ordered if part)
-
-
-_POSE_SCENE_OBJECTS = (
-    ("沙发", ("沙发",)), ("木栈道", ("木栈道", "栈道")),
-    ("镜前", ("镜",)), ("镜中", ("镜",)),
-    ("窗台", ("窗",)), ("窗框", ("窗",)), ("门框", ("门",)),
-    ("高脚凳", ("凳",)), ("高凳", ("凳",)), ("凳面", ("凳",)),
-    ("天台", ("天台", "屋顶")), ("栏杆", ("栏杆",)),
-    ("低台", ("低台",)), ("椅背", ("椅",)), ("椅面", ("椅",)),
-    ("电影院", ("电影院",)), ("床沿", ("床",)),
-)
-
-
-def _pose_names_unseen_object(pose: str, scene: str) -> bool:
-    return any(name in pose and not any(cue in scene for cue in cues) for name, cues in _POSE_SCENE_OBJECTS)
-
-
-def _reselect_normal_pose_for_scene(parts: dict[str, str], shot: str, aspect: str, era: str, rng: random.Random) -> dict[str, str]:
-    if _is_ancient_era(era) or not _pose_names_unseen_object(parts.get("pose_expression", ""), parts.get("scene_light", "")):
-        return parts
-    scene = parts.get("scene_light", "")
-    options = [
-        option for option in pose_expression_options_by_aspect("normal", shot, aspect)
-        if not _pose_names_unseen_object(option, scene)
-        and (shot != "full_body" or any(cue in option for cue in ("脚", "足")))
-    ]
-    if not options:
-        raise ValueError(f"没有与实际场景相容的 {shot} 姿势选项")
-    corrected = dict(parts)
-    corrected["pose_expression"] = choose(options, rng)
-    corrected = _apply_emotional_seduction_expression(corrected, "normal", shot, aspect)
-    return clean_global_prompt_text(corrected, shot, "normal")
-
-
-def generate_candidate_parts(scale: str, shot: str, rng: random.Random, aspect: str, era: str = "modern", attempts: int = 6) -> dict[str, str]:
-    if normalize_scale(scale) in {"bold", "bold_no_outfit"} and normalize_shot(shot) in {"head_shot", "full_body"}:
-        attempts = 1
-    best_parts = None
-    best_score = -10_000
-    for _attempt in range(max(1, attempts)):
-        parts = prompt_parts(scale, shot, rng, aspect, era)
-        scene_time = ""
-        if normalize_scale(scale) in {"bold", "bold_no_outfit", "nsfw"} and not _is_ancient_era(era):
-            theme_scene_keywords_for_time = tuple(
-                keyword for keyword in str(parts.get("theme_scene_keywords") or "").split("，") if keyword
-            )
-            scene_time = _choose_scene_time_for_selection(scale, shot, era, rng, theme_scene_keywords_for_time)
-        if scene_time:
-            theme_scene_keywords = tuple(keyword for keyword in str(parts.get("theme_scene_keywords") or "").split("，") if keyword)
-            theme_outfit_keywords = tuple(keyword for keyword in str(parts.get("theme_outfit_keywords") or "").split("，") if keyword)
-            theme_keywords = _keyword_tuple(theme_scene_keywords, theme_outfit_keywords)
-            if str(parts.get("theme_blueprint_locked") or "") != "1":
-                parts = _lock_era_dimensions(parts, scale, shot, aspect, era, rng, theme_keywords)
-                parts = strengthen_seductive_scene_and_pose(
-                    parts,
-                    scale,
-                    shot,
-                    aspect,
-                    scene_time=scene_time,
-                    era=era,
-                    theme_keywords=theme_scene_keywords,
-                )
-                parts = _apply_theme_blueprint(parts, scale, shot, aspect, era)
-                parts = _apply_environment_anchor_pose(parts, scale, shot, aspect)
-                parts = _enforce_environment_interaction_pose(parts, scale, shot, aspect)
-                parts = _apply_emotional_seduction_expression(parts, scale, shot, aspect)
-                parts = _apply_reference_seduction_style(parts, scale, shot, aspect)
-            parts = clean_global_prompt_text(parts, shot, scale)
-            parts = _apply_theme_blueprint(parts, scale, shot, aspect, era)
-            parts = _apply_environment_anchor_pose(parts, scale, shot, aspect)
-            parts = _enforce_environment_interaction_pose(parts, scale, shot, aspect)
-            parts = _apply_emotional_seduction_expression(parts, scale, shot, aspect)
-            parts = _apply_reference_seduction_style(parts, scale, shot, aspect)
-            parts = _enforce_ancient_outfit(parts, scale, shot, aspect, era, rng)
-            parts = _enforce_ancient_barefoot(parts, era)
-            parts = _reduce_full_body_foot_deformation_risk(parts, scale, shot)
-            parts = clean_global_prompt_text(parts, shot, scale)
-            parts = _apply_visual_director_plan(parts, scale, shot, aspect, era)
-            parts["prompt_score"] = str(score_prompt_parts(parts, scale, shot, aspect))
-        if not scene_time:
-            parts = _enforce_ancient_outfit(parts, scale, shot, aspect, era, rng)
-            parts = _enforce_ancient_barefoot(parts, era)
-            parts = clean_global_prompt_text(parts, shot, scale)
-            parts = _apply_visual_director_plan(parts, scale, shot, aspect, era)
-            parts["prompt_score"] = str(score_prompt_parts(parts, scale, shot, aspect))
-        if normalize_scale(scale) == "normal":
-            parts = _reselect_normal_pose_for_scene(parts, shot, aspect, era, rng)
-            parts["prompt_score"] = str(score_prompt_parts(parts, scale, shot, aspect))
-        score = int(parts.get("prompt_score") or score_prompt_parts(parts, scale, shot, aspect))
-        if score > best_score:
-            best_parts = parts
-            best_score = score
-    return best_parts or prompt_parts(scale, shot, rng, aspect, era)
+    return "\n\n".join(line for line in render_prompt_lines(parts).values() if line)
 
 
 def _purge_forbidden_clauses(text: str) -> tuple[str, list[str]]:
@@ -2052,70 +614,54 @@ def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str
     width, height = (detected_width, detected_height) if detected_width and detected_height else RESOLUTIONS[shot]
     items = []
     for index in range(count):
-        parts = None
-        for _scene_attempt in range(16):
-            candidate = generate_candidate_parts(scale, shot, rng, aspect, era)
-            category = _scene_category(candidate)
-            if not _accept_scene_category(category, items, count):
-                continue
-            parts = candidate
-            break
-        if parts is None:
-            parts = generate_candidate_parts(scale, shot, rng, aspect, era)
-        parts = clean_global_prompt_text(parts, shot, scale)
-        parts = _enforce_ancient_outfit(parts, scale, shot, aspect, era, rng)
-        parts = _enforce_ancient_barefoot(parts, era)
-        parts.pop("director_plan", None)
-        parts.pop("director_plan_locked", None)
-        parts = _apply_visual_director_plan(parts, scale, shot, aspect, era)
-        parts = clean_global_prompt_text(parts, shot, scale)
-        parts = {
-            name: (value.strip() if name == "director_plan" and isinstance(value, str) else clean_prompt_text(value) if isinstance(value, str) else value)
-            for name, value in parts.items()
-        }
-        parts = clean_global_prompt_text(parts, shot, scale)
-        parts = _enforce_ancient_outfit(parts, scale, shot, aspect, era, rng)
-        parts = _enforce_ancient_barefoot(parts, era)
-        if scale in {"normal", "bold"} and not _is_ancient_era(era) and parts.get("outfit"):
-            parts["outfit"] = _outfit_visible_details(parts["outfit"], shot)
-        prompt = build_prompt({**parts, "shot_key": shot, "scale": scale})
-        if scale in {"bold_no_outfit", "nsfw"}:
-            prompt = clean_prompt_text(prompt)
-            prompt = prompt.replace("胸前上衣", "胸前")
-            prompt = prompt.replace("肩头上衣", "肩头")
-            prompt = prompt.replace("肩线下方的上衣", "肩线下方")
-            prompt = prompt.replace("上衣纹理", "皮肤和发丝")
-            prompt = prompt.replace("上衣", "身体")
-            prompt = prompt.replace("衣料", "皮肤")
-        if shot == "head_shot":
-            prompt = prompt.replace("胸前上衣", "肩线下方")
-            prompt = prompt.replace("胸前衣料边缘", "肩线下方")
-            prompt = prompt.replace("胸前", "肩线下方")
-            prompt = prompt.replace("肩线和肩线下方", "肩线下方")
-            prompt = prompt.replace("鼻梁、肩线和肩线下方", "鼻梁和肩线下方")
-        # 正负语义分离：positive 中的“禁止/不能/避免…”否定片段剥离并转存 negative，
-        # 避免否定语义留在正面削弱主体信号（如“禁止正面硬闪”）。
-        prompt, forbidden_terms = _purge_forbidden_clauses(prompt)
-        negative_prompt = build_negative_prompt(prompt, parts, scale, shot, aspect, width, height)
-        if forbidden_terms:
-            _existing = {t.strip() for t in negative_prompt.split("，")}
-            _extra = "，".join(t for t in forbidden_terms if t.strip() and t.strip() not in _existing)
-            if _extra:
-                negative_prompt = f"{negative_prompt}，{_extra}"
-        item = {
-            "scale": scale,
-            "shot": shot_label(shot),
-            "shot_key": shot,
-            "aspect": aspect,
-            "dimension_parts": parts,
-            "positive_prompt": prompt,
-            "compact_prompt": prompt,
-            "negative_prompt": negative_prompt,
-            "width": width,
-            "height": height,
-            "seed": rng.randint(1, 2**48 - 1),
-            "prompt_audit_issues": [],
-        }
-        items.append(item)
-        _RECENT_SCENE_CATEGORIES.append(_scene_category(parts))
+        if scale == "nsfw":
+            # 四档除姿势表情外与三档完全一致；姿势表情只从四档专用池原样抽取。
+            parts = compose_parts("bold_no_outfit", shot, aspect, rng, render_prompt_lines, era)
+            pose_expression = choose(pose_expression_options_by_aspect("nsfw", shot, aspect), rng)
+            parts.update(pose_expression=pose_expression, art_pose=pose_expression)
+        else:
+            parts = compose_parts(scale, shot, aspect, rng, render_prompt_lines, era)
+        items.append(_finish_prompt_item(parts, scale, shot, aspect, width, height, rng))
     return items
+
+
+def _finish_prompt_item(parts: dict[str, str], scale: str, shot: str, aspect: str, width, height, rng: random.Random) -> dict:
+    prompt = build_prompt({**parts, "shot_key": shot, "scale": scale, "aspect": aspect})
+    if scale in {"bold_no_outfit", "nsfw"}:
+        prompt = clean_prompt_text(prompt)
+        prompt = prompt.replace("胸前上衣", "胸前")
+        prompt = prompt.replace("肩头上衣", "肩头")
+        prompt = prompt.replace("肩线下方的上衣", "肩线下方")
+        prompt = prompt.replace("上衣纹理", "皮肤和发丝")
+        prompt = prompt.replace("上衣", "身体")
+        prompt = prompt.replace("衣料", "皮肤")
+    if shot == "head_shot":
+        prompt = prompt.replace("胸前上衣", "肩线下方")
+        prompt = prompt.replace("胸前衣料边缘", "肩线下方")
+        prompt = prompt.replace("胸前", "肩线下方")
+        prompt = prompt.replace("肩线和肩线下方", "肩线下方")
+        prompt = prompt.replace("鼻梁、肩线和肩线下方", "鼻梁和肩线下方")
+    # 正负语义分离：positive 中的“禁止/不能/避免…”否定片段剥离并转存 negative，
+    # 避免否定语义留在正面削弱主体信号（如“禁止正面硬闪”）。
+    prompt, forbidden_terms = _purge_forbidden_clauses(prompt)
+    negative_prompt = build_negative_prompt(prompt, parts, scale, shot, aspect, width, height)
+    if forbidden_terms:
+        _existing = {t.strip() for t in negative_prompt.split("，")}
+        _extra = "，".join(t for t in forbidden_terms if t.strip() and t.strip() not in _existing)
+        if _extra:
+            negative_prompt = f"{negative_prompt}，{_extra}"
+    item = {
+        "scale": scale,
+        "shot": shot_label(shot),
+        "shot_key": shot,
+        "aspect": aspect,
+        "dimension_parts": parts,
+        "positive_prompt": prompt,
+        "compact_prompt": prompt,
+        "negative_prompt": negative_prompt,
+        "width": width,
+        "height": height,
+        "seed": rng.randint(1, 2**48 - 1),
+        "prompt_audit_issues": [],
+    }
+    return item

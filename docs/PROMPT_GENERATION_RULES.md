@@ -22,27 +22,28 @@ The generator has exactly six final prompt dimensions:
 
 Do not reintroduce old fragmented dimensions such as separate expression, head gaze, face action, hand action, clothing state, clothing motion, material, color, prop, foreground, body surface, photo finish, style pack, scene pack, or scene action pools.
 
+所有档位的氛围协调都由构图器的艺术母题完成（见下方 Art-Direction Composer），不再有独立的导演表或配色/滤镜规划层。
+
 Do not keep compatibility layers for removed pools. If an old pool name is removed from runtime selection, it must not remain as an import target, alias, fallback, or hidden bridge.
 
-## K2 SFW Narrative Rule
+Once the art direction and place are selected, they are the authority for concrete location and lighting. A body action may use only props that the selected place declares, so absent sofas, railings, or pool edges never appear in the pose. 三档 scenes and 二档 full-body scenes use private places (hotel, garden, balcony, studio, old house, bathroom, private pool), not shops, cafes, or public streets. Head-shot scene clauses describe near-field light and bokeh, leaving the crop label to the camera sentence; clothing reads as a wearable garment followed by its visible edge (`她穿着X，领口停在画面下缘`).
 
-The mobile image page also exposes `K2 SFW 叙事规则`. Its implementation is isolated in `k2_sfw_prompt_rule.py`; it does not alter the project-default rule or the JSON dimension pools.
+## Art-Direction Composer (一档 / 二档 / 三档)
 
-K2 是 `/Users/zouge/Downloads/K2人像提示词引擎（SFW版）.md` 的独立还原，不读取或继承项目规则的档位、年代、镜头、固定人物、六维度池或负面提示词。手机端选中 K2 后隐藏档位、年代和镜头；后端忽略这些请求字段，并按 K2 本次随机出的镜头范围、视角和构图自动选择分辨率。鸟瞰和非广角中心对称构图使用 `1536×1536`，广角、超广角和鱼眼使用 `1536×1024`，中景和近景使用 `1024×1536`。
+一档（normal）、二档（bold）、三档（bold_no_outfit）的现代与古装题材都由 `prompt_composer.py` 读取 `data/art_direction_pools.json` 一次成句；四档（nsfw）除姿势表情外与三档完全一致：按三档规则抽母题、私密地点、光型、构图、镜头、质量、人物和妆容，不加衣着；仅姿势表情行从 `data/nsfw_pose_expression_options.json` 原样抽取替换。旧的主题蓝图、参考姿势、环境锚点、服装模板改写层以及四档旧拼装链路已全部删除。古装使用标注 `eras: ["ancient"]` 的母题、地点和动作，服装取 `OUTFITS_ANCIENT`，并按地点 `styles`（汉服、民国、敦煌）匹配；古装全身服装写明裸足，不写鞋。固定人物容貌行始终取自原人物池，构图器不改写它。
 
-随机生成采用两阶段：先随机一条完整的内部“用户场景需求”，再按原文十段顺序扩写。场景需求同时约束非常规视角与镜头、光影色调氛围、人物、发型、妆容、表情、SFW 服装、姿态、背景和构图引导；各段不得独立拼接。提示词保持 300-600 字，`dimension_parts.k2_scene_request` 仅用于调试，`dimension_parts.k2_self_check` 保存原文 F1-F9 自检结果，两者都不写入正向提示词。
+1. 先抽一个本档可用的艺术母题（`ART_DIRECTIONS`，`scales` 标明适用档位）。母题独占光线方向与质感、空气感、可选前景、按档位区分的配色三元组、唯一调色和机位，保证一张图只有一个氛围。母题只列出与自己光线相容的地点。夜间母题的光线句必须写明夜里或月光，使妆容昼夜判定与画面一致。
+2. 再从母题允许的地点（`PLACES`）中抽一个。地点标注适用档位、是否室内、是否私密、是否棚拍，并提供头部近景虚化、半身背景、全身环境与地面三种文本和可互动道具 `props`。三档全部、二档全身只使用 `private: true` 的地点。
+3. 姿势（`POSES`，按档位、竖/横构图、镜头分表）只写身体动作并声明所需 `props`；道具不在地点里的动作不会被选中。二档动作不写任何服装词，三档直接复用。站立/行走全身动作带 `站立`、`迈步` 等推断词，横构图动作带 `横向`、`侧躺`、`仰躺` 等推断词，赤脚动作标 `barefoot`。
+4. 神情（`EXPRESSIONS`，按档位与动作能量 calm/playful/dynamic）单独成池，只写视线、嘴角和情绪，不写回头、转身等头部动作，避免与身体动作矛盾。姿势行 = 身体动作 + 神情。
+5. 服装（`OUTFITS`，按档位与镜头）用 `{main}`/`{support}`/`{accent}` 按母题配色填色，每条都含一处可见结构细节；全身服装的鞋单独存放，赤脚时省略。二档服装遵循本文件 Outfit 章节：不用皮革、乳胶和裸露感措辞，丝袜只配裙装或连体衣。三档不输出服装。
+6. 妆容取原妆容池：非棚拍地点排除“摄影棚/棚拍”妆；白天与黄昏排除夜妆，夜间排除晨光、日系、阳光妆。
+7. 二档、三档的母题各自绑定一个光型（`LIGHT_TYPES`：逆光轮廓、窗边侧光、斑驳光、正午硬光、柔光、彩色折射、低位暖灯、镜前灯、月光轮廓、水面波光）。光型按镜头提供“光落在身体上”的句子（只写本镜头可见的身体线条，如锁骨、腰线、腿线）和与该光配套的构图（光影交界、门框框景、镜中镜像、贴水面低机位、前景纱或枝叶遮挡），让光照、身体线条和构图指向同一个画面意图。一档不使用光型。
+8. 二档服装中的情趣内衣类（蕾丝文胸套装、吊袜带、娃娃裙、薄纱睡袍、绑带内衣、束身胸衣、古装肚兜）标 `requires: private`，只在私密地点出现，私密地点有一半概率优先挑选；泳装标 `requires: water`，只在水边地点出现。内衣类关键部位写明不透明衬里或完整杯面，保持非露骨。
+9. 各行用固定句式渲染：场景行 = 地点 + 母题光线 + 一句空气感（半身/全身可再加一句前景）；质量行 = 焦段 + 母题调色 + 配色 + 肤质 + `高光不过曝`；镜头行 = 机位 + 景别方向 + 构图位置。
+10. 渲染后用 `prompt_fluency.fluency_defects` 检查（含“姿势行必须同时写到视线和表情”），有缺陷就重抽（最多 8 次），不做字符串修补。
 
-The generator may use an internal director table before selecting dimension options. This table is a coordination layer, not a seventh final dimension. It should bias option selection toward one coherent style motif, visual focus, scene family, lighting mood, and material/color relationship. It must not append visible labels or extra director prose to the final prompt, and it must not displace drawable visual details with metadata or repeated labels.
-
-The active director table should stay in the sunny, warm, vivid, multicolor high-saturation direction unless the user explicitly asks for a darker style. Current director families are pool multicolor glamour, beach vivid glamour, garden water-light seduction, glass balcony color light, bright color studio fashion, tropical terrace sensuality, sweet vivid tease, and occasional forced-perspective focus. Do not restore old dark private-room, nightclub, wet-night, or minimal cold defaults as the dominant style.
-
-Director logic should coordinate the existing six dimensions before assembly. It may select a scene package first and use that scene as a soft context signal for outfit and pose/expression, so beach, pool, garden, terrace, glass, and studio prompts receive matching props, actions, accessories, material textures, and color language. This context signal must not become a new visible output line.
-
-Once the scene/light option is selected, it is the authority for concrete location and lighting. Normal-mode final pose selection must reject any prop absent from the selected scene and choose an existing compatible pose; full-body replacements must include visible foot contact. Modern bold_no_outfit scenes, and bold full-body scenes with ground-level glamour poses, should select private-feeling hotel, garden, balcony, studio, or old-house settings, not sweet shops, cafes, cinemas, bookstores, or exposed public streets. Head-shot scene clauses describe light, leaving the crop label to the camera sentence; clothing wording must read as a wearable garment followed by its visible neckline, not as a garment fused to `领口出现在画面下缘`. Legacy theme blueprints may supply outfit or pose only when their scene category matches the actual selected scene; environment-interaction actions and batch scene-diversity counting must inspect the actual scene rather than theme keywords or pose text. A modern theme blueprint must not force its old dark grading over a brighter selected scene; grading follows the scene. This prevents bath-mirror actions in a garden and pool/night grading in a sunlit bookshop.
-
-The generator may also use internal color-palette and filter-grade packages. They are coordination layers, not visible dimensions. A color palette defines main color, support color, accent color, suitable scene cues, outfit/accessory colors, and nail polish colors. A filter grade defines saturation, contrast, highlight behavior, shadow behavior, skin brightness, and a compact photographic finish phrase. Palette and grade should bias selection and add at most short natural clauses, never labeled metadata.
-
-The generator may use internal emotion-intent, visual-focus, pose-family, feedback-tag, and candidate-scoring logic. These are coordination and quality-control layers, not visible dimensions. Emotion intent biases expressions toward active, motivated smiles and lively psychological states. Visual focus chooses one main focus path allowed by shot scope, such as eyes/lips, hand foreground, collarbone/chest, waist curve, hip-leg line, feet/ground contact, or forced perspective. Pose-family weights keep posture variety balanced by shot and aspect. Feedback tags capture recurring quality risks such as flat face, red lips, missing full-body foot anchor, side padding, and orientation mismatch. Candidate scoring should generate several internal candidates and return the best one without exposing the rejected candidates.
+新增母题、地点、动作、神情或服装时直接编辑 `data/art_direction_pools.json`；母题引用不存在的地点或缺少本档配色会在加载时报错。
 
 ## Prompt Data Source
 
@@ -54,13 +55,13 @@ The generator may use internal emotion-intent, visual-focus, pose-family, feedba
 
 固定指甲句不受手部是否明确入镜影响，所有 character 容貌文本都必须保留“黑色渐变的手指甲又细又长”。身体其他描述仍按镜头可见范围裁剪，不可向较小镜头补写不可见部位。
 
-Prompt option text is edited directly in `data/prompt_pools.json` (six-dimension pools) or `data/nsfw_pose_expression_options.json` (NSFW poses). `prompt_data.py` loads `data/prompt_pools.json` at runtime via `_load_generated_prompt_data`; edits take effect on the next ComfyUI restart without a build step.
+Prompt option text is edited directly in `data/art_direction_pools.json` (composer: directions, places, light types, poses, expressions, outfits), `data/prompt_pools.json` (fixed character, makeup, quality suffix, base negative prompt) or `data/nsfw_pose_expression_options.json` (NSFW poses). The old camera/outfit/pose/scene pools were deleted. `prompt_data.py` loads `data/prompt_pools.json` at runtime via `_load_generated_prompt_data`; edits take effect on the next ComfyUI restart without a build step.
 
 Do not directly edit prompt pool option text in `prompt_data.py` for content changes; the in-file definitions there are fallback/bootstrap data only.
 
 For any prompt pool option addition, replacement, deletion, or rewrite, except the protected NSFW pose/expression pool:
 
-1. Edit `data/prompt_pools.json` (or `data/nsfw_pose_expression_options.json` for NSFW poses).
+1. Edit `data/art_direction_pools.json` / `data/prompt_pools.json` (or `data/nsfw_pose_expression_options.json` for NSFW poses).
 2. Restart the relevant ComfyUI service (Mac local 8188 for mobile/web entry) so the JSON reloads.
 3. Run the required prompt audits (`tools/audit_prompt_pools.py`, `tools/audit_generated_prompts.py`).
 
@@ -89,15 +90,27 @@ This front-loads pose, scene/light, and quality because local text-to-image mode
 
 Do not output labels such as `镜头:`, `角色:`, `妆容:`, `穿着:`, `姿势:`, or `场景:`.
 
+### Fluency Invariants
+
+Final assembly (`_build_human_prompt`) enforces these line-level invariants for normal, bold, and bold_no_outfit; NSFW pose and quality lines are passed through unchanged.
+
+- Quality line: at most one lens phrase (normal only, chosen from the actual shot scope with a per-item derived random source), one color grade, one texture/grain/layering clause each, and a single trailing `高光不过曝`. Lens options carry only focal length, aperture, and blur; color tone belongs to the filter grade and light direction belongs to scene/light, so the quality line cannot contradict the scene (for example `冷调` beside `阳光高饱和调色`, or `伦勃朗式侧光` beside front light).
+- Pose line: describes body relative to ground, props, and camera gaze only. Frame-edge wording (`画面下缘`, `画面一侧`, `镜头前缘`), composition-only clauses (`构图`, `节奏`, `呼吸感`, `画面重点`), and negated anti-deformation wording (`不朝向镜头`, `不过度弯折`) are rewritten to positive body descriptions such as `前脚平稳踩在地面上` or dropped. Gaze and smile are stated once; later layers must not append a second `看向镜头` or `嘴角…笑`. The same hand is never assigned two different jobs.
+- Scene line: visual content only — no sounds, smells, or abstract mood verdicts (`充满…氛围`, `有格调`). Clauses that name where light lands stay even when they list body parts; `脚边`/`脚下` clauses appear only in full-body shots.
+- Outfit line: a garment is named before its visible edge (`她穿着X，领口停在画面下缘`), never `穿着X的翻领进入画面`. Theme outfits receive at most one material and one structure detail, only when the source text lacks that kind of detail; source text with three or more clauses receives at most one.
+- Makeup line: face pigment, lines, and skin finish only; gaze, expression, temperament, and `…感` verdicts belong elsewhere.
+
+Iteration method for fluency work: generate a large local sample across normal/bold/bold_no_outfit × head/half/full (no remote generation), lint every line against the defect classes above, rank classes by frequency, fix the highest-frequency class at its source (pool data first, then the specific transform that produces it), add a final-assembly invariant only when many upstream transforms produce the same defect, then re-lint a fresh seed set and read a sample by hand for defects the lint does not yet know.
+
 ## Camera
 
-Only five camera types exist:
+The node and the mobile page expose three body-coverage scopes (plus 随机):
 
-- 头部: shoulder-and-above framing.
-- 半身: shoulder-and-above framing.
-- 半身: thigh-and-above framing.
-- 半身: thigh-and-above framing.
-- 全身: full-body framing.
+- 头部 (`head_shot`): shoulder-and-above framing.
+- 半身 (`half_body`): waist-and-above framing.
+- 全身 (`full_body`): complete figure from head to feet.
+
+`upper_body` and `large_half_body` keys exist only inside the protected nsfw pose file (it requires all five keys); no entry point selects them.
 
 Camera scope is a hard global constraint. Every other dimension must describe only content visible in the selected frame.
 
@@ -109,8 +122,8 @@ Half-body and full-body camera and pose pools may branch by workflow frame orien
 - Do not combine landscape framing with a vertical standing body. Do not combine portrait framing with a horizontal lying body.
 - Head and upper-body scopes do not need strong frame-orientation branching unless the pose text clearly calls for it.
 - If the frontend cannot detect a reliable width and height from the workflow, generation must default to portrait orientation.
-- Frame orientation is a sub-pool selector only. It must not become a new final prompt dimension or visible node option.
-- On the mobile generation page, frame orientation is inferred after prompt generation from the pose and camera text. The visible shot choice is body coverage only, not a portrait/landscape choice.
+- Frame orientation is a sub-pool selector, not a new final prompt dimension. The desktop node has no orientation option and infers it from the generated camera and pose text.
+- The mobile generation page has a separate 方向 control (自动/横向/竖向); see Mobile Generation Page.
 
 头部:
 
@@ -121,26 +134,9 @@ Half-body and full-body camera and pose pools may branch by workflow frame orien
 
 半身:
 
-- May describe face, eyes, lips, cheek, jaw, hair around face, neck, shoulders, collarbones, clavicle shadows, complete bust/chest volume, breast lower-edge transition, a small upper-waist segment, and fingers near face, collarbone, chest edge, or upper waist.
-- Must keep the full top of the head and hair contour inside the frame; do not crop off the head top while trying to include the chest.
-- Must include the complete chest/bust shape and stop at the upper waist. It should show only a small part of the waist and must not reach the navel, hips, thighs, legs, feet, shoes, or full-body posture.
-- Must not become a face-only crop, a collarbone-only crop, or a waist-up half body. Use this direct camera boundary instead of softer upper-body wording: `肩部以上镜头，头顶完整，脸部、肩颈、锁骨、完整胸部入镜，画面下缘停在上腰，只露出一小段腰部`.
-- "A little below the collarbone" is too conservative for this shot. "大腿以上镜头" is too broad and tends to become a standard half body. Prefer the direct `肩部以上镜头` wording above.
-- Runtime prompt wording should treat this as an upper-body medium close portrait, not an extreme face closeup. Camera options own the crop boundary; character, pose, outfit, and lighting options should not repeat the full crop sentence.
-- Upper-body close portrait options should mention chest form only when it is part of that dimension's job, and should keep it short. Do not repeat complete bust, breast lower-edge, upper waist, and crop-line wording in every dimension.
-- Background should not be described. The frame is a tight upper-body close portrait; scene and lighting may only describe close light on the face, neck, shoulders, collarbones, complete chest, breast lower-edge transition, a small upper-waist segment, hair edge, and nearby fingers.
-
-半身:
-
 - Means waist-and-above framing. The visible body range is head, face, shoulders, chest, waist, and hands around the upper body; the lower edge should land around the waist.
 - May describe face, hair, shoulders, neck, collarbones, bust, upper chest, waist, hands, top outfit, waist-edge styling, and pose direction.
 - Must not require hips, thighs, lower legs, feet, toes, shoes, or complete full-body posture. The backend may choose portrait, landscape, square, or moderately wide resolutions to preserve the selected waist-up pose.
-
-半身:
-
-- Means thigh-and-above framing. The visible body range is head, face, shoulders, chest, waist, hips, thighs, knees, and calves; feet are not required.
-- May describe face, hair, shoulders, neck, collarbones, bust, waist, hips, thighs, knees, calves, hands, outfit coverage down to calves, and pose direction.
-- Must not require feet, toes, shoes, or head-to-toe full-body framing.
 
 全身:
 
@@ -163,17 +159,16 @@ Core identity anchors:
 - High nose bridge.
 - Pointed chin.
 - Narrow fox-shaped eyes.
-- Light brown contacts.
-- Straight black hair to the chest where visible.
-- Slender black fingernails and black toenails where visible.
+- Pure blue contacts (`纯蓝色美瞳`).
+- Straight black hair falling on both sides of the face (`黑色直发散落在脸部两侧`).
+- Black gradient long slender fingernails (`黑色渐变的手指甲又细又长`), always kept right after the identity phrase.
+- Faint beauty marks at the eye corner and cheek.
 
-Body description depends on framing:
+Body description depends on framing (appended to the same identity text):
 
-- Full body: eight-head-tall hourglass figure with a slim-boned frame, full bust and hips, narrow waist, extremely slender long thighs where visible, slender black fingernails and black toenails.
-- Large half body: face, hair, shoulders, collarbones, bust, waist curve, hips, thighs, knees, calves, hands near face/chest/waist/thigh edge, slender black fingernails.
-- Half body: face, hair, shoulders, collarbones, bust, waist curve, hands near face/chest/waist edge, slender black fingernails.
-- Upper body: face, eyes, lips, cheek, jawline, hair around face, neck, shoulders, collarbones, complete chest/bust volume, full rounded chest contour, breast lower-edge transition, slender black fingernails only if fingers appear near face, neck, collarbone, chest edge, or upper waist.
-- Head shot: face, eyes, lips, cheek, jawline, hair around face, neck, shoulders, and slender black fingernails only if fingers appear near face, neck, or shoulder.
+- Head shot: no body clauses.
+- Half body: `性感锁骨，骨架偏瘦但胸部丰满，小蛮腰`.
+- Full body: `性感锁骨，骨架偏瘦但胸部和臀部丰满，小蛮腰，腿细且长`.
 
 Character identity must not describe outfit, nudity, sexual acts, scene, lighting, or pose.
 
@@ -195,7 +190,7 @@ This lip-color and thin-lip rule must be enforced at runtime, not only in source
 
 ## Outfit
 
-Outfit is one complete paragraph option. The current modern normal/bold postprocess reselects garment templates from `prompt_postprocess.py` (the JSON outfit choice mainly supplies a color cue), so adding detail to JSON alone does not reliably change final clothing. When improving the final result, edit the effective template and inspect `dimension_parts.outfit` after cleanup. Repeated cleanup must not stack the same seam or fabric claim.
+Outfit is one complete paragraph option. For normal and bold the outfit comes from the composer's `OUTFITS` / `OUTFITS_ANCIENT` templates in `data/art_direction_pools.json`, filled with the art direction's palette; edit those templates directly. Each template names one visible structure detail, and the text is not rewritten afterwards.
 
 Format:
 
@@ -203,7 +198,7 @@ Format:
 
 Normal and Bold outfit options describe actual clothing. Bold_no_outfit and NSFW mode do not load or output the outfit dimension at all.
 
-Bold outfit options should read as vivid adult-glamour styling with clear clothing presence rather than nude-feeling exposure. Clothing may be revealing, tight, glossy, cutout, or high-slit, but avoid wording that implies almost no clothing, such as 裸露, 极少覆盖, 最低覆盖, 只剩小布片, 布料面积压到最低, 覆盖面积极少, or similar bare-exposure language. Do not let bold outfits collapse into only mini-skirts; keep variety across mini skirts, slip dresses, high-slit long dresses, fitted bodysuits, one-piece swimwear with sheer coverups, corset tops with hot pants or tailored shorts, and stocking-based glamour looks. Do not use latex, latex-like clothing, glossy leather, leather-like clothing, leather skirts, or leather/PVC styling. Prefer saturated but tasteful non-leather materials and details: jewel-blue or magenta satin, deep-wine silk, chiffon or gauze overlays, bright lace edges, corset tops, boning seams, cross straps, halter tops, pearl/silver trim, gold metal buckles, bright chain details, transparent glove edges, sheer accent panels, high-slit or cutout structures, and small but readable bralette/corset/bodysuit/swimwear-like pieces. Accessories should increase sensuality and visual richness while staying sparse and purposeful: usually one or two focus pieces such as a choker, waist chain, belly chain, arm cuff, thigh band, leg ring, ankle chain, delicate metallic charm, transparent glove edge, sheer stocking edge, garter stocking edge, or rhinestone detail. Clothing color and material should contrast with cold fair skin so the skin stays very white without making the prompt feel nude.
+Bold outfit options should read as vivid adult-glamour styling with clear clothing presence rather than nude-feeling exposure. Lingerie-style pieces (lace bra sets, garter belts with stockings, babydolls, sheer robes over lingerie, strappy bodysuits, corsets with briefs) are allowed and preferred in private places; key areas stay covered by opaque cups or lining, and the wording names the garment rather than bare skin. Clothing may be revealing, tight, glossy, cutout, or high-slit, but avoid wording that implies almost no clothing, such as 裸露, 极少覆盖, 最低覆盖, 只剩小布片, 布料面积压到最低, 覆盖面积极少, or similar bare-exposure language. Do not let bold outfits collapse into only mini-skirts; keep variety across mini skirts, slip dresses, high-slit long dresses, fitted bodysuits, one-piece swimwear with sheer coverups, corset tops with hot pants or tailored shorts, and stocking-based glamour looks. Do not use latex, latex-like clothing, glossy leather, leather-like clothing, leather skirts, or leather/PVC styling. Prefer saturated but tasteful non-leather materials and details: jewel-blue or magenta satin, deep-wine silk, chiffon or gauze overlays, bright lace edges, corset tops, boning seams, cross straps, halter tops, pearl/silver trim, gold metal buckles, bright chain details, transparent glove edges, sheer accent panels, high-slit or cutout structures, and small but readable bralette/corset/bodysuit/swimwear-like pieces. Accessories should increase sensuality and visual richness while staying sparse and purposeful: usually one or two focus pieces such as a choker, waist chain, belly chain, arm cuff, thigh band, leg ring, ankle chain, delicate metallic charm, transparent glove edge, sheer stocking edge, garter stocking edge, or rhinestone detail. Clothing color and material should contrast with cold fair skin so the skin stays very white without making the prompt feel nude.
 
 Skin whiteness should be supported primarily through clothing and environment contrast, not by globally bright lighting. Prefer dark or saturated outfit colors such as deep wine, jewel blue, black-gold, silver-gray, glossy black, magenta satin, and pearl/silver trim to set off fair skin. Avoid repeatedly asking lights to make the whole body bright, glowing, or evenly white.
 
@@ -221,7 +216,7 @@ Outfit must not describe expression, pose, scene, or lighting.
 
 ## Pose And Expression
 
-Pose and expression is one complete paragraph option. Modern bold/bold_no_outfit currently select a final shot-specific pose in `prompt_engine.py`; editing the JSON pose pool alone will not change that final pose. Keep these final alternatives distinct in posture, hand task, eye line and mouth, without tying them to a fixed light or scene. Normal-mode facial completion only fills missing eye/mouth cues; it must not add a second head angle or a contradictory gaze to an already readable pose.
+Pose and expression is one complete paragraph option. For modern normal, bold, and bold_no_outfit the final pose comes from the composer's body-action and expression pools in `data/art_direction_pools.json`. Keep these final alternatives distinct in posture, hand task, eye line and mouth, without tying them to a fixed light or scene.
 
 It must always include expression. The expression part should describe:
 
@@ -229,7 +224,7 @@ It must always include expression. The expression part should describe:
 - Eye state: open, half-open, narrowed, heavy-lidded, direct gaze, side gaze.
 - Mouth: closed, slightly parted, relaxed, or softly open.
 - Smile type when present: faint smile, cold smile, teasing smile, mocking smile, restrained laugh, open laugh.
-- Optional suggestive intent phrase that remains non-explicit.
+- Optional suggestive intent phrase; normal, bold, and bold_no_outfit remain non-explicit.
 
 Then describe body posture only within camera scope.
 
@@ -245,9 +240,9 @@ Pose options must not take over camera or resolution duties. Do not write portra
 
 Each pose option should keep one primary pose family and one secondary action at most. Avoid stacking several strong body mechanics in the same option, such as jumping plus twisting plus crossed legs plus raised arms, or standing plus deep squat plus knees spread plus torso thrust. Full-body options should describe a readable whole-body silhouette, not many simultaneous commands for head, shoulders, hands, waist, hips, thighs, knees, ankles, feet, and expression. Hands should usually have one simple job: hair, face, collarbone, waist, support, or relaxed placement. When both hands are specified, final cleanup must keep their roles distinct instead of assigning both actions to the same left hand.
 
-For Bold and NSFW, pose options should strongly serve adult glamour composition: emphasize perfect facial appeal, seductive gaze, lips, graceful neck and shoulder rhythm, waist curve where visible, bust contour where visible, thigh line where visible, and hands guiding attention through visible body curves. The wording should feel intensely alluring and magnetic while staying non-explicit: no sexual acts, no exposed intimate anatomy, no simulated sex, and no forced nudity wording. Upper-body close portrait options must remain in the head-to-complete-chest-and-small-upper-waist crop; half body options must remain thigh-up; full body options may use complete silhouette, legs, feet, and whole-body S-curve.
+For Bold and NSFW, pose options should strongly serve adult glamour composition: emphasize facial appeal, gaze, lips, neck and shoulder rhythm, and body lines within the chosen shot. Bold remains non-explicit. NSFW uses its dedicated adult-only pose pool and may describe sexual acts; preserve the actors and action sequence when cleaning those clauses. Other dimensions still follow the chosen camera scope.
 
-Bold and NSFW pose pools may include more sexually suggestive posture language than normal mode. Bold should express this through non-explicit mechanics: lowered gaze, parted lips, hands near lips/neck/collarbone/chest edge/waist/hip/thigh edge, forward lean, backward arch, side-lying, bed-edge seated posture, M-shaped seated or kneeling silhouette, low forearm support, over-shoulder rear-side silhouette, leg opening as a silhouette, and protective boundaries created by hair, arms, shadow, sheets, framing, or body angle. NSFW may use stronger adult-private glamour pressure and more direct body-curve language, but still avoid explicit sex acts, genital wording, coercion, or mechanical sexual instructions.
+Bold pose pools express suggestive posture through non-explicit mechanics. NSFW may describe direct adult sexual actions, but must keep participants, body ownership, and action order unambiguous; coercive content is outside this project's scope.
 
 Body-part focus is allowed inside pose-expression options only when it fits the selected shot scope. Head shots may focus on lips, tongue tip, hands, nails, neck, and shoulders. Upper-body shots may additionally focus on complete chest, collarbones, and upper waist. Half-body shots may focus on hands, chest, waist, and body curve to the waist, but not hips, thighs, legs, or feet. Large-half-body shots may focus on hip-side silhouette, thighs, knees, calves, and leg line, but not feet or toes. Full-body shots may focus on feet, toes, ankles, legs, hip/rear-side silhouette, and complete body line. Do not add a separate body-part camera dimension unless the runtime camera pool is made scale-aware.
 
@@ -265,11 +260,11 @@ Bold and NSFW pose pools should stay close to the strongest seductive posture fa
 - Half body: thigh-up composition, camera-leaning body, one shoulder high and one low, waist twist, controlled backward arch, over-shoulder look, hands moving between hair, lips, collarbone, bust edge, waist, hip, and thigh edge. The visual path should guide from eyes and lips to collarbones, bust edge, narrow waist, hips, and thighs.
 - Full body: over-shoulder S-curve, wall or support lean, one-leg weight shift, crossed or extended leg line, low seated edge pose with upper body leaning back, deep side bend, raised arm through hair and the other hand at waist. The visual path should connect face, neck, waist curve, hips where visible, long legs, and foot placement.
 - Full body may also use seated or kneeling seated glamour poses with knees opened into an M-shaped composition, only when the wording keeps the focus on silhouette, waist-back curve, leg lines, foot placement, and protective concealment. This posture is full-body only and must include non-explicit boundaries such as hair, hands, arms, shadow, or framing maintaining concealment. If the pose uses hands to cover the body, describe it as hands maintaining non-explicit concealment over key edges or key areas, not as explicit anatomy.
-- Full body may use low forearm-supported forward-lean or four-point support glamour compositions, but never use animal-like wording. Describe the body as supported by forearms and knees on a soft surface, with the head lifted toward camera, waist-back curve, leg line, foot placement, and non-explicit concealment by hair, arms, shadow, or framing. Rear-facing variants are allowed only as over-shoulder glamour compositions: write them as body facing away from camera, head looking back toward camera, rear-side silhouette or back waist curve as the composition focus, and protective concealment maintained. Do not describe any sexual act or purpose.
-- Landscape full-body pools may use side-view low forearm-and-knee support compositions with raised hip line, deep waist-back curve, side silhouette, leg line, and foot placement as the focus. These entries must remain full-body only, must not use animal-like wording, and must keep protective non-explicit concealment with hair, arms, shadow, sheets, or framing. Do not describe any sexual act or explicit anatomy.
-- Half body and full body may use top-down lying compositions. Half body top-down poses must stop around the thigh area and describe face, hair spread, shoulders, collarbones, bust edge, hands, waist, hips, and thighs. Full body top-down poses may describe the complete lying silhouette, hair spread, arms, waist curve, leg arrangement, and foot placement. For NSFW, top-down lying poses must include non-explicit concealment by hair, arms, sheets, shadow, or framing and must not describe explicit anatomy or sexual acts.
+- Non-NSFW full-body glamour poses may use low forearm-supported forward-lean or four-point support compositions, but never use animal-like wording. Keep the pose non-explicit, with visible support, body line, and framing.
+- Non-NSFW landscape full-body pools may use side-view low forearm-and-knee support compositions focused on the side silhouette, leg line, and foot placement. These entries remain full-body and non-explicit; NSFW actions follow their dedicated pool.
+- Half body and full body may use top-down lying compositions. Half body top-down poses must stop around the thigh area and describe face, hair spread, shoulders, collarbones, bust edge, hands, waist, hips, and thighs. Full body top-down poses may describe the complete lying silhouette, hair spread, arms, waist curve, leg arrangement, and foot placement. NSFW top-down actions follow the dedicated pose pool and must retain clear actor attribution.
 
-For NSFW, use the same posture families with stronger private adult-glamour pressure and direct body description. Describe curves, skin, and sensuality naturally without hedging or concealment language. Do not add explicit acts, exposed genitals, or simulated sex.
+For NSFW, the dedicated pool may use explicit adult actions. Post-processing must not discard action clauses solely because they contain body-part ownership terms, camera-overlap words, or mouth-contact verbs; it must not append an unrelated gaze or smile to an already complete action/expression.
 
 Pose-pool diversity is judged within the same scale and the same camera scope. Similar themes across different camera scopes are acceptable because they are separate pools. Within one pool, new options should vary the action mechanics rather than only changing adjectives: use different head direction, gaze angle, mouth state, hand path, shoulder rhythm, torso lean, waist twist, support point, seated/standing balance, and leg arrangement where visible.
 
@@ -299,7 +294,7 @@ Color should be bright, warm, saturated, and coordinated, not randomly multicolo
 
 If a requirement mentions "rainbow-like" color, treat it as a request for richer coordinated colors rather than literal rainbows. Use high-saturation positive sunny color design: bright clothing, colorful accessories, saturated scene blocks, warm daylight, and small local color reflections. Do not prompt visible rainbow arcs, rainbow projections, or rainbow reflections unless the user explicitly asks for an actual rainbow.
 
-Nail polish is a small color accent, not a fixed identity trait. Do not hard-code all visible fingernails or toenails as black. Use a balanced rotation of transparent crystal, pale pink jelly, coral pink, cherry pink, rose pink, lavender purple, lake blue, mint green, lemon yellow, peach orange, silver-white micro-glitter, and glossy black. Within one prompt, visible fingernails and toenails should usually share the same nail color for coherence.
+Fingernails are part of the fixed identity (`黑色渐变的手指甲又细又长`) and are never recolored by other dimensions. Other color accents belong to outfit, accessories, and scene.
 
 Filter-grade wording must match the selected color and scene logic. Sunny beach, pool, terrace, and water-light scenes should use sunny clear high-saturation grading, clean highlights, and natural bright shadows. Sweet colorful studio or garden scenes may use light-film grading, vivid color blocks, and fine subtle grain. Glass, window, prism, and reflective scenes may use bright contrast grading and clean reflective highlights. Vacation, tropical, deck, and warm outdoor scenes may use warm vivid grading with saturated background colors and natural translucent skin. Do not pair dark low-key film grading with a bright sunny multicolor scene unless the user explicitly asks for contrast.
 
@@ -313,7 +308,7 @@ Neon adult-nightlife expansion should cover legal adult glamour venues and atmos
 
 Pure nature expansion should cover natural scenery without urban, indoor, architecture, vehicles, or artificial venue cues. Use environments such as meadow, forest, lakeside, waterfall, mountain ridge, beach, cliff, reed marsh, snowy field, moonlit grassland, and starlit shoreline. Half body and full body entries may describe the natural location and atmosphere, with natural sky light, moonlight, mist reflection, or water/ground bounce used to keep the skin pale and dimensional. Upper-body close portrait entries must only describe close light quality on the face, hair edge, lips, cheek, jaw, neck, shoulders, collarbones, upper-chest edge, and nearby fingers, without naming or revealing the scenery.
 
-Scene-light coverage should stay balanced by scale. Normal mode should include clean fashion/editorial environments such as studio, apartment, gallery, city street, practice room, makeup room, rooftop, hotel lobby, beach, and cafe-like spaces. Bold mode should cover adult-glamour environments such as private suite, lounge, club booth, dark stage, poolside, mirror room, dressing room, car interior, rooftop night, and rain-night alley while staying non-explicit. NSFW mode may use stronger private adult-photography pressure, but should not collapse into only bedroom, hotel, bathroom, and bed; add dark studio, mirrored room, private lounge, rooftop night, car interior, poolside, velvet sofa, and floor/mirror compositions without sexual acts or explicit genital wording.
+Scene-light coverage should stay balanced by scale. Normal mode should include clean fashion/editorial environments such as studio, apartment, gallery, city street, practice room, makeup room, rooftop, hotel lobby, beach, and cafe-like spaces. Bold mode should cover adult-glamour environments such as private suite, lounge, club booth, dark stage, poolside, mirror room, dressing room, car interior, rooftop night, and rain-night alley while staying non-explicit. NSFW scenes may use stronger private adult-photography pressure, but should not collapse into only bedroom, hotel, bathroom, and bed; scene/light wording remains about environment and illumination, leaving actions to the dedicated pose pool.
 
 For half-body, large-half-body, and full-body scene-light pools, location probability should be balanced by a two-stage draw: first choose one package from `室内`, `室外`, and `野外` with roughly equal probability, then choose a concrete scene-light option inside the selected package. The JSON pool keys this grouping by `室内`, `室外`, or `野外`. The package name is only a runtime selection aid and must not become a visible prompt label or a separate final dimension.
 
@@ -331,8 +326,7 @@ Bold:
 
 NSFW:
 
-- This project treats NSFW as intense adult glamour with direct body description.
-- No explicit sexual acts, exposed genitals, genital wording, or simulated sex wording.
+- This project treats NSFW as adult-only explicit content when selected from its dedicated pose pool.
 - NSFW allows direct description of nude figure, exposed breasts, body curves, and skin without non-explicit concealment wording. Describe what is visible naturally and directly.
 - Outfit dimension is omitted completely; NSFW prompts still include camera, character identity, makeup, pose and expression, scene and lighting, and quality phrase.
 - When expanding NSFW pools, only expand dimensions that are actually emitted at runtime: makeup, pose and expression, and scene and lighting. Do not expand or rely on NSFW outfit text because the outfit sentence is intentionally skipped.
@@ -346,7 +340,7 @@ NSFW:
 
 ## Negative Prompt Generation
 
-Negative prompt output starts from the JSON-maintained `NEGATIVE_PROMPT`, then runtime appends dynamic rule-based terms. The dynamic layer should add base quality/anatomy suppression, lip and makeup risk suppression, black/white side padding and border suppression, portrait/landscape composition mismatch suppression, shot-scope leakage suppression, full-body missing-head/missing-feet suppression, flat-expression suppression when the positive prompt asks for smiles, dark-scene suppression when the positive prompt asks for sunny scenes, and normal-scale nudity suppression. This negative prompt is used for the main node and mobile image workflows, including `ZITB双采`; custom mobile prompts should also receive the same dynamic negative construction from their prompt text and inferred resolution.
+Negative prompt output starts from the JSON-maintained `NEGATIVE_PROMPT`, then runtime appends dynamic rule-based terms. The dynamic layer should add base quality/anatomy suppression, lip and makeup risk suppression, black/white side padding and border suppression, portrait/landscape composition mismatch suppression, shot-scope leakage suppression, full-body missing-head/missing-feet suppression, flat-expression suppression when the positive prompt asks for smiles, dark-scene suppression when the positive prompt asks for sunny scenes, and normal-scale nudity suppression. This negative prompt is used where the workflow has an active negative text encoder, including `ZITB双采`. Krea2 single and double templates instead use `ConditioningZeroOut`; their generated negative text is not submitted to a negative encoder.
 
 ## Option Completeness
 
@@ -382,12 +376,12 @@ The review script should check:
 - Photographic quality: reports should flag generic quality stacks when words such as advanced, quality, atmosphere, blockbuster, or ultra-detailed appear without concrete photographic anchors. Preferred anchors include real skin texture, controlled highlights, layered shadows, real lens depth, reflections, color grade, fine grain, and non-overexposed skin.
 - Sensual tension: bold and NSFW reports should flag prompts that lack gaze, expression, or body-line anchors such as direct gaze, restrained smile, collarbone/chest-waist line, waist curve, hip-leg line, curve tension, or close lens pressure.
 - Cross-dimension contradictions: selected camera scope must not conflict with body parts, posture, outfit coverage, scene, or lighting terms from other dimensions. NSFW must not emit outfit text.
-- Goal alignment: bold and NSFW final prompts should clearly serve adult glamour composition by emphasizing face beauty, visible body curve where in frame, seductive gaze, lips, skin light, hand guidance, crop intimacy, and non-explicit soft adult allure. Normal prompts may be broader and less seductive.
+- Goal alignment: bold prompts remain non-explicit adult glamour; NSFW prompts retain the selected adult action and its participants without contradictory additions. Normal prompts may be broader and less seductive.
 - Scene/light direction: scene and lighting options should use sunny, warm, vivid, multicolor high-saturation atmospheres by default. Prefer daylight, colorful glass/prism reflections, warm sunlight, bright outdoor or bright-window interiors, and saturated but clean background colors. Do not let dark rooms, nightclub lighting, heavy low-key shadows, or night-only environments dominate the pools unless explicitly requested.
 - Scene-prop consistency: scene props must fit the selected environment. Use water, sand, sky, umbrellas, flowers, fountains, pool tiles, deck reflections, and outdoor furniture for outdoor beach/pool/yacht/garden/rooftop/terrace/balcony scenes. Use windows, curtains, glass blocks, white walls, indoor mirrors, and prism glass only for suitable indoor studio/hotel/window/bathroom/changing-room/shop-window scenes. Do not place indoor props into outdoor scenes just to create multicolor light.
 - Outfit color direction: outfit options should rotate bright, sunny, saturated colors evenly. Avoid pools dominated by black, white, gray, silver, or other neutral clothing colors. Favor coral pink, lemon yellow, mint green, peach orange, sky blue, lake blue, violet, lavender, apple green, mango yellow, cherry pink, rose pink, and other vivid colors that keep skin looking pale and clean.
 
-Review reports are advisory for style quality unless they find missing dimensions, camera-scope violations, NSFW outfit leakage, or explicit unsafe wording.
+Review reports are advisory for style quality unless they find missing dimensions, camera-scope violations, NSFW outfit leakage, or non-consensual/underage wording.
 
 ## Image Reverse Prompt
 
@@ -409,9 +403,11 @@ Image reverse prompting is a node-local helper, not a new dimension system.
 
 The mobile generation page is a queue trigger for the existing prompt generator. It must not introduce a new prompt dimension model, old prompt pools, preset managers, or a separate prompt-writing path.
 
-Mobile generation and main-node generation use the same scale, shot, aspect inference, positive prompt, negative prompt, and resolution inference rules. The desktop frontend should apply the inferred width and height to the current graph's image-size or empty-latent widgets before queue serialization when the node's auto-resolution option is enabled; when it is disabled, the desktop graph keeps its manually configured resolution. Mobile generation applies the same inferred width and height while patching `mobile_workflow_api.json`. The backend may patch a user-provided ComfyUI API workflow template for mobile generation, but it must not silently invent a full workflow. The required template file is `mobile_workflow_api.json` in the custom node directory.
+Mobile generation and main-node generation use the same scale, shot, aspect inference, positive prompt, and resolution inference rules; negative text is applied only where the selected workflow has a negative encoder. The desktop frontend should apply the inferred width and height to the current graph's image-size or empty-latent widgets before queue serialization when the node's auto-resolution option is enabled; when it is disabled, the desktop graph keeps its manually configured resolution. Mobile generation patches the selected registered API template. The backend must not silently invent a full workflow.
 
-The main node and mobile page use the same user-facing scale and shot labels: 一档, 二档, 三档, 四档 and 全身像, 半身像, 半身. 三档 maps to bold_no_outfit: it follows 二档 logic but skips outfit. 四档 maps to nsfw: its mobile pose/expression pool is loaded exclusively from `data/nsfw_pose_expression_options.json`, with exactly 30 rules: 10 each for `head_shot`, `half_body`, and `full_body`. The loader must reject missing, malformed, or incomplete JSON rather than silently using the generated-data pool. Camera, character, makeup, scene/light, quality, color, and emotion follow 三档/二档 non-outfit logic. The mobile logic is the shared source of truth for both entry points. Shot options are body-coverage scopes only; the backend first generates the prompt, inspects the selected camera and pose text, infers the best aspect and resolution, then appends the corresponding framing sentence. Text-to-image output uses only four aligned sizes: `768x1536` for standing or walking full-body compositions, `1024x1536` for standard portrait compositions, `1536x1536` for square compositions, and `1536x1024` for landscape compositions. Standing and walking markers resolve before broader full-body rules. Explicit custom dimensions are proportionally clamped to a longest edge of 1536. Full body always means all outer body parts fit in frame; mobile half body stops around the waist, without hips, thighs, lower legs, or feet in frame.
+The mobile image page has an orientation control with 自动/横向/竖向. 横向 and 竖向 force both the generated prompt (poses and camera sentence are drawn for that orientation) and the output resolution; the aspect is not re-inferred from pose text. 自动 draws landscape or portrait with equal probability per image from that image's seed. The desktop node keeps text-based aspect inference.
+
+The main node and mobile page use the same user-facing scale and shot labels: 一档, 二档, 三档, 四档 and 全身像, 半身像, 半身. 三档 maps to bold_no_outfit: it follows 二档 logic but skips outfit. 四档 maps to nsfw: its pose/expression pool is loaded exclusively from `data/nsfw_pose_expression_options.json`, with 50 rules: 10 each for `head_shot`, `upper_body`, `half_body`, `large_half_body`, and `full_body`. The loader must reject missing, malformed, or incomplete JSON rather than silently using the generated-data pool. Camera, character, makeup, scene/light, quality, color, and emotion follow 三档/二档 non-outfit logic. The mobile logic is the shared source of truth for both entry points. Shot options are body-coverage scopes only; the backend first generates the prompt, inspects the selected camera and pose text, infers the best aspect and resolution, then appends the corresponding framing sentence. Text-to-image output uses only four aligned sizes: `768x1536` for standing or walking full-body compositions, `1024x1536` for standard portrait compositions, `1536x1536` for square compositions, and `1536x1024` for landscape compositions. Standing and walking markers resolve before broader full-body rules. Explicit custom dimensions are proportionally clamped to a longest edge of 1536. Full body always means all outer body parts fit in frame; mobile half body stops around the waist, without hips, thighs, lower legs, or feet in frame.
 
 The mobile batch count control starts at 1 and changes only by powers of two: 1, 2, 4, 8, 16, 32, and 64. The frontend and backend must both clamp the submitted count to this range, with 64 as the maximum.
 
@@ -419,7 +415,7 @@ The mobile active queue progress denominator is capped at 100. When unfinished m
 
 The remote GPU has one global admission slot shared by phone, Mac, and AI-script callers. Submissions must use `/random_photo_prompt/remote/submit`; when any task is running or pending, the endpoint returns HTTP 409 without queueing another task. Progress is owned strictly by `prompt_id`: the mobile page must discard events with a missing or unknown task identifier and must never attach them to another active job.
 
-When patching the template, generated positive prompt text should go into positive CLIP text inputs. Negative CLIP text inputs should receive the existing project negative prompt when they can be identified by node title or metadata. Common width, height, seed, and noise seed inputs may be updated so phone controls affect the queued run.
+When patching the template, generated positive prompt text should go into positive CLIP text inputs. Active negative CLIP text inputs receive the project negative prompt; Krea2 templates retain `ConditioningZeroOut` and reject custom negative text. Common width, height, seed, and noise seed inputs may be updated so phone controls affect the queued run.
 
 If the template is missing, invalid, or cannot be queued by ComfyUI validation, return a clear error for the phone page. Do not fall back to unrelated workflows or direct image-file manipulation.
 
@@ -432,9 +428,9 @@ When the mobile page deletes images, deletion is allowed only inside the `random
 After prompt data or generation changes:
 
 - Run Python syntax checks.
-- Generate samples for all three scales and five shots.
+- Generate samples for all four scales and five shots.
 - Check that head shot contains head, face, neck, and shoulders, but no chest, waist, hips, legs, feet, shoes, or scene-heavy text.
 - Check that upper body contains shoulders, collarbones, and complete chest/bust volume, but no navel, hips, legs, feet, shoes, or scene-heavy text.
 - Check that half body contains thigh-and-above content, but no hips/thighs/legs/feet/shoes.
 - Check that large half body contains thigh-and-above content, but no feet/shoes.
-- Check that NSFW contains no explicit sexual acts or exposed intimate anatomy.
+- Check that NSFW retains actor attribution and action order, and does not introduce contradictory expressions or camera framing.

@@ -1,0 +1,78 @@
+{
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 8,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": ["30", 0],
+      "positive": ["6", 0],
+      "negative": ["13", 0],
+      "latent_image": ["5", 0]
+    },
+    "_meta": {"title": "Krea2 一采"}
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {"width": 1024, "height": 1024, "batch_size": 1}
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {"clip": ["11", 0], "text": ""},
+    "_meta": {"title": "Positive Prompt"}
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {"samples": ["32", 0], "vae": ["12", 0]}
+  },
+  "10": {
+    "class_type": "UNETLoader",
+    "inputs": {"unet_name": "Krea2\\moodyKrea2Mix_v50.safetensors", "weight_dtype": "default"}
+  },
+  "11": {
+    "class_type": "CLIPLoader",
+    "inputs": {"clip_name": "qwen3vl_4b_fp8_scaled.safetensors", "type": "krea2", "device": "default"}
+  },
+  "12": {
+    "class_type": "VAELoader",
+    "inputs": {"vae_name": "qwen_image_vae.safetensors"}
+  },
+  "13": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {"conditioning": ["6", 0]},
+    "_meta": {"title": "Negative Zero Out"}
+  },
+  "29": {
+    "class_type": "SaveImage",
+    "inputs": {"images": ["8", 0], "filename_prefix": "Krea2_double"},
+    "_meta": {"title": "Save Image"}
+  },
+  "30": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {"model": ["10", 0], "lora_name": "Krea2/zsuger_c1-st6000.safetensors", "strength_model": 1.0},
+    "_meta": {"title": "Mobile LoRA"}
+  },
+  "31": {
+    "class_type": "LatentUpscaleBy",
+    "inputs": {"samples": ["3", 0], "upscale_method": "bicubic", "scale_by": 1.5}
+  },
+  "32": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": 0,
+      "steps": 5,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 0.5,
+      "model": ["30", 0],
+      "positive": ["6", 0],
+      "negative": ["13", 0],
+      "latent_image": ["31", 0]
+    },
+    "_meta": {"title": "Krea2 二采"}
+  }
+}

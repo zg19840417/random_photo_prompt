@@ -62,10 +62,6 @@ MODERN_OUTFIT_MARKERS = (
 )
 
 
-def split_sentences(text: str) -> list[str]:
-    return [part.strip() for part in re.split(r"[。！？\n]+", text) if part.strip()]
-
-
 def clause_repetition_issue(text: str) -> str:
     clauses = [
         part.strip("，。； \n\t")

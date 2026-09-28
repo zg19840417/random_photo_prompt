@@ -37,6 +37,7 @@ class Request:
             "scale": sys.argv[3],
             "shot": "half_body",
             "seed": sys.argv[4],
+            "orientation": sys.argv[5],
         }
 
 async def main():
@@ -48,9 +49,9 @@ asyncio.run(main())
 
 
 class MobilePromptLandscapeDirectionTests(unittest.TestCase):
-    def _prompt(self, scale, seed):
+    def _prompt(self, scale, seed, orientation):
         result = subprocess.run(
-            [sys.executable, "-c", _SCRIPT, str(ROOT), str(Path(sys.executable).absolute().parents[2]), scale, seed],
+            [sys.executable, "-c", _SCRIPT, str(ROOT), str(Path(sys.executable).absolute().parents[2]), scale, seed, orientation],
             cwd=ROOT,
             capture_output=True,
             text=True,
@@ -60,7 +61,7 @@ class MobilePromptLandscapeDirectionTests(unittest.TestCase):
         return json.loads(result.stdout)
 
     def test_mobile_endpoint_matches_camera_direction_to_inferred_landscape(self):
-        payload = self._prompt("bold", "isolated-landscape-half_body-4")
+        payload = self._prompt("bold", "isolated-landscape-half_body-16", "landscape")
         self.assertEqual(payload["aspect"], "landscape")
         self.assertEqual(payload["resolution"], "1536x1024")
         self.assertIn("腰部以上的横向半身构图", payload["prompt"])
@@ -70,7 +71,7 @@ class MobilePromptLandscapeDirectionTests(unittest.TestCase):
     def test_mobile_half_body_waist_scope_for_normal_and_no_outfit(self):
         for scale, seed in (("normal", "waist-sample-一档-0"), ("bold_no_outfit", "waist-sample-三档-0")):
             with self.subTest(scale=scale):
-                payload = self._prompt(scale, seed)
+                payload = self._prompt(scale, seed, "portrait")
                 self.assertEqual(payload["aspect"], "portrait")
                 self.assertIn("腰部以上的竖向半身构图", payload["prompt"])
                 self.assertNotIn("大腿以上", payload["display_prompt"])

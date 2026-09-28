@@ -53,7 +53,8 @@ random_photo_prompt/
 ├── prompt_resolution.py                # 分辨率推断和工作流尺寸 patch
 ├── negative_prompt_engine.py           # 负面提示词
 ├── video_prompt_engine.py              # 图生视频动作提示词
-├── data/prompt_pools.json              # 提示词池（JSON 数据源，运行时加载）
+├── data/prompt_pools.json              # 固定人物、妆容、质量尾、负面词
+├── data/art_direction_pools.json       # 构图器数据池
 ├── data/nsfw_pose_expression_options.json  # 四档 NSFW 姿势池（独立 JSON）
 ├── web/mobile.html                     # 手机端页面
 ├── tools/
@@ -89,7 +90,8 @@ random_photo_prompt/
 提示词池统一存放在 JSON 数据文件中：
 
 ```text
-data/prompt_pools.json            # 六维度主池（camera/character/makeup/outfit/pose/scene/quality）
+data/prompt_pools.json            # 固定人物、妆容、质量尾、基础负面词
+data/art_direction_pools.json     # 一至四档母题、地点、光型、姿势（四档除外）、神情、服装
 data/nsfw_pose_expression_options.json  # 四档 nsfw 姿势与表情池（独立维护）
 ```
 
@@ -194,7 +196,7 @@ python3 tools/restart_windows_remote_comfyui.py
 
 ## 开发原则
 
-- 内容池改动优先编辑 `data/prompt_pools.json`（或 `data/nsfw_pose_expression_options.json`），运行时直接生效。
+- 内容池改动直接编辑 `data/art_direction_pools.json`、`data/prompt_pools.json`（或 `data/nsfw_pose_expression_options.json`），重启后生效。
 - 逻辑改动集中到对应模块，不把新逻辑继续堆进大文件。
 - 不做多余兜底；如果出现多条路径，优先收口成唯一主链路。
 - 本地媒体资产删除只删除 Mac 本地输出目录和映射，不依赖远端资产删除。

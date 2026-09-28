@@ -7,7 +7,6 @@ import re
 
 from prompt_constants import (
     ANCIENT_SCENE_MARKERS,
-    ANCIENT_OUTFIT_MARKERS,
     FEEDBACK_TAG_RULES,
     FORBIDDEN_BY_SHOT,
     PROMPT_PART_ORDER,
@@ -16,70 +15,21 @@ from prompt_constants import (
     QUALITY_BY_SCALE,
 )
 from prompt_data import QUALITY_SUFFIX
-from prompt_constants import QUALITY_OPTIONS_BY_SHOT
-from prompt_planner import VISUAL_FOCUS_BY_SHOT
 
 import random as _rng_module
-
-
-def _derive_shot_from_camera(camera: str) -> str:
-    c = str(camera or "")
-    if any(m in c for m in ("头部", "肩膀以上", "肩部以上")):
-        return "head_shot"
-    if any(m in c for m in ("胸部以上", "上半身")):
-        return "upper_body"
-    if "大腿以上" in c:
-        return "large_half_body"
-    if any(m in c for m in ("全身", "脚底", "从头到脚")):
-        return "full_body"
-    if any(m in c for m in ("腰部", "半身")):
-        return "half_body"
-    return "half_body"
-
-
-def enrich_visual_finish(parts: dict[str, str], palette: dict | None, grade: dict | None, scale: str = "bold") -> dict[str, str]:
-    enriched = dict(parts)
-    palette_summary = palette.get("summary") if palette else ""
-    grade_quality = grade.get("quality") if grade else ""
-    if palette_summary:
-        palette_clause = f"阳光鲜艳配色以{palette_summary}为主"
-        for name in ("scene_light",):
-            text = str(enriched.get(name) or "")
-            text = re.sub(r"阳光鲜艳配色以[^，。]+为主", palette_clause, text)
-            enriched[name] = text
-        scene_light = str(enriched.get("scene_light") or "")
-        if "配色" not in scene_light and palette_summary not in scene_light:
-            scene_light = scene_light.rstrip("，。 \n\t")
-            enriched["scene_light"] = f"{scene_light}，整体配色以{palette_summary}为主" if scene_light else f"整体配色以{palette_summary}为主"
-    # 一档(normal)：画质按镜头细分，给出焦段/光圈/色调/胶片，避免全档复读模板句
-    if scale == "normal":
-        shot = _derive_shot_from_camera(enriched.get("camera", "")) or str(enriched.get("shot_key") or "")
-        pool = QUALITY_OPTIONS_BY_SHOT.get(shot) or QUALITY_OPTIONS_BY_SHOT["half_body"]
-        base = _rng_module.choice(pool)
-        if grade_quality and grade_quality not in base:
-            enriched["quality"] = f"{base}，{grade_quality}"
-        else:
-            enriched["quality"] = base
-        return enriched
-    if grade_quality:
-        base = QUALITY_BY_SCALE.get(scale, QUALITY_BY_SCALE["bold"])
-        quality = str(enriched.get("quality") or base)
-        if grade_quality not in quality:
-            enriched["quality"] = f"{quality}，{grade_quality}"
-    elif not enriched.get("quality"):
-        enriched["quality"] = QUALITY_BY_SCALE.get(scale, QUALITY_BY_SCALE["bold"])
-    return enriched
 
 
 def clean_sentence(text: str, shot: str, scale: str) -> str:
     text = "，".join(part.strip() for part in str(text).replace("；", "，").split("，") if part.strip())
     for source, replacement in WHITE_EDGE_REPLACEMENTS:
         text = text.replace(source, replacement)
-    blockers = FORBIDDEN_BY_SHOT.get(shot, ())
-    if blockers:
-        parts = [part.strip() for part in text.split("，") if part.strip()]
-        parts = [part for part in parts if not any(marker in part for marker in blockers)]
-        text = "，".join(parts)
+    # NSFW 姿势依赖“下腹/胯/根部相连”等归属词，禁止按景别裁掉这些分句
+    if str(scale or "").lower() != "nsfw":
+        blockers = FORBIDDEN_BY_SHOT.get(shot, ())
+        if blockers:
+            parts = [part.strip() for part in text.split("，") if part.strip()]
+            parts = [part for part in parts if not any(marker in part for marker in blockers)]
+            text = "，".join(parts)
     return text.strip("，。 \n\t")
 
 
@@ -107,113 +57,9 @@ def _remove_clauses_with_markers(text: str, markers: tuple[str, ...]) -> str:
     return "，".join(kept or clauses[:1])
 
 
-def _ground_anchor_from_text(text: str) -> str:
-    options = (
-        (("沙滩", "海边", "海岸", "沙面", "海浪"), "脚下是浅金沙面和脚印纹理"),
-        (("泳池", "池边", "水面", "池水", "水光"), "脚下是湿润湖蓝泳池瓷砖"),
-        (("花园", "草地", "庭院", "热带", "花丛", "植物"), "脚下是鲜绿色草地和花影"),
-        (("露台", "阳台", "屋顶", "甲板"), "脚下是暖色木质露台地板"),
-        (("玻璃", "橱窗", "镜面", "反射"), "脚下是浅彩反光地面"),
-        (("棚拍", "影棚", "彩色背景", "彩色棚"), "脚下是高饱和彩色棚拍地面"),
-        (("街", "路面", "城市", "霓虹", "雨夜", "停车场"), "脚下是带反光的彩色街道路面"),
-        (("房间", "酒店", "套房", "室内", "浴室", "更衣"), "脚下是暖色室内地面"),
-    )
-    for markers, anchor in options:
-        if any(marker in text for marker in markers):
-            return anchor
-    return "脚下是浅暖色地面纹理"
-
-
-def _ground_material_from_text(text: str) -> str:
-    anchor = _ground_anchor_from_text(text)
-    return re.sub(r"^脚下是", "", anchor)
-
-
-def _move_camera_ground_to_pose(parts: dict[str, str]) -> dict[str, str]:
-    moved = dict(parts)
-    camera = str(moved.get("camera") or "")
-    match = re.search(r"(?:，|,|^)?脚下是([^，。,\n]+)", camera)
-    if not match:
-        return moved
-    material = re.split(r"(?:入镜|清楚|完整|可见)", match.group(1).strip(), maxsplit=1)[0].strip()
-    if not material:
-        return moved
-    camera = re.sub(r"(?:，|,)?脚下是[^，。,\n]+", "", camera).strip("，, ")
-    pose = str(moved.get("pose_expression") or "").strip("，, ")
-    ground_clause = f"脚踩在{material}上"
-    if ground_clause not in pose:
-        pose = f"{pose}，{ground_clause}" if pose else ground_clause
-    moved["camera"] = camera
-    moved["pose_expression"] = pose
-    return moved
-
-
 def _camera_first_clause(text: str) -> str:
     clauses = _clauses(text)
     return clauses[0] if clauses else str(text or "").strip("，。 \n\t")
-
-
-def _replace_generic_ground_margin(text: str, context: str) -> str:
-    anchor = _ground_anchor_from_text(context)
-    material = _ground_material_from_text(context)
-    drop_phrases = (
-        "、脚部落点和脚下地面边距",
-        "、长腿、脚部落点和脚下地面边距",
-        "、长腿、脚部落点和脚下脚下",
-        "、脚部落点和脚下脚下",
-    )
-    cleaned = str(text or "")
-    for source in drop_phrases:
-        cleaned = cleaned.replace(source, f"、脚下是{material}")
-    cleaned = cleaned.replace("脚下脚下是", "脚下是")
-    cleaned = cleaned.replace("和脚下是", "清楚，脚下是")
-    replacements = (
-        "脚下地面边距清楚",
-        "脚下地面边缘作为落脚参照",
-        "脚下地面质感和站位边距清楚",
-        "脚下站位边距清楚",
-        "脚下地面或池边边距",
-        "脚下沙面边距清楚",
-        "脚下草地或地面边距清楚",
-        "脚下地面边距清楚",
-        "脚下甲板或地面边距清楚",
-        "脚下边距清楚",
-        "前景肢体和脚下地面边距清楚",
-        "地面边距",
-        "站位边距",
-        "边距清楚",
-    )
-    for source in replacements:
-        cleaned = cleaned.replace(source, anchor)
-    cleaned = cleaned.replace("脚下脚下是", "脚下是")
-    cleaned = cleaned.replace("和脚下是", "清楚，脚下是")
-    return cleaned
-
-
-def _replace_generic_canvas_padding(text: str) -> str:
-    cleaned = str(text or "")
-    replacements = (
-        ("身体转向、手臂和腿部外轮廓完整", "身体转向清楚"),
-        ("头部、手臂、腿部、脚部和姿势外轮廓完整", "姿势清楚"),
-        ("头部、身体和脚部外轮廓完整", "姿势清楚"),
-        ("四肢外轮廓完整", "姿势清楚"),
-        ("姿势外轮廓完整", "姿势清楚"),
-        ("外轮廓完整", "构图完整"),
-        ("完整身形占据主体", "人物占据主体"),
-        ("画面利用左右环境空间强化身体线条", "横向场景内容铺满画面并强化身体线条"),
-        ("左右环境空间强化身体线条", "横向场景内容铺满画面并强化身体线条"),
-        ("左右边距保留外轮廓", "横向场景内容铺满画面并保留外轮廓"),
-        ("左右边距", "横向场景内容"),
-        ("四周留环境边距", "四周都有真实场景内容"),
-        ("四周留床面或地面边距", "四周都有床面或地面内容"),
-        ("四周边距", "四周场景内容"),
-        ("黑色侧边", "真实场景侧边"),
-        ("暗色侧边", "真实场景侧边"),
-        ("黑边", "真实场景边缘"),
-    )
-    for source, replacement in replacements:
-        cleaned = cleaned.replace(source, replacement)
-    return cleaned
 
 
 _FLAT_EXPRESSION_REPLACEMENTS = (
@@ -255,52 +101,6 @@ _EXPRESSION_BOOST_BY_SCALE = {
     "nsfw": ("嘴角轻轻上扬，眼里有高光并直视镜头", "薄唇微张，眼神直视镜头", "嘴角带浅淡微笑"),
 }
 
-_FACE_EXPRESSION_CLAUSE_MARKERS = (
-    "头部",
-    "下巴",
-    "眼",
-    "狐眼",
-    "抬眸",
-    "回望",
-    "看镜头",
-    "直视",
-    "嘴",
-    "薄唇",
-    "唇",
-    "嘴角",
-    "表情",
-    "神情",
-    "笑",
-)
-
-_BODY_POSE_CLAUSE_MARKERS = (
-    "身体",
-    "人物",
-    "站",
-    "坐",
-    "跪",
-    "躺",
-    "趴",
-    "蹲",
-    "侧转",
-    "后仰",
-    "前倾",
-    "侧弯",
-    "双手",
-    "一只手",
-    "一手",
-    "另一手",
-    "手臂",
-    "锁骨",
-    "胸",
-    "腰",
-    "臀",
-    "大腿",
-    "小腿",
-    "腿",
-    "膝",
-    "脚",
-)
 
 _POSE_LANGUAGE_REPLACEMENTS = (
     ("头部", "头部"),
@@ -366,9 +166,9 @@ _SMILE_SOFTEN_REPLACEMENTS = (
     ("大笑", "微笑"),
     ("咧嘴", "微笑"),
     ("露齿", "闭唇"),
-    ("轻蔑冷笑", "轻蔑又俏皮的笑弧"),
-    ("危险冷笑", "轻蔑又挑逗的笑弧"),
-    ("冷淡讥笑", "俏皮嘲弄的笑弧"),
+    ("轻蔑冷笑", "嘴角一侧上扬的高冷坏笑"),
+    ("危险冷笑", "嘴角一侧上扬、眼尾微挑的坏笑"),
+    ("冷淡讥笑", "单侧嘴角上扬的嘲弄坏笑"),
     ("怪罪式笑意", "浅淡笑意"),
     ("挑衅笑", "单侧嘴角上提的挑衅笑"),
     ("挑衅微笑", "单侧嘴角上提的挑衅笑"),
@@ -395,36 +195,6 @@ _SMILE_SOFTEN_REPLACEMENTS = (
     ("明显在笑", "带浅淡笑意"),
 )
 
-_SCENE_GLASS_PROP_REPLACEMENTS = (
-    ("半透明的遮阳棚过滤后的，光线变得柔和均匀", "半透明遮阳棚过滤阳光，光线柔和均匀"),
-    ("透明彩片", "亮色墙面"),
-    ("透明亚克力片", "亮色墙面"),
-    ("彩色玻璃", "彩色墙面"),
-    ("玻璃砖", "浅色瓷砖"),
-    ("棱镜窗光", "暖阳窗光"),
-    ("棱镜", "暖阳色块"),
-    ("橱窗彩色反光", "亮色墙面反光"),
-    ("彩色橱窗", "彩色墙面"),
-    ("彩色反光片", "亮色衣料边缘"),
-    ("浅彩玻璃反射地面", "浅彩反光地面"),
-    ("玻璃边缘", "背景边缘"),
-    ("镜面边缘", "背景边缘"),
-    ("镜面小反光", "浅色墙面反光"),
-    ("透明水晶", "浅粉果冻"),
-)
-
-_GENERIC_PHOTO_REPLACEMENTS = (
-    ("高级私房写真质感", "高级私房写真调色"),
-    ("真实写真质感", "真实镜头质感"),
-    ("高级商业摄影调色", "商业写真调色"),
-    ("杂志封面级光影与氛围", "杂志封面级光影"),
-    ("私房情欲摄影质感", "私房摄影质感"),
-    ("氛围充满张力", "眼神和身体线条有张力"),
-    ("皮肤泛着温润光泽", "皮肤保留温润反光"),
-    ("主体清晰肤质细腻", "主体清晰，肤质细腻但保留真实纹理"),
-    ("主体清晰面部锐利", "主体清晰，脸部焦点锐利"),
-    ("best quality, ultra detailed", ""),
-)
 
 _BROKEN_PHRASE_REPLACEMENTS = (
     ("全身大片构图", "竖向全身写真构图"),
@@ -662,553 +432,16 @@ _STANDING_LEG_CONFLICT_MARKERS = (
     "长腿和脚尖",
 )
 
-_PHOTOGRAPHIC_MARKERS = (
-    "真实皮肤纹理",
-    "自然皮肤纹理",
-    "真实镜头景深",
-    "清晰镜头景深",
-    "高光不过曝",
-    "暗部有层次",
-    "真实反光",
-    "细颗粒",
-)
-
-_PHOTOGRAPHIC_BOOSTS_BY_SCALE = {
-    "normal": ("自然皮肤纹理", "高光不过曝", "真实镜头景深"),
-    "bold": ("真实皮肤纹理", "高光不过曝", "暗部有层次"),
-    "bold_no_outfit": ("真实皮肤纹理", "高光不过曝", "暗部有层次"),
-    "nsfw": ("真实皮肤纹理", "高光不过曝", "暗部有层次"),
-}
 
 # 画质尾缀按镜头细分：头部侧重肤质与眉眼清晰，半身补轮廓边缘，全身补景深与肢体线条
-_QUALITY_TAIL_BY_SHOT = {
-    "head_shot": ("肤质保留真实纹理", "眉眼清晰锐利", "高光不过曝", "细腻轻颗粒"),
-    "half_body": ("肤质保留真实纹理", "轮廓边缘干净", "高光不过曝", "细腻轻颗粒"),
-    "full_body": ("真实镜头景深", "人物与场景平衡", "高光不过曝", "肢体线条流畅"),
-}
 
-_TENSION_MARKERS = (
-    "直视",
-    "凝视",
-    "盯",
-    "眼神",
-    "挑衅",
-    "嘴角轻轻上扬",
-    "嘴角",
-    "锁骨",
-    "胸腰",
-    "腰线",
-    "臀腿",
-    "大腿",
-    "曲线",
-    "贴近",
-    "压向镜头",
-)
 
-_TENSION_BOOSTS_BY_SCALE = {
-    "bold": ("眼神直视镜头", "嘴角轻轻上扬", "腰背形成轻微S形曲线"),
-    "bold_no_outfit": ("眼神直视镜头", "嘴角轻轻上扬", "腰背形成轻微S形曲线"),
-    "nsfw": ("眼神直视镜头", "嘴角轻轻上扬", "身体贴近镜头"),
-}
-
-_TENSION_BOOSTS_BY_SCALE_AND_SHOT = {
-    ("bold", "head_shot"): ("眼神直视镜头", "嘴角轻轻上扬"),
-    ("bold", "half_body"): ("眼神直视镜头", "嘴角轻轻上扬"),
-    ("bold_no_outfit", "head_shot"): ("眼神直视镜头", "嘴角轻轻上扬"),
-    ("bold_no_outfit", "half_body"): ("眼神直视镜头", "嘴角轻轻上扬"),
-    ("nsfw", "head_shot"): ("眼神直视镜头", "嘴角轻轻上扬"),
-    ("nsfw", "half_body"): ("眼神直视镜头", "嘴角轻轻上扬"),
-}
-
-_SEDUCTIVE_SCENE_BY_SHOT = {
-    "head_shot": (
-        "清晨法式老公寓头部近景，百叶窗把冷白晨光切成细条落在眼睛、鼻梁、唇峰和脸旁黑色手指甲上，背景有石膏线、浅金旧镜框和淡蓝墙面",
-        "清晨韩式极简卧室头部近景，米白床头、浅木格栅和半透明纱帘退在背景里，冷白晨光照亮狐眼、鼻梁、唇峰和停在脸侧的手指",
-        "清晨京都町屋头部近景，纸拉门和榻榻米边缘形成柔和米色背景，晨光从木格窗斜落到脸侧、下颌线和黑色手指甲",
-        "清晨地中海蓝白民宿头部近景，白灰泥墙、钴蓝木窗和陶罐花枝虚化在背后，海风晨光托亮发丝、眼角和嘴唇",
-        "清晨英式花房头部近景，铁艺窗框、雾面玻璃和玫瑰枝叶在背景散开，冷白晨光点亮眼睛、鼻梁、唇峰和脸侧手指",
-        "清晨雾林湖畔头部近景，薄雾、芦苇和深绿色松林在背后虚化，冷白晨光从湖面反射到眼睛、鼻梁、唇峰和脸旁黑色手指甲",
-        "正午墨西哥彩墙头部近景，钴蓝墙面、橘红陶盆和仙人掌形成高饱和虚化背景，强天光被白纱柔化后照亮眼尾、鼻梁和嘴唇",
-        "正午摩洛哥庭院头部近景，蓝绿马赛克墙、拱门阴影和铜灯虚化在背后，天井反光照亮脸颊、唇峰和停在下颌旁的黑色手指甲",
-        "正午现代美术馆头部近景，白墙、黑色展框和浅灰水磨石地面退成干净背景，天窗漫射光让眼神、鼻梁和唇面高光清楚",
-        "正午巴厘岛竹屋头部近景，编织竹墙、藤编灯罩和热带绿叶虚化，强天光从屋檐边反射到脸侧、锁骨边缘和手指",
-        "正午意大利石拱回廊头部近景，米色石柱、拱形阴影和远处喷泉光点压在背景里，明亮漫射光照亮眼尾和湿润唇峰",
-        "正午高山草甸头部近景，野花、浅绿色草坡和远处雪山虚化在后方，强天光被云层柔化后照亮眼尾、鼻梁和嘴唇",
-        "下午巴黎复古咖啡馆头部近景，深木吧台、黄铜壁灯和红色皮椅虚化在后方，暖白斜光沿发丝、眼角和嘴唇滑过",
-        "下午昭和唱片店头部近景，木质唱片架、旧海报和暖色台灯形成年代背景，侧光照亮脸侧轮廓、唇峰和黑色手指甲",
-        "下午加州中世纪现代客厅头部近景，胡桃木墙板、橘色单椅和落地玻璃窗虚化，暖白斜光切过眼尾、鼻梁和下颌线",
-        "下午北欧设计公寓头部近景，浅木书架、羊毛织物和米灰沙发形成安静背景，大窗斜光让眼睛和唇面高光自然",
-        "下午希腊岛屿白墙头部近景，白色拱门、蓝色栏杆和远处海面虚化，暖白斜光照亮发丝、脸颊和停在脸旁的手指",
-        "下午热带雨林瀑布头部近景，深绿叶片、岩石和白色水雾在背后散开，暖白斜光穿过树冠照亮发丝、眼角和嘴唇",
-        "黄昏威尼斯老酒店头部近景，暗红丝绒墙、金色雕花镜和玻璃吊灯在背景散焦，金橙侧逆光勾出发丝、脸侧和唇峰",
-        "黄昏上海老洋房头部近景，花窗玻璃、深木楼梯和复古壁灯形成背景层次，落日暖光从侧面照亮眼睛、鼻梁和黑色手指甲",
-        "黄昏洛杉矶汽车旅馆头部近景，霓虹招牌尚未全亮，粉橙天空和浅绿门牌虚化在后方，侧逆光托亮脸颊和嘴唇",
-        "黄昏土耳其海边露台头部近景，蓝色瓷盘、白色栏杆和博斯普鲁斯海面退在背景，金橙晚光照亮发丝和下颌线",
-        "黄昏复古电影院头部近景，红色幕布、金边座椅和暖黄壁灯虚化，落日从侧门缝照亮眼尾、唇峰和脸侧手指",
-        "黄昏葡萄园坡地头部近景，葡萄藤、木桩和远处金色山脊虚化，落日侧逆光勾出发丝、脸侧和湿润唇峰",
-        "深夜Art Deco酒廊头部近景，黑金几何墙面、琥珀吧台灯和烟灰镜面虚化在背后，冷白窄光照亮眼睛、鼻梁、唇峰和黑色手指甲",
-        "深夜赛博东京小巷头部近景，日文霓虹、湿润金属卷帘门和粉紫招牌光压在背景里，冷紫边缘光勾出发丝和脸侧轮廓",
-        "深夜哥特图书馆头部近景，深色书架、尖拱窗和烛台暖点散在后方，冷白小光源照亮狐眼、鼻梁和湿润唇峰",
-        "深夜未来感电梯厅头部近景，银色金属墙、竖向灯带和黑色镜面形成冷硬背景，淡粉补光照亮唇面和下颌线",
-        "深夜地下爵士酒吧头部近景，暗红砖墙、蓝紫舞台灯和黄铜麦克风虚化，窄光只点亮眼尾、嘴唇和停在脸旁的手指",
-        "深夜沙丘星空头部近景，黑蓝天空、银色星光和柔软沙脊虚化在背后，冷白月光照亮眼睛、鼻梁、唇峰和脸侧轮廓",
-    ),
-    "half_body": (
-        "清晨法式老公寓半身场景，石膏线墙面、浅金旧镜和白色壁炉退在背景里，百叶窗晨光照亮脸、锁骨、胸前衣料边缘和黑色手指甲",
-        "清晨韩式极简卧室半身场景，米白床头、浅木格栅和低矮床边柜形成安静背景，冷白晨光落在脸、肩颈、锁骨和手指",
-        "清晨京都町屋半身场景，纸拉门、榻榻米和深色木梁形成日式背景，柔晨光照亮脸、锁骨、胸前衣料边缘和停在锁骨旁的手指",
-        "清晨地中海民宿半身场景，白灰泥墙、钴蓝木窗、陶罐和亚麻帘虚化，海边晨光照亮肩颈、锁骨和胸前衣料线条",
-        "清晨英式花房半身场景，铁艺窗、雾面玻璃、玫瑰和藤椅在背景里柔化，冷白晨光托亮脸、锁骨、手臂和手指",
-        "清晨森林湖边半身场景，薄雾湖面、芦苇、湿润木栈道和深绿松林虚化在后方，冷白晨光照亮脸、肩颈、锁骨和手指",
-        "正午摩洛哥庭院半身场景，蓝绿马赛克、拱门和铜灯形成强烈地域背景，天井反光照亮脸、肩颈、锁骨和腰线上缘",
-        "正午墨西哥彩墙半身场景，橘红墙面、钴蓝门框、仙人掌和陶盆鲜明入景，强天光柔化后照亮脸、锁骨和胸前衣料边缘",
-        "正午现代美术馆半身场景，白墙展厅、黑色展框和水磨石地面构成极简背景，天窗漫射光照亮眼神、锁骨、手臂和腰线",
-        "正午巴厘岛竹屋半身场景，竹编墙、藤编灯和热带绿叶在后方形成纹理，屋檐反光照亮脸、肩颈、锁骨和黑色手指甲",
-        "正午意大利石拱回廊半身场景，米色石柱、拱形阴影和远处喷泉光点形成层次，明亮漫射光照亮脸、锁骨和胸前衣料边缘",
-        "正午高山草甸半身场景，野花、浅绿色草坡、远处雪山和蓝白天空形成背景，强天光柔化后照亮脸、锁骨和胸前衣料边缘",
-        "下午巴黎复古咖啡馆半身场景，深木吧台、红色皮椅、黄铜壁灯和玻璃杯架虚化，暖白斜光照亮脸、锁骨和腰线上缘",
-        "下午昭和唱片店半身场景，唱片架、旧海报、木地板和暖色台灯形成年代背景，侧光沿肩颈、胸前衣料边缘和手指滑过",
-        "下午加州中世纪现代客厅半身场景，胡桃木墙板、橘色单椅、几何地毯和落地窗入景，暖白斜光照亮脸、锁骨和手臂",
-        "下午北欧设计公寓半身场景，浅木书架、米灰沙发、羊毛织物和陶瓷花瓶形成安静背景，大窗斜光照亮脸、锁骨和手指",
-        "下午希腊岛屿白墙半身场景，白色拱门、蓝色栏杆、陶盆花和远处海面虚化，暖白斜光托亮肩颈、锁骨和胸前衣料边缘",
-        "下午热带雨林瀑布半身场景，宽大绿叶、黑色湿岩、白色水雾和藤蔓形成背景，暖白斜光照亮脸、锁骨、手臂和腰线上缘",
-        "黄昏威尼斯老酒店半身场景，暗红丝绒墙、金色雕花镜、玻璃吊灯和古典窗帘虚化，金橙侧逆光勾出发丝、脸和锁骨",
-        "黄昏上海老洋房半身场景，花窗玻璃、深木楼梯、复古壁灯和老式地砖形成背景，落日暖光照亮脸、锁骨、腰线和手指",
-        "黄昏洛杉矶汽车旅馆半身场景，浅绿房门、粉橙天空、霓虹招牌和泳池栏杆在背景里虚化，侧逆光托亮肩颈和胸前衣料边缘",
-        "黄昏土耳其海边露台半身场景，蓝色瓷盘、白色栏杆、织毯坐垫和海面晚光组成背景，金橙光照亮脸、锁骨和手臂",
-        "黄昏复古电影院半身场景，红色幕布、金边座椅、暖黄壁灯和旧海报形成浓厚年代感，侧门落日照亮唇峰、锁骨和手指",
-        "黄昏葡萄园半身场景，葡萄藤、木桩、浅金草坡和远处山脊形成背景，金橙侧逆光照亮脸、锁骨、手臂和胸前衣料边缘",
-        "深夜Art Deco酒廊半身场景，黑金几何墙面、琥珀吧台灯、烟灰镜面和黄铜线条压低背景，窄光照亮脸、锁骨和胸前衣料边缘",
-        "深夜赛博东京小巷半身场景，日文霓虹、湿润金属卷帘门、自动贩卖机灯箱和粉紫招牌光虚化，冷紫边缘光勾出肩颈和手指",
-        "深夜哥特图书馆半身场景，深色书架、尖拱窗、烛台和暗红地毯形成背景，冷白小光源照亮眼神、锁骨、胸前衣料边缘和腰线",
-        "深夜未来感电梯厅半身场景，银色金属墙、竖向灯带、黑色镜面和冷灰地面构成背景，淡粉补光照亮脸、锁骨和手臂",
-        "深夜地下爵士酒吧半身场景，暗红砖墙、蓝紫舞台灯、黄铜麦克风和黑色吧椅虚化，窄光切过眼神、嘴唇、锁骨和腰线",
-        "深夜沙丘星空半身场景，银色星光、黑蓝天空、柔软沙脊和远处帐篷小灯形成背景，冷白月光照亮脸、锁骨、手臂和腰线",
-    ),
-    "half_body": (
-        "清晨法式老公寓半身场景，浅金旧镜、白色壁炉、鱼骨木地板和薄纱窗帘形成背景，百叶窗晨光照亮脸、锁骨、腰线和手指",
-        "清晨韩式极简卧室半身场景，米白床铺、浅木格栅、低矮床边柜和陶瓷台灯退在后方，冷白晨光落在脸、锁骨、腰线和胸前衣料边缘",
-        "清晨京都町屋半身场景，纸拉门、榻榻米、深木梁和小型枯山水窗景入画，柔晨光照亮脸、腰线和停在锁骨旁的手指",
-        "清晨地中海民宿半身场景，白灰泥墙、钴蓝窗框、陶罐、亚麻帘和海面晨光构成背景，光线托亮肩颈、锁骨和细腰",
-        "清晨英式花房半身场景，铁艺窗、雾面玻璃、藤椅、玫瑰枝和旧木花台虚化，冷白晨光照亮脸、锁骨、腰线和手臂",
-        "清晨森林湖边半身场景，薄雾湖面、芦苇、湿润木栈道和深绿松林虚化在后方，冷白晨光照亮脸、锁骨、腰线和手指",
-        "正午摩洛哥庭院半身场景，蓝绿马赛克地面、拱门、铜灯和水池反光形成背景，天井光照亮脸、锁骨、细腰和手指",
-        "正午墨西哥彩墙半身场景，橘红墙面、钴蓝门框、仙人掌、陶盆和编织挂毯鲜明入景，强天光柔化后照亮脸、肩颈和腰线",
-        "正午现代美术馆半身场景，白墙、黑色展框、雕塑底座和浅灰水磨石地面构成极简背景，天窗漫射光照亮脸、锁骨、腰线和手指",
-        "正午巴厘岛竹屋半身场景，竹编墙、藤编灯、热带绿叶和木质平台形成自然纹理，屋檐反光照亮脸、锁骨和腰线",
-        "正午意大利石拱回廊半身场景，米色石柱、拱形阴影、陶土花盆和远处喷泉光点构成层次，漫射光照亮脸、胸前衣料边缘和细腰",
-        "正午高山草甸半身场景，野花、浅绿色草坡、远处雪山和蓝白天空形成背景，强天光柔化后照亮脸、锁骨、细腰和手指",
-        "下午巴黎复古咖啡馆半身场景，深木吧台、红色皮椅、黄铜壁灯、玻璃杯架和花砖地面虚化，暖白斜光照亮脸、锁骨和腰线",
-        "下午昭和唱片店半身场景，唱片架、旧海报、木地板、橙色台灯和透明唱机盖形成年代背景，侧光沿肩颈、胸前衣料边缘和手指滑过",
-        "下午加州中世纪现代客厅半身场景，胡桃木墙板、橘色单椅、几何地毯、落地窗和绿植入景，暖白斜光照亮脸、锁骨和细腰",
-        "下午北欧设计公寓半身场景，浅木书架、米灰沙发、羊毛织物、陶瓷花瓶和低矮茶几构成背景，大窗斜光照亮脸、锁骨、腰线和手指",
-        "下午希腊岛屿白墙半身场景，白色拱门、蓝色栏杆、陶盆花、石阶和远处海面虚化，暖白斜光托亮肩颈、锁骨和腰线",
-        "下午热带雨林瀑布半身场景，宽大绿叶、黑色湿岩、白色水雾和藤蔓形成背景，暖白斜光照亮脸、锁骨、腰线和手臂",
-        "黄昏威尼斯老酒店半身场景，暗红丝绒墙、金色雕花镜、玻璃吊灯、古典窗帘和木质边桌虚化，金橙侧逆光勾出发丝、脸、锁骨和腰线",
-        "黄昏上海老洋房半身场景，花窗玻璃、深木楼梯、复古壁灯、老式地砖和藤编椅形成背景，落日暖光照亮脸、锁骨、细腰和手指",
-        "黄昏洛杉矶汽车旅馆半身场景，浅绿房门、粉橙天空、霓虹招牌、泳池栏杆和水泥走廊虚化，侧逆光托亮肩颈、胸前衣料边缘和腰线",
-        "黄昏土耳其海边露台半身场景，蓝色瓷盘、白色栏杆、织毯坐垫、铜茶盘和海面晚光组成背景，金橙光照亮脸、锁骨和手臂",
-        "黄昏复古电影院半身场景，红色幕布、金边座椅、暖黄壁灯、旧海报和检票口形成年代感，侧门落日照亮唇峰、锁骨和腰线",
-        "黄昏葡萄园半身场景，葡萄藤、木桩、浅金草坡和远处山脊形成背景，金橙侧逆光照亮脸、锁骨、细腰和手指",
-        "深夜Art Deco酒廊半身场景，黑金几何墙面、琥珀吧台灯、烟灰镜面、黄铜线条和深色吧椅压低背景，窄光照亮脸、锁骨、细腰和手指",
-        "深夜赛博东京小巷半身场景，日文霓虹、湿润金属卷帘门、自动贩卖机灯箱、透明雨棚和粉紫招牌光虚化，冷紫边缘光勾出肩颈和腰线",
-        "深夜哥特图书馆半身场景，深色书架、尖拱窗、烛台、暗红地毯和雕花木桌形成背景，冷白小光源照亮眼神、锁骨、胸前衣料边缘和腰线",
-        "深夜未来感电梯厅半身场景，银色金属墙、竖向灯带、黑色镜面、冷灰地面和发光楼层数字构成背景，淡粉补光照亮脸、锁骨和手臂",
-        "深夜地下爵士酒吧半身场景，暗红砖墙、蓝紫舞台灯、黄铜麦克风、黑色吧椅和旧木地板虚化，窄光切过眼神、嘴唇、锁骨和腰线",
-        "深夜沙丘星空半身场景，银色星光、黑蓝天空、柔软沙脊和远处帐篷小灯形成背景，冷白月光照亮脸、锁骨、腰线和手臂",
-    ),
-    "half_body": (
-        "清晨法式老公寓半身场景，浅金旧镜、白色壁炉、鱼骨木地板、雕花门框和薄纱窗帘形成背景，百叶窗晨光照亮脸、腰线、大腿和膝侧",
-        "清晨韩式极简卧室半身场景，米白床铺、浅木格栅、低矮床边柜和陶瓷台灯退在后方，冷白晨光落在脸、腰线、大腿和小腿边缘",
-        "清晨京都町屋半身场景，纸拉门、榻榻米、深木梁和小型庭院窗景入画，柔晨光照亮脸、腰线、大腿和膝部",
-        "清晨地中海民宿半身场景，白灰泥墙、钴蓝窗框、陶罐、亚麻帘和海面晨光构成背景，光线托亮肩颈、细腰、大腿和膝侧",
-        "清晨英式花房半身场景，铁艺窗、雾面玻璃、藤椅、玫瑰枝和旧木花台虚化，冷白晨光照亮脸、腰线、大腿和小腿边缘",
-        "清晨森林湖边半身场景，薄雾湖面、芦苇、湿润木栈道和深绿松林虚化在后方，冷白晨光照亮脸、腰线、大腿和膝侧",
-        "正午摩洛哥庭院半身场景，蓝绿马赛克地面、拱门、铜灯、水池反光和低矮坐垫形成背景，天井光照亮脸、腰线、大腿和膝部",
-        "正午墨西哥彩墙半身场景，橘红墙面、钴蓝门框、仙人掌、陶盆和编织挂毯鲜明入景，强天光柔化后照亮脸、细腰、大腿和小腿",
-        "正午现代美术馆半身场景，白墙、黑色展框、雕塑底座和浅灰水磨石地面构成极简背景，天窗漫射光照亮脸、腰线、大腿和膝侧",
-        "正午巴厘岛竹屋半身场景，竹编墙、藤编灯、热带绿叶、木质平台和水池边缘形成自然纹理，屋檐反光照亮脸、腰线和大腿",
-        "正午意大利石拱回廊半身场景，米色石柱、拱形阴影、陶土花盆和远处喷泉光点构成层次，漫射光照亮脸、细腰、大腿和膝部",
-        "正午高山草甸半身场景，野花、浅绿色草坡、远处雪山和蓝白天空形成背景，强天光柔化后照亮脸、细腰、大腿和膝部",
-        "下午巴黎复古咖啡馆半身场景，深木吧台、红色皮椅、黄铜壁灯、玻璃杯架和花砖地面虚化，暖白斜光照亮脸、腰线、大腿和膝侧",
-        "下午昭和唱片店半身场景，唱片架、旧海报、木地板、橙色台灯和透明唱机盖形成年代背景，侧光沿肩颈、腰线、大腿和手指滑过",
-        "下午加州中世纪现代客厅半身场景，胡桃木墙板、橘色单椅、几何地毯、落地窗和绿植入景，暖白斜光照亮脸、细腰、大腿和小腿",
-        "下午北欧设计公寓半身场景，浅木书架、米灰沙发、羊毛织物、陶瓷花瓶和低矮茶几构成背景，大窗斜光照亮脸、腰线、大腿和膝侧",
-        "下午希腊岛屿白墙半身场景，白色拱门、蓝色栏杆、陶盆花、石阶和远处海面虚化，暖白斜光托亮肩颈、细腰、大腿和小腿",
-        "下午热带雨林瀑布半身场景，宽大绿叶、黑色湿岩、白色水雾和藤蔓形成背景，暖白斜光照亮脸、腰线、大腿和小腿边缘",
-        "黄昏威尼斯老酒店半身场景，暗红丝绒墙、金色雕花镜、玻璃吊灯、古典窗帘和木质边桌虚化，金橙侧逆光勾出发丝、脸、腰线和大腿",
-        "黄昏上海老洋房半身场景，花窗玻璃、深木楼梯、复古壁灯、老式地砖和藤编椅形成背景，落日暖光照亮脸、细腰、大腿和手指",
-        "黄昏洛杉矶汽车旅馆半身场景，浅绿房门、粉橙天空、霓虹招牌、泳池栏杆和水泥走廊虚化，侧逆光托亮肩颈、腰线、大腿和小腿",
-        "黄昏土耳其海边露台半身场景，蓝色瓷盘、白色栏杆、织毯坐垫、铜茶盘和海面晚光组成背景，金橙光照亮脸、腰线、大腿和膝侧",
-        "黄昏复古电影院半身场景，红色幕布、金边座椅、暖黄壁灯、旧海报和检票口形成年代感，侧门落日照亮唇峰、细腰、大腿和膝部",
-        "黄昏葡萄园半身场景，葡萄藤、木桩、浅金草坡和远处山脊形成背景，金橙侧逆光照亮脸、细腰、大腿和膝侧",
-        "深夜Art Deco酒廊半身场景，黑金几何墙面、琥珀吧台灯、烟灰镜面、黄铜线条和深色吧椅压低背景，窄光照亮脸、腰线、大腿和膝侧",
-        "深夜赛博东京小巷半身场景，日文霓虹、湿润金属卷帘门、自动贩卖机灯箱、透明雨棚和粉紫招牌光虚化，冷紫边缘光勾出肩颈、腰线和大腿",
-        "深夜哥特图书馆半身场景，深色书架、尖拱窗、烛台、暗红地毯和雕花木桌形成背景，冷白小光源照亮眼神、腰线、大腿和膝部",
-        "深夜未来感电梯厅半身场景，银色金属墙、竖向灯带、黑色镜面、冷灰地面和发光楼层数字构成背景，淡粉补光照亮脸、腰线、大腿和小腿",
-        "深夜地下爵士酒吧半身场景，暗红砖墙、蓝紫舞台灯、黄铜麦克风、黑色吧椅和旧木地板虚化，窄光切过眼神、嘴唇、腰线和大腿",
-        "深夜沙丘星空半身场景，银色星光、黑蓝天空、柔软沙脊和远处帐篷小灯形成背景，冷白月光照亮脸、腰线、大腿和小腿边缘",
-    ),
-    "full_body": (
-        "清晨法式老公寓全身场景，浅金旧镜、白色壁炉、鱼骨木地板、雕花门框和薄纱窗帘形成背景，百叶窗晨光照亮脸、腰线、长腿、脚踝和脚尖",
-        "清晨韩式极简卧室全身场景，米白床铺、浅木格栅、低矮床边柜和陶瓷台灯退在后方，冷白晨光落在脸、腰线、长腿和裸足边缘",
-        "清晨京都町屋全身场景，纸拉门、榻榻米、深木梁和小型庭院窗景入画，柔晨光照亮脸、腰线、腿部和脚下榻榻米边缘",
-        "清晨地中海民宿全身场景，白灰泥墙、钴蓝窗框、陶罐、亚麻帘和海面晨光构成背景，光线托亮肩颈、细腰、长腿和脚踝",
-        "清晨英式花房全身场景，铁艺窗、雾面玻璃、藤椅、玫瑰枝和旧木花台虚化，冷白晨光照亮脸、腰线、长腿和脚尖",
-        "清晨森林湖边全身场景，薄雾湖面、芦苇、湿润木栈道和深绿松林虚化在后方，冷白晨光照亮脸、腰线、长腿、脚踝和脚尖",
-        "正午摩洛哥庭院全身场景，蓝绿马赛克地面、拱门、铜灯、水池反光和低矮坐垫形成背景，天井光照亮脸、腰线、长腿和裸足落点",
-        "正午墨西哥彩墙全身场景，橘红墙面、钴蓝门框、仙人掌、陶盆和编织挂毯鲜明入景，强天光柔化后照亮脸、细腰、长腿和脚踝",
-        "正午现代美术馆全身场景，白墙、黑色展框、雕塑底座和浅灰水磨石地面构成极简背景，天窗漫射光照亮脸、腰线、腿部和脚下地面",
-        "正午巴厘岛竹屋全身场景，竹编墙、藤编灯、热带绿叶、木质平台和水池边缘形成自然纹理，屋檐反光照亮脸、腰线、长腿和裸足",
-        "正午意大利石拱回廊全身场景，米色石柱、拱形阴影、陶土花盆和远处喷泉光点构成层次，漫射光照亮脸、细腰、腿部和石板地面",
-        "正午高山草甸全身场景，野花、浅绿色草坡、远处雪山和蓝白天空形成背景，强天光柔化后照亮脸、细腰、长腿和脚下草地",
-        "下午巴黎复古咖啡馆全身场景，深木吧台、红色皮椅、黄铜壁灯、玻璃杯架和花砖地面虚化，暖白斜光照亮脸、腰线、长腿和脚尖",
-        "下午昭和唱片店全身场景，唱片架、旧海报、木地板、橙色台灯和透明唱机盖形成年代背景，侧光沿肩颈、腰线、长腿和手指滑过",
-        "下午加州中世纪现代客厅全身场景，胡桃木墙板、橘色单椅、几何地毯、落地窗和绿植入景，暖白斜光照亮脸、细腰、长腿和裸足边缘",
-        "下午北欧设计公寓全身场景，浅木书架、米灰沙发、羊毛织物、陶瓷花瓶和低矮茶几构成背景，大窗斜光照亮脸、腰线、长腿和脚下地毯",
-        "下午希腊岛屿白墙全身场景，白色拱门、蓝色栏杆、陶盆花、石阶和远处海面虚化，暖白斜光托亮肩颈、细腰、长腿和脚踝",
-        "下午热带雨林瀑布全身场景，宽大绿叶、黑色湿岩、白色水雾和藤蔓形成背景，暖白斜光照亮脸、腰线、长腿和裸足落点",
-        "黄昏威尼斯老酒店全身场景，暗红丝绒墙、金色雕花镜、玻璃吊灯、古典窗帘和木质边桌虚化，金橙侧逆光勾出发丝、脸、腰线、长腿和脚踝",
-        "黄昏上海老洋房全身场景，花窗玻璃、深木楼梯、复古壁灯、老式地砖和藤编椅形成背景，落日暖光照亮脸、细腰、长腿和脚下地砖",
-        "黄昏洛杉矶汽车旅馆全身场景，浅绿房门、粉橙天空、霓虹招牌、泳池栏杆和水泥走廊虚化，侧逆光托亮肩颈、腰线、长腿和脚尖",
-        "黄昏土耳其海边露台全身场景，蓝色瓷盘、白色栏杆、织毯坐垫、铜茶盘和海面晚光组成背景，金橙光照亮脸、腰线、长腿和脚踝",
-        "黄昏复古电影院全身场景，红色幕布、金边座椅、暖黄壁灯、旧海报和检票口形成年代感，侧门落日照亮唇峰、细腰、长腿和脚下地毯",
-        "黄昏葡萄园全身场景，葡萄藤、木桩、浅金草坡和远处山脊形成背景，金橙侧逆光照亮脸、细腰、长腿、脚踝和脚尖",
-        "深夜Art Deco酒廊全身场景，黑金几何墙面、琥珀吧台灯、烟灰镜面、黄铜线条和深色吧椅压低背景，窄光照亮脸、腰线、长腿、脚踝和脚尖",
-        "深夜赛博东京小巷全身场景，日文霓虹、湿润金属卷帘门、自动贩卖机灯箱、透明雨棚和粉紫招牌光虚化，冷紫边缘光勾出肩颈、腰线、长腿和裸足",
-        "深夜哥特图书馆全身场景，深色书架、尖拱窗、烛台、暗红地毯和雕花木桌形成背景，冷白小光源照亮眼神、腰线、长腿和脚下地毯",
-        "深夜未来感电梯厅全身场景，银色金属墙、竖向灯带、黑色镜面、冷灰地面和发光楼层数字构成背景，淡粉补光照亮脸、腰线、长腿和脚尖",
-        "深夜地下爵士酒吧全身场景，暗红砖墙、蓝紫舞台灯、黄铜麦克风、黑色吧椅和旧木地板虚化，窄光切过眼神、嘴唇、腰线、长腿和脚踝",
-        "深夜沙丘星空全身场景，银色星光、黑蓝天空、柔软沙脊和远处帐篷小灯形成背景，冷白月光照亮脸、腰线、长腿、脚踝和脚尖",
-    ),
-}
-
-_SEDUCTIVE_SCENE_TIMES = ("morning", "noon", "afternoon", "sunset", "night")
-_SEDUCTIVE_SCENE_TIME_MARKERS = {
-    "morning": ("清晨", "晨光"),
-    "noon": ("正午", "天光"),
-    "afternoon": ("下午", "斜光"),
-    "sunset": ("黄昏", "落日"),
-    "night": ("深夜", "夜景", "夜色"),
-}
-_SEDUCTIVE_SCENE_BY_SHOT_AND_TIME = {
-    shot: {
-        time_name: tuple(option for option in options if any(marker in option for marker in _SEDUCTIVE_SCENE_TIME_MARKERS[time_name]))
-        for time_name in _SEDUCTIVE_SCENE_TIMES
-    }
-    for shot, options in _SEDUCTIVE_SCENE_BY_SHOT.items()
-}
-
-_NO_OUTFIT_MIST_SCENE_BY_SHOT = {
-    "head_shot": (
-        "环境光设定：冷紫主光穿过薄雾形成丁达尔光束，淡粉补光落在狐狸眼、鼻梁、湿润唇峰和脸侧黑色手指甲上，幽蓝镜面反射压暗背景，深夜雾感镜面房头部近景",
-        "环境光设定：幽蓝水汽柔光包住背景，侧后方冷紫轮廓光勾出黑发，淡粉低位光点亮嘴唇和下颌线，雾面玻璃浴室头部近景",
-        "环境光设定：淡粉霓虹柔光透过纱帘和迷雾，冷紫边缘光贴住发丝，幽蓝暗部包住脸侧，只让眼神、鼻梁和唇峰清楚，卧室头部近景",
-        "环境光设定：冷紫侧光穿过纱帐烟雾形成细小丁达尔光束，淡粉烛光照亮眼尾、鼻梁和湿润嘴唇，屏风和宫灯被薄雾柔化，古代夜宴寝殿头部近景",
-        "环境光设定：暖红纸灯笼和铜镜反光压在背景里，红木妆台和戏服架虚化成暗色块，窄光照亮眼尾、鼻梁、唇峰和脸侧发丝，古代戏台后台铜镜头部近景",
-        "环境光设定：卷轴、香炉和烛台退入暗部，低位琥珀烛光托亮狐狸眼、下颌线、唇峰和脸侧黑色手指甲，古代书房夜读头部近景",
-        "环境光设定：竹影、石径和远处亭台压成银蓝背景，月白窄光照亮眼尾、鼻梁、下颌线和发丝边缘，古代竹林月色头部近景",
-        "环境光设定：雕花窗和湖面灯影虚化成金色光点，幽蓝水光托住脸侧，淡粉灯光落在唇峰和手指边缘，古代画舫头部近景",
-        "环境光设定：老洋房木窗、台灯和复古墙纸压成暖色背景，象牙白窄光照亮眼睛、鼻梁、唇峰和珍珠耳坠，民国老洋房头部近景",
-        "环境光设定：正午天光被深色窗帘压暗，只有一束月白窄光落在眼尾、鼻梁和唇峰，背景退成银蓝灰色块，室内头部近景",
-        "环境光设定：黄昏金橙侧逆光穿过薄雾，脸侧和发丝边缘有暖金轮廓，暗部保留淡粉反光，露台头部近景",
-        "环境光设定：森林湖边的冷白晨雾压暗背景，湖面银蓝反光只托亮眼睛、下颌线和黑色手指甲，雾林头部近景",
-    ),
-    "half_body": (
-        "环境光设定：冷紫光束从侧后方穿过薄雾形成丁达尔光，淡粉低位光照亮脸、锁骨、手指和细腰，黑色镜面和湿润地面反出幽蓝暗光，深夜镜面暗房半身场景",
-        "环境光设定：淡粉柔光贴着肩颈和腰线，粉紫雾光从半透明纱帘后扩散，幽蓝暗部压住空间边缘，床边迷雾半身场景",
-        "环境光设定：幽蓝镜前光照亮眼神、锁骨和腰线，冷紫湿光穿过水汽和雾面玻璃，淡粉反光落在黑色手指甲上，浴室半身场景",
-        "环境光设定：蓝紫灯带和低雾压低背景，冷紫轮廓光勾出发丝和肩颈，淡粉窄光照亮嘴唇、锁骨和细腰，地下霓虹酒廊半身场景",
-        "环境光设定：冷紫窗光穿过香炉烟雾形成丁达尔光束，淡粉烛光照亮脸、锁骨、手指和细腰，屏风、铜镜和纱帐围住人物，古代纱帐寝殿半身场景",
-        "环境光设定：幽蓝湖面反光从窗外映入，冷紫边缘光擦过腰线，淡粉灯笼光落在脸、肩颈和手指，薄雾纱帘柔化雕花窗，古代船舫夜雾半身场景",
-        "环境光设定：正午玻璃温室被镜头压低曝光，强天光只切到脸、锁骨和手指，背景绿植退成深绿虚化，半身场景",
-        "环境光设定：黄昏暗红窗帘和暖金侧光围住人物，淡粉反光落在锁骨和腰线，房间角落压成深色，半身场景",
-        "环境光设定：雨后庭院的湿石板反出银蓝暗光，薄雾停在背景植物之间，冷白窄光照亮脸、肩颈和手指，半身场景",
-    ),
-    "full_body": (
-        "环境光设定：冷紫光束从侧后方穿过低雾形成丁达尔光，淡粉低位光沿脸、腰线、长腿和裸足边缘滑过，幽蓝镜面反光铺在湿润地面，深夜镜面房全身场景",
-        "环境光设定：冷紫轮廓光勾出完整身形，淡粉反光照亮腰线、腿部和脚尖，幽蓝水汽柔光包住雾面玻璃和暗色瓷砖，玻璃浴室全身场景",
-        "环境光设定：淡粉霓虹柔光沿脸、细腰、长腿和裸足滑过，粉紫灯带穿过床边低雾，幽蓝暗部压低房间边缘，卧室全身场景",
-        "环境光设定：蓝紫灯带穿过低雾，冷紫边缘光切出肩线、腰背、腿部和脚部落点，淡粉壁灯落在黑色镜面地面反光里，地下酒廊全身场景",
-        "环境光设定：冷紫窗光穿过香炉烟雾形成丁达尔光束，淡粉烛光沿脸、腰线、腿部和裸足滑过，屏风、铜镜、纱帐和暗色木地板完整入景，古代纱帐寝殿全身场景",
-        "环境光设定：幽蓝湖面反光穿过薄雾纱帘，冷紫月光勾出完整身形，淡粉灯笼光照亮腰线、长腿和脚部落点，雕花窗和木质甲板完整入景，古代船舫夜雾全身场景",
-        "环境光设定：黄昏沙丘背景被压暗成琥珀色层次，金橙侧逆光沿腰线、长腿和裸足滑过，脚边有低雾和细沙反光，全身场景",
-        "环境光设定：正午泳池强反光被遮阳棚压柔，湖蓝水光只落在腰线、腿部和脚踝，背景欠曝虚化，全身场景",
-        "环境光设定：夜晚森林木栈道铺着低雾，银蓝月光勾出完整身形，淡粉小灯只照亮脸、腰线和裸足边缘，全身场景",
-    ),
-}
-
-_DAY_SCENE_MARKERS = ("清晨", "正午", "下午", "晨光", "天光", "暖白斜光", "泳池边", "玻璃温室", "阳光房")
-_SUNSET_SCENE_MARKERS = ("黄昏", "落日", "晚霞", "金橙")
 _NIGHT_SCENE_MARKERS = ("深夜", "夜景", "夜色", "夜店", "暗光", "暗房", "霓虹", "灯带", "月色", "射灯", "紫色烟雾")
 
-_SEDUCTIVE_QUALITY_BY_TIME = {
-    "day": (
-        "清透日光私房调色，肤色明亮但不过曝，阴影保留层次",
-        "亮彩日光调色，反光清楚，皮肤白但不过曝",
-    ),
-    "sunset": (
-        "黄昏暖金私房调色，侧逆光清楚，阴影柔和有层次",
-        "落日胶片调色，金橙高光，皮肤边缘光清楚",
-    ),
-    "night": (
-        "夜景私房调色，暗部压低，肤色由窄光托亮",
-        "暗光高对比调色，小面积暗亮反光，肤色保留灰度和真实纹理",
-    ),
-}
-
-
-_THEME_LOCATION_KEYWORDS = (
-    "夜店",
-    "吧台",
-    "卧室",
-    "床边",
-    "浴室",
-    "镜面",
-    "泳池",
-    "庭院",
-    "植物",
-    "酒廊",
-    "古代",
-    "雨夜廊下",
-    "青瓦",
-    "木柱",
-    "宫苑夜宴",
-    "屏风",
-    "酒案",
-    "宫灯",
-    "书房夜读",
-    "卷轴",
-    "香炉",
-    "敦煌",
-    "壁画",
-    "温泉",
-    "竹帘",
-    "画舫",
-    "雕花窗",
-    "竹林",
-    "戏台后台",
-    "红木妆台",
-    "铜镜",
-    "苗疆",
-    "银饰",
-    "民国",
-)
-
-
-def _filter_scene_options_by_theme(scene_options: tuple[str, ...], theme_keywords: tuple[str, ...]) -> tuple[str, ...]:
-    if not theme_keywords:
-        return scene_options
-    location_keywords = tuple(keyword for keyword in theme_keywords if keyword in _THEME_LOCATION_KEYWORDS)
-    if location_keywords:
-        location_matches = tuple(
-            option for option in scene_options if any(keyword and keyword in option for keyword in location_keywords)
-        )
-        if location_matches:
-            return location_matches
-    keyword_matches = tuple(
-        option for option in scene_options if any(keyword and keyword in option for keyword in theme_keywords)
-    )
-    return keyword_matches or scene_options
-
-
-def _seductive_scene_time(scene: str) -> str:
-    if any(marker in scene for marker in _NIGHT_SCENE_MARKERS):
-        return "night"
-    if any(marker in scene for marker in _SUNSET_SCENE_MARKERS):
-        return "sunset"
-    if any(marker in scene for marker in _DAY_SCENE_MARKERS):
-        return "day"
-    return "day"
-
-_SEDUCTIVE_POSE_BY_SHOT = {
-    "head_shot": (
-        "头部压近镜头，左手手指停在耳侧发丝间，细长黑色手指甲清楚，舌尖轻轻探出碰到上唇，眼神微眯俯视镜头",
-        "下巴微抬后俯视镜头，右手食指停在颈侧阴影里，舌尖轻轻探出碰到唇角，嘴角轻轻上扬，狐眼斜看镜头",
-        "脸侧靠近手背，黑色手指甲停在下颌边缘，舌尖轻轻探出，眼神从睫毛下方看向镜头",
-        "头部向镜头前压，下巴微低，舌头明显向下伸出到下唇外侧，眼神半睁带挑逗感，黑色手指甲停在下颌线旁，表情有阿黑颜式失控甜腻感",
-    ),
-    "half_body": (
-        "半身向镜头前压，左手手指停在胸前衣料边缘，黑色手指甲清楚，右手停在锁骨旁，嘴唇微开，舌尖轻轻探出碰到上唇",
-        "肩颈侧转靠近镜头，手指从颈侧滑到锁骨，眼神微眯俯视镜头，嘴角轻轻上扬",
-        "身体靠在窗边向前倾，左手停在肩膀旁边，黑色指甲清楚，头部低垂，抬眼看镜头",
-        "半身向前俯近镜头，肩颈压低，舌头向下伸出很多，嘴唇微张，眼神上翻后再直视镜头，黑色手指甲停在胸前衣料边缘，挑逗感集中在眼神和舌头",
-        "人物侧坐在吧台高脚椅上，上身前倾靠近黑色吧台，左前臂压在吧台边缘，右手举着威士忌杯停在脸侧，肩膀转向镜头，腰臀向画面右下方延伸，头部回望镜头，嘴角轻轻上扬",
-    ),
-    "half_body": (
-        "半身斜靠支撑面，左手停在胸前衣料边缘展示黑色手指甲，右手压在腰侧，头部从发丝间俯视镜头，嘴唇微开",
-        "腰部向一侧压出S形曲线，手指停在裙腰或腰侧边缘，眼神斜看镜头，舌尖轻轻探出碰到唇角",
-        "身体前倾靠近镜头，左手停在锁骨下方，右手压在大腿上，肩颈和细腰向后拉开，嘴角轻轻上扬",
-        "半身向镜头前倾，腰线向一侧压出S形，舌头明显向下伸出，眼睛半睁带阿黑颜式挑逗感，左手停在胸前衣料边缘，右手停在腰侧",
-        "人物侧坐在吧台高脚椅上，上身前倾靠近黑色吧台，左前臂压在吧台边缘，右手举着威士忌杯停在脸侧，肩膀转向镜头，腰臀向画面右下方延伸，头部回望镜头，眼神直视镜头",
-    ),
-    "half_body": (
-        "镜头从膝盖高度略微仰拍，膝盖靠近画面下缘，左手停在大腿上，身体向后展开，头部低垂俯视镜头，眼神微眯",
-        "人物跪坐在画面中央，左手停在胸前，右手停在腰侧，大腿斜向画面下缘延伸，嘴唇微开",
-        "身体侧身压低重心，大腿靠近镜头，左手压在大腿上，右手扶住腰侧，头部从上方向下看镜头，嘴角轻轻上扬",
-        "人物低坐或跪坐在画面中央，腰背压成S形，舌头向下伸出很多，眼神半睁直勾镜头，左手停在大腿上，右手停在腰侧",
-    ),
-    "full_body": (
-        "低机位从前腿脚尖向上拍，前腿从小腿、脚踝到裸足连续伸向镜头，脚踝链贴在脚踝上，身体在后方拉长，头部俯视镜头，眼神微眯",
-        "人物跪坐并向镜头前倾，前腿从膝盖向画面下缘延伸，脚踝和裸足连在腿部末端贴近镜头，左手停在大腿上，腰背弯成S形曲线，嘴唇微开",
-        "身体侧躺在暗色地面或床边，前腿沿地面伸向镜头，脚踝连接裸足，脚掌和脚尖位于画面前缘，头部回望镜头，嘴角轻轻上扬",
-        "人物站在低机位镜头上方，双腿前后错开，脚尖贴近画面前缘，左手停在大腿上，头部微低俯视镜头",
-        "人物低机位全身入镜，双腿前后错开，脚尖落在画面下缘，身体向前压近镜头，眼神半睁直视镜头，左手扶腰，右手贴在大腿上",
-        "人物坐在床沿前缘，上身后靠，双腿向画面下方斜向延展，裸足落地，眼睛半睁直视镜头，黑色手指甲停在脚踝旁",
-        "人物侧身倚靠墙面，腰线向外推成S形，一腿承重一腿伸直点地，头部微低俯视镜头，左手扶住腰线，右手沿大腿下滑",
-    ),
-}
-
-_SEDUCTIVE_LANDSCAPE_POSE_BY_SHOT = {
-    "half_body": (
-        "身体横向斜靠在床边或暗色地面上，左手停在胸前衣料边缘，右手停在腰侧，大腿沿画面宽度延伸，头部侧偏看向镜头，嘴唇微开",
-        "人物侧躺靠近镜头，左手停在大腿上，黑色指甲清楚，大腿从前景斜向后延伸，头部从发丝间回望镜头，眼神半睁直视镜头",
-        "人物斜坐在画面一侧，上身沿宽画幅向后靠，左手停在大腿上，右手停在腰侧，肩线和大腿沿横向展开，头部回望镜头，嘴唇微开",
-    ),
-    "full_body": (
-        "身体侧躺在暗色地面或床边，前腿沿地面伸向镜头，脚踝连接裸足，脚掌和脚尖位于画面前缘，头部回望镜头，嘴角轻轻上扬",
-        "人物横向趴伏在床边，左手停在肩膀旁边，双腿沿画面宽度拉开，脚尖停在一侧前景，头部侧转看向镜头",
-        "人物横向侧躺靠近镜头，左手停在大腿上，双腿沿宽画幅展开，头部抬起看向镜头，半睁眼直视镜头",
-    ),
-}
-
-_BOLD_NO_OUTFIT_POSE_BY_SHOT = {
-    "full_body": (
-        "人物站在低机位镜头前方，双腿前后错开，脚尖落在画面下缘，腰线轻微侧转，左手抬到发丝间，右手停在腰侧，头部微低俯视镜头，眼神微眯",
-        "人物背向镜头站立后扭腰回望，双腿一前一后拉长，裸足落在暗色地面上，长发垂到背侧，一只手扶住腰线，另一只手自然垂落，头部从肩后看向镜头",
-        "人物侧身倚靠落地窗或墙面，一腿承重，另一腿向侧前方伸直点地，脚背绷直，腰线向外推成S形，手指停在锁骨旁，头部侧偏直视镜头",
-        "人物在镜面地面上做大幅跨步，前脚落稳，后腿拉长，腰线形成斜向对角线，左手抬过头顶，右手按住腰侧，眼神从睫毛下方看镜头",
-        "人物坐在高台或床沿边缘，上身后靠，双腿向画面下方斜向延展，裸足自然落地，双手撑在身体两侧，腰线微微拧转，头部低垂，抬眸直视镜头",
-        "人物半蹲在暗色地面上，一腿弯曲承重，另一腿向侧方伸长，脚背绷直贴住地面，腰线向侧面拉开，左手摸到脚踝旁，右手扶住大腿，头部轻微后仰，眼神带挑衅感",
-        "人物坐在高脚椅或床沿前缘，上身微微后靠，双腿向画面下方斜向延展，裸足自然落地，手掌撑在身体两侧而不靠近镜头，腰背形成轻微S线，头部低垂，抬眸直视镜头",
-        "人物侧躺在床边或暗色地面上，上身以前臂支撑，双腿沿画面斜向拉开，脚尖指向画面边缘，腰线被侧躺姿态拉长，头部回望镜头，嘴角带危险浅笑",
-        "人物从门框边向镜头迈步，前脚落在画面下缘，后腿拉长，身体略微前倾，双腿形成窄长比例，一只手扶住门框，另一只手停在腰侧，眼神向下俯视镜头",
-        "人物站在镜面暗房中央，脚尖轻轻交叉落地，腰背微微反弓，双臂在头侧和腰侧形成对角线，黑发垂向一侧，头部后仰后垂眸看向镜头，眼神直视镜头",
-        "人物站在低机位镜头前方，前脚落在画面下缘，后腿拉长，身体向前倾，眼神半睁直视镜头，左手压在大腿上，右手扶住腰线",
-        "人物坐在床沿前缘，上身后靠，裸足自然落地，双腿斜向画面下方延展，眼睛半睁直视镜头，黑色手指甲停在脚背旁",
-    ),
-}
-
-_BOLD_NO_OUTFIT_LANDSCAPE_POSE_BY_SHOT = {
-    "full_body": (
-        "人物横向侧躺在床边或暗色地面上，上身以前臂支撑，双腿沿画面宽度斜向展开，脚尖停在画面一侧，头部回望镜头",
-        "人物斜坐在宽画幅前缘，上身后靠，双腿一曲一伸向侧方展开，双手撑在身后，腰线和腿线被横向画幅拉开",
-        "人物沿沙发或床沿横向倚靠，一手穿过长发，一手停在腰侧，双腿斜向延展，脚部落在画面边缘，头部侧转看向镜头",
-        "人物横向俯身以前臂支撑，上身压低，膝部稳定落点，臀线抬高，头部从发丝间回望镜头，腿线沿宽画幅展开",
-        "人物横向侧躺在床边或暗色地面上，双腿沿宽画幅斜向展开，头部抬起看向镜头，眼神半睁直视镜头，左手摸到脚背旁，右手停在腰侧",
-    ),
-}
 
 _BAR_COUNTER_HALF_BODY_POSE = "人物侧坐在吧台高脚椅上，上身前倾靠近黑色吧台，左前臂压在吧台边缘，右手举着威士忌杯停在脸侧，肩膀转向镜头，腰臀向画面右下方延伸，头部回望镜头，眼神直视镜头，嘴角轻轻上扬"
 _BAR_COUNTER_MIST_SCENE = "环境光设定：夜店吧台后方大团紫色烟雾被冷紫逆光照亮，右后方红色射灯切过暗部，幽蓝霓虹散景包住背景，黑色湿润吧台从左下角斜向延伸，前景酒瓶和玻璃杯虚化反光，淡粉补光落在脸、锁骨和手指上"
 _BAR_COUNTER_BOLD_OUTFIT = "夜店吧台半身造型，黑色细带亮钻胸衣配银色身体链，锁骨链、手链、臂环和腰链在紫色灯光下反光，关键部位由黑色布料完整覆盖，肩颈、胸线边缘和细腰成为视觉重点"
-
-def strengthen_seductive_scene_and_pose(
-    parts: dict[str, str],
-    scale: str,
-    shot: str,
-    aspect: str = "portrait",
-    scene_time: str = "",
-    era: str = "modern",
-    theme_keywords: tuple[str, ...] = (),
-) -> dict[str, str]:
-    if scale not in {"bold", "bold_no_outfit", "nsfw"}:
-        return parts
-    strengthened = dict(parts)
-    seed_text = "|".join(
-        str(strengthened.get(name, ""))
-        for name in ("camera", "pose_expression", "scene_light", "outfit", "character")
-    )
-    digest = hashlib.sha1(f"{scale}|{shot}|{aspect}|{seed_text}".encode("utf-8")).hexdigest()
-
-    theme_has_bar = any(keyword in {"夜店", "吧台", "酒杯", "霓虹"} for keyword in theme_keywords)
-    has_bar_context = theme_has_bar and shot == "half_body" and any(marker in seed_text for marker in ("吧台", "威士忌杯", "夜店吧台"))
-    time_name = scene_time if scene_time in _SEDUCTIVE_SCENE_TIMES else _SEDUCTIVE_SCENE_TIMES[int(digest[34:42], 16) % len(_SEDUCTIVE_SCENE_TIMES)]
-
-    if scale == "nsfw":
-        pose_options = None
-    elif scale == "bold_no_outfit":
-        pose_options = (
-            _BOLD_NO_OUTFIT_LANDSCAPE_POSE_BY_SHOT.get(shot)
-            if aspect == "landscape"
-            else _BOLD_NO_OUTFIT_POSE_BY_SHOT.get(shot)
-        )
-    else:
-        pose_options = (
-            _SEDUCTIVE_LANDSCAPE_POSE_BY_SHOT.get(shot)
-            if aspect == "landscape"
-            else _SEDUCTIVE_POSE_BY_SHOT.get(shot)
-        )
-    if not pose_options and scale != "nsfw":
-        pose_options = (
-            _SEDUCTIVE_LANDSCAPE_POSE_BY_SHOT.get(shot)
-            if aspect == "landscape"
-            else _SEDUCTIVE_POSE_BY_SHOT.get(shot)
-        )
-    if pose_options:
-        if time_name in {"morning", "noon", "afternoon"}:
-            non_night_pose_options = tuple(
-                option
-                for option in pose_options
-                if not any(marker in option for marker in ("吧台", "威士忌杯", "夜店"))
-            )
-            pose_options = non_night_pose_options or pose_options
-        tongue_options = tuple(
-            option
-            for option in pose_options
-            if any(marker in option for marker in ("舌头", "舌尖", "阿黑颜"))
-        )
-        if tongue_options and int(digest[16:18], 16) % 3 == 0:
-            pose = tongue_options[int(digest[18:26], 16) % len(tongue_options)]
-        else:
-            pose = pose_options[int(digest[8:16], 16) % len(pose_options)]
-        if scale == "bold_no_outfit":
-            pose = pose.replace("裙腰或", "").replace("衣料边缘", "锁骨下方")
-        strengthened["pose_expression"] = pose
-        if has_bar_context:
-            pose = _BAR_COUNTER_HALF_BODY_POSE
-            strengthened["pose_expression"] = pose
-        if theme_has_bar and (has_bar_context or (time_name in {"sunset", "night"} and ("吧台" in pose or "威士忌杯" in pose))):
-            if scale == "bold":
-                strengthened["outfit"] = _BAR_COUNTER_BOLD_OUTFIT
-
-    quality = str(strengthened.get("quality") or "")
-    scene_time = _seductive_scene_time(str(strengthened.get("scene_light") or ""))
-    quality_options = _SEDUCTIVE_QUALITY_BY_TIME.get(scene_time, _SEDUCTIVE_QUALITY_BY_TIME["day"])
-    replacement_quality = quality_options[int(digest[26:34], 16) % len(quality_options)]
-    seductive_quality_replacements = (
-        "阳光高饱和调色，清透高光，阴影干净",
-        "暖阳度假调色，鲜艳背景色，肤色通透自然",
-        "甜艳轻胶片调色，高饱和色块，细腻轻颗粒",
-        "亮彩调色，高对比清亮反光，皮肤白但不过曝",
-        "暗光高对比调色，窄光高光，阴影有层次",
-        "夜景私房调色，暗部压低，肤色由窄光托亮",
-        "暗调轻胶片调色，红蓝小面积反光，细腻轻颗粒",
-        "暗光高对比调色，小面积暗亮反光，肤色保留灰度和真实纹理",
-    )
-    for source in seductive_quality_replacements:
-        quality = quality.replace(source, replacement_quality)
-    strengthened["quality"] = quality
-
-    return strengthened
-
-_CONCRETE_LIGHT_MARKERS = (
-    "高光",
-    "阴影",
-    "暗部",
-    "层次",
-    "边缘光",
-    "轮廓光",
-    "反光",
-    "景深",
-    "胶片",
-    "调色",
-    "颗粒",
-    "肤质",
-    "肤纹",
-)
-
-_GENERIC_QUALITY_MARKERS = ("高级", "质感", "氛围", "大片", "真实写真", "ultra detailed")
 
 
 def _dedupe_clauses(text: str) -> str:
@@ -1227,36 +460,55 @@ def _dedupe_clauses(text: str) -> str:
 # 颗粒 / 背景色块 / 高光 常被近义重复表述（如「颗粒细腻」与「细腻轻颗粒」、「背景虚化成柔和色块」
 # 与「高饱和色块」、「高光柔润」与「清透高光」）。这些不是精确重复，_dedupe_clauses 抓不到，
 # 这里按概念族各保留一句，并始终保留「高光不过曝」安全句，让质量尾更干净、画面感更连贯。
+_QUALITY_LIGHT_DIRECTION_MARKERS = ("伦勃朗", "侧光塑形", "窗边柔光", "柔和日光", "轮廓光", "侧逆光")
+
+
+def _quality_family(clause: str) -> str | None:
+    if "不过曝" in clause:
+        return "exposure"
+    if "调色" in clause or clause.endswith(("冷调", "暖调", "奶油调", "胶片感")):
+        return "tone"
+    if "颗粒" in clause:
+        return "grain"
+    if "色块" in clause:
+        return "colorblock"
+    if "肤质" in clause or "纹理" in clause:
+        return "texture"
+    if "高光" in clause:
+        return "highlight"
+    if "层次" in clause:
+        return "layering"
+    return None
+
+
 def _dedupe_quality_concepts(quality: str) -> str:
-    clauses = _clauses(str(quality or ""))
+    """质量行每个概念只保留一句：一种调色、一句质感、一句颗粒，末尾统一“高光不过曝”。
+
+    光向属于场景光线维度，质量行里的光向短语会与场景互相矛盾，直接移除。
+    """
+    text = str(quality or "").replace("高级私房写真调色", "高级私房写真")
+    clauses = _clauses(text)
     if not clauses:
         return str(quality or "")
     kept: list[str] = []
-    safety = ""
     families: set[str] = set()
     for clause in clauses:
-        if clause == "高光不过曝":
-            safety = clause
+        if any(marker in clause for marker in _QUALITY_LIGHT_DIRECTION_MARKERS):
             continue
-        family = None
-        if "颗粒" in clause:
-            family = "grain"
-        elif "色块" in clause:
-            family = "colorblock"
-        elif "高光" in clause:
-            family = "highlight"
-        if family is None:
+        family = _quality_family(clause)
+        if family == "exposure":
+            continue
+        if family is not None:
+            if family in families:
+                continue
+            families.add(family)
+        if clause not in kept:
             kept.append(clause)
-            continue
-        if family in families:
-            continue
-        families.add(family)
-        kept.append(clause)
-    if safety:
-        kept.append(safety)
-    elif not any("高光不过曝" in c for c in kept):
-        kept.append("高光不过曝")
+    kept.append("高光不过曝")
     return "，".join(kept)
+
+
+normalize_quality_line = _dedupe_quality_concepts
 
 
 def _remove_brow_focus_language(text: str) -> str:
@@ -1734,6 +986,89 @@ def _fix_unanchored_detail_language(text: str) -> str:
     return cleaned
 
 
+_POSE_FRAMING_PHRASE_REPLACEMENTS = (
+    ("整只脚自然落地只作为画面下缘稳定落点", "整只脚平稳落地"),
+    ("只作为画面下缘的稳定落点", "平稳落在地面上"),
+    ("脚趾放松并避开正对镜头", "脚趾自然放松"),
+    ("脚趾放松避开正对镜头", "脚趾自然放松"),
+    ("脚趾放松不朝向镜头", "脚趾自然放松"),
+    ("脚背不过度弯折", "脚背自然舒展"),
+    ("脸部贴近镜头前缘", "脸部离镜头很近"),
+    ("停在胸前上衣", "停在胸前"),
+    ("停在肩头上衣", "停在肩头"),
+)
+_POSE_FRAMING_LEG_RE = re.compile(r"(靠近|落在|伸到|贴近|斜向|向)画面下缘(延伸)?")
+# 纯构图、纯评价子句不描述可画的动作，交给镜头句和质量句。
+_POSE_COMPOSITION_ONLY_MARKERS = (
+    "构图", "节奏", "呼吸感", "动态感", "成为画面", "画面焦点", "画面重点", "画面大胆", "画面强烈",
+    "画面明亮", "画面有", "画面呈现", "按下暂停", "推到近处", "压进画面", "画面只停在", "画面几乎", "镜头只看见",
+)
+_POSE_FRAME_POSITION_REPLACEMENTS = (
+    (re.compile(r"(靠近|贴近)画面(左侧|右侧|一侧)"), r"偏向\2"),
+    (re.compile(r"向画面(一侧|两侧|侧方)"), r"向\1"),
+    (re.compile(r"向画面边缘"), "向外"),
+    (re.compile(r"沿画面(横向|斜向)?(展开|延伸|伸展)"), r"\1\2"),
+    (re.compile(r"(铺|跨)?在画面中央"), r"\1在中间"),
+    (re.compile(r"从画面边缘看回镜头"), "再看回镜头"),
+    (re.compile(r"从画面一侧回眸"), "侧身回眸"),
+    (re.compile(r"从画面左侧向右侧"), "从左向右"),
+    (re.compile(r"画面前缘|画面前景"), "镜头"),
+)
+_POSE_GAZE_RE = re.compile(r"看向|直视|看镜头|回看|回望|盯住|锁住|斜看|斜睨|望向|看过来|俯视镜头|转回镜头")
+_POSE_SMILE_RE = re.compile(r"(嘴角|唇角)[^，]*(笑|扬|挑|弧)|微笑|笑意|大笑|笑出")
+
+
+def _pose_framing_clause(clause: str) -> str:
+    if "画面下缘" not in clause:
+        return clause
+    if any(word in clause for word in ("脚", "足")):
+        if "双脚" in clause:
+            return "双脚平稳踩在地面上"
+        if "脚尖" in clause and "前脚" not in clause:
+            return "脚尖轻点地面"
+        return "前脚平稳踩在地面上" if "前脚" in clause else "整只脚平稳踩在地面上"
+    if any(word in clause for word in ("膝", "腿")):
+        return _POSE_FRAMING_LEG_RE.sub("向身前伸出", clause)
+    # 肩线、腰线落在画面下缘属于镜头裁切，由镜头句负责。
+    return ""
+
+
+def naturalize_pose_framing(text: str) -> str:
+    """姿势句只写身体与地面、道具的关系；画面边缘、镜头前缘和否定式防畸形短语改成正向身体描述。"""
+    cleaned = str(text or "")
+    for source, replacement in _POSE_FRAMING_PHRASE_REPLACEMENTS:
+        cleaned = cleaned.replace(source, replacement)
+    clauses = [_pose_framing_clause(clause.strip()) for clause in cleaned.split("，")]
+    kept: list[str] = []
+    used_hands: set[str] = set()
+    has_gaze = False
+    has_smile = False
+    for clause in clauses:
+        if not clause or clause in kept:
+            continue
+        if any(marker in clause for marker in _POSE_COMPOSITION_ONLY_MARKERS):
+            continue
+        for pattern, replacement in _POSE_FRAME_POSITION_REPLACEMENTS:
+            clause = pattern.sub(replacement, clause)
+        # 后续层补写的纯视线、纯笑容子句与前文重复时丢弃，避免“回看镜头……眼神看向镜头”。
+        if clause.startswith(("眼神", "视线", "目光")) and has_gaze and _POSE_GAZE_RE.search(clause):
+            continue
+        if clause.startswith(("嘴角", "唇角")) and has_smile and _POSE_SMILE_RE.search(clause):
+            continue
+        has_gaze = has_gaze or bool(_POSE_GAZE_RE.search(clause))
+        has_smile = has_smile or bool(_POSE_SMILE_RE.search(clause))
+        # 多层改写可能把两只手都写成“左手”；第二次出现改为另一只手，保持双手分工。
+        for hand, other in (("左手", "右手"), ("右手", "左手")):
+            if clause.startswith(hand) or f"，{hand}" in f"，{clause}":
+                if hand in used_hands:
+                    clause = clause.replace(hand, other if other not in used_hands else "另一只手", 1)
+                    hand = other
+                used_hands.add(hand)
+                break
+        kept.append(clause)
+    return "，".join(kept)
+
+
 def clean_prompt_text(text: str) -> str:
     cleaned = _apply_broken_phrase_replacements(text)
     cleaned = _clean_instantiated_prompt_artifacts(cleaned)
@@ -2042,303 +1377,6 @@ def _clean_mobile_scope_language(parts: dict[str, str], shot: str) -> dict[str, 
     return cleaned
 
 
-_BOLD_OUTFIT_RISK_REPLACEMENTS = (
-    ("极少覆盖", "哑光薄纱和蕾丝细带"),
-    ("最低限度覆盖", "哑光薄纱细带造型"),
-    ("最低覆盖", "哑光薄纱细带造型"),
-    ("覆盖面积极少", "衣装结构清楚"),
-    ("极少量半透明必要遮挡", "哑光薄纱和轻薄蕾丝"),
-    ("极少量半透明", "局部哑光薄纱"),
-    ("半透明必要遮挡", "哑光薄纱"),
-    ("必要遮挡", "哑光轻薄衣料"),
-    ("只剩几条窄带和小片贴身布边", "窄幅哑光蕾丝吊带上衣和贴身腰侧布边"),
-    ("只有极细窄带", "窄幅哑光蕾丝吊带上衣"),
-    ("身体只由极细窄带", "身体由哑光薄纱细带"),
-    ("小片不透明布料", "小面积衣片"),
-    ("小片不透明布片", "小面积衣片"),
-    ("小片贴身布边", "贴身衣料边"),
-    ("小片黑色布片", "黑色衣片"),
-    ("微型布片", "小面积衣片"),
-    ("微型边片", "哑光薄纱衣料边"),
-    ("微型边缘装饰轮廓", "哑光薄纱衣装轮廓"),
-    ("近似饰品的覆盖", "珠宝感衣装结构"),
-    ("接近饰品的覆盖", "珠宝感衣装结构"),
-    ("像饰品", "带珠宝感"),
-    ("几乎没有完整衣物轮廓", "衣装轮廓清楚"),
-    ("几乎没有传统衣物轮廓", "衣装轮廓清楚"),
-    ("不形成完整上衣或裙装轮廓", "上衣和裙装轮廓清楚"),
-    ("布料存在感降到最低", "哑光薄纱衣料轮廓清楚"),
-    ("轻薄料少到近似饰品但边界清楚", "哑光轻薄衣料形成清楚衣装边界"),
-    ("薄料面积很少但边界清楚", "薄料边界清楚"),
-    ("薄料面积很少", "薄料边界清楚"),
-    ("衣着信息极少", "衣着信息克制但清楚"),
-    ("大片皮肤边距", "皮肤留白克制"),
-    ("局部侧边衣料精简", "局部侧边裁剪利落"),
-    ("布料只集中为亮面贴身边缘", "哑光薄纱衣料形成稳定轮廓"),
-    ("只在关键边缘", "沿衣装边缘"),
-    ("只在必要位置出现", "在胸前和腰侧稳定出现"),
-    ("只沿胸前和腰髋边缘形成柔软覆盖", "沿胸前和腰髋形成贴身衣料边缘"),
-)
-
-
-def _normalize_bold_outfit_coverage(text: str, shot: str) -> str:
-    outfit = str(text or "")
-    for source, replacement in _BOLD_OUTFIT_RISK_REPLACEMENTS:
-        outfit = outfit.replace(source, replacement)
-    outfit = re.sub(r"裸露|全裸|露点|乳头|胸点|私处|裆部", "衣料覆盖", outfit)
-    outfit = re.sub(r"，{2,}", "，", outfit).strip("，、 \n\t")
-    if any(marker in outfit for marker in ANCIENT_OUTFIT_MARKERS):
-        return outfit
-    color_match = re.search(
-        r"(珊瑚粉|湖蓝|海蓝|玫瑰粉|亮橙|柠檬黄|薄荷绿|蜜桃橙|浅紫|薰衣草紫|苹果绿|西瓜红|蓝绿色|樱桃粉|孔雀蓝|橘粉|青柠绿|番茄红|晴空蓝)",
-        outfit,
-    )
-    color = color_match.group(1) if color_match else "珊瑚粉"
-    accent = "黑色细颈链"
-    upper_styles = (
-        f"{color}细带网纱拼接短上衣，哑光缎面前片有纵向收省线，透明纱袖沿上臂垂落，窄蕾丝领缘压住肩带接缝，{accent}扣在颈部",
-        f"{color}轻薄交叉吊带短上衣，双肩细带在胸前交叠，领口有小金属环，布面薄而贴身，{accent}扣在颈部",
-        f"{color}挂脖薄纱胸衣短上衣，挂脖细带绕过颈侧，弧形杯线和透明网纱边清楚，领口有小金属扣",
-        f"{color}短款蕾丝束身上衣，前片是轻薄蕾丝和细鱼骨压线，腰侧细带收紧，细锁骨链落在领口内侧",
-        f"{color}薄纱叠层吊带上衣，外层透亮网纱覆盖肩头，内层小面积轻薄布片贴合胸前，领口有细蕾丝边",
-        f"{color}斜肩薄纱短上衣，一侧肩线露出锁骨，斜向轻纱从胸前收向腰侧，袖口轻贴上臂",
-        f"{color}短款蕾丝胸衣上衣，深V领口压出利落线条，前襟小金属扣排列整齐，腰侧只有细窄收省线",
-        f"{color}极细带薄纱裹胸短上衣，胸前轻薄横向褶皱贴合身体，下摆细窄，透明薄手套边缘贴近手腕",
-        f"{color}蕾丝边吊带上衣，领口有细小花边，肩带带小调节扣，胸前布面是柔雾哑光质地",
-        f"{color}一字肩短上衣，横向领口用窄缎边贴住锁骨，前片是细密的斜向收省，短袖口随肩头微微堆褶，缎面下摆停在上腰，细腰链从衣缘露出",
-        f"{color}法式短款胸衣上衣，弧形杯线和竖向鱼骨压线清楚，细肩带带小金属扣，黑色细颈链贴在颈侧",
-        f"{color}柔雾薄纱裹胸短上衣，前片交叠成斜向褶皱，下摆贴近上腰，细锁骨链落在领口中央",
-        f"{color}薄纱拼接短袖上衣，透亮网纱从肩头叠到袖口，哑光缎面前片在腰侧收出两道细省线，领口的窄滚边与袖缘呼应",
-        f"{color}蕾丝胸衣短上衣，弧形杯线有细蕾丝滚边，前片竖向鱼骨压线收紧，细金属扣贴近胸前中心",
-    )
-    half_styles = (
-        f"{color}薄透网纱细带短上衣，搭配米白色高腰轻薄A字短裙，裙装上缘贴住细腰，细压线和{accent}入镜",
-        f"{color}轻薄交叉吊带短上衣，搭配白色高腰薄料包臀短裙，裙腰有细金属扣和窄压线",
-        f"{color}挂脖薄纱短上衣，搭配浅灰色高腰轻薄包臀短裙，裙装上缘贴住细腰，弧形压线很细",
-        f"{color}短款蕾丝束身上衣，搭配深蓝高腰轻薄半裙，腰侧细带收紧，裙面贴身但不厚重",
-        f"{color}薄纱叠层吊带上衣，搭配白色高腰包臀短裙，外层网纱边缘落在肩头，裙腰有银色细扣",
-        f"{color}薄纱吊带短裙，领口有细蕾丝边，腰侧用窄带收住，裙面轻薄贴身到画面下缘",
-        f"{color}修身连体衣，深方领和高腰线贴合身体，腰侧有小金属扣，外搭半透明薄纱罩衫",
-        f"{color}短款胸衣上衣，搭配米白色高腰吊带袜短裙，裙腰有双道压线，细带和小金属环贴住大腿外侧",
-        f"{color}挂脖连体泳装，外搭轻薄开襟纱衫，腰线处有细银链，衣料边缘贴住身体侧线",
-        f"{color}斜肩薄纱连衣短裙，上身斜向轻纱从肩头收向腰侧，腰线处有细银链",
-        f"{color}蕾丝胸衣上衣，搭配黑色高腰吊袜带短裙，细带从裙腰垂到大腿外侧，金属调节扣清楚",
-        f"{color}细带薄纱连体衣，胸前横向轻褶贴合身体，高腰线在腰侧收紧",
-        f"{color}蕾丝边吊带短裙，腰侧窄带收紧，轻薄裙身从腰部向下贴合",
-        f"{color}一字肩连体泳装，横向领口贴住锁骨，外搭半透明短罩衫",
-        f"{color}法式短款胸衣上衣，搭配黑色高腰吊袜带短裙，竖向鱼骨压线收出上身轮廓，细带贴近大腿外侧",
-        f"{color}轻薄裹胸连衣短裙，胸前交叠薄料斜向收腰，侧边细带垂落",
-        f"{color}短款开襟蕾丝胸衣，搭配浅灰色高腰薄纱蕾丝边短裙，前襟小纽扣排列到上腰，蕾丝裙边贴住腰侧",
-        f"{color}网纱拼接连体衣，袖口透亮，腰侧有小银扣，外层薄纱垂到腰侧",
-    )
-    full_styles = (
-        f"{color}薄透网纱细带短上衣，搭配米白色高腰轻薄A字短裙，裙摆有细褶，{accent}和细腰链点缀",
-        f"{color}轻薄交叉吊带短上衣，搭配白色高腰薄料包臀短裙和黑色薄透长筒丝袜，裙摆停在大腿上方，袜口有细黑边",
-        f"{color}挂脖薄纱短上衣，搭配浅灰色高腰轻薄包臀短裙和黑色吊带丝袜，裙腰有弧形细压线，细腰链贴住裙腰",
-        f"{color}短款蕾丝束身上衣，搭配深蓝高腰轻薄半裙和黑色薄透连裤袜，腰侧细带收紧，裙摆贴着大腿",
-        f"{color}薄纱叠层吊带上衣，搭配白色高腰包臀短裙和白色过膝长袜，外层网纱边缘落在肩头，袜口有细罗纹",
-        f"{color}薄纱吊带短裙，裙身轻薄贴合腰臀后落到大腿，侧边开衩露出腿线，细腰链压在腰侧",
-        f"{color}深V细带短裙，胸前有交叉细带，裙摆从腰侧开衩到大腿，裸足踩在地面上",
-        f"{color}修身连体衣，深方领和高腰线贴合身体，外搭半透明薄纱罩衫，腰侧银扣和腿环点缀",
-        f"{color}挂脖连体泳装，腰侧有弧形镂空，外搭轻薄开襟纱衫，脚踝链贴在裸足上方",
-        f"{color}短款胸衣上衣，搭配米白色高腰吊带袜短裙，裙腰有双道压线，细带和金属环贴住大腿外侧",
-        f"{color}极细带薄纱裹胸上衣，搭配深蓝高开衩轻薄贴身短裙，开衩从腰侧落到大腿，裸足落在浅色地面上",
-        f"{color}蕾丝边吊带背心，搭配黑色高腰蕾丝吊带袜套装，细带从腰侧垂到大腿，腿环贴在大腿外侧",
-        f"{color}薄纱罩衫内搭同色连体泳装，罩衫下摆垂到大腿外侧，腰链和脚踝链形成细亮点",
-        f"{color}斜肩薄纱连衣短裙，斜向轻褶从肩头收向腰侧，裙摆贴着大腿，黑色薄透长筒丝袜压出腿线",
-        f"{color}蕾丝胸衣上衣，搭配炭灰高腰吊袜带短裙，裙腰有金属环扣和窄压线，细带贴着大腿外侧",
-        f"{color}细带薄纱连体衣，胸前横向轻褶贴合身体，高腰线拉长腿部比例，白色过膝长袜贴住小腿",
-        f"{color}蕾丝边吊带短裙，腰侧窄带收紧，裙摆一侧开衩到大腿，黑色薄透连裤袜从开衩处露出",
-        f"{color}一字肩连体泳装，横向领口贴住锁骨，外搭半透明短罩衫，细腰链和脚踝链点出身体线条",
-        f"{color}法式短款胸衣上衣，搭配黑色高腰吊袜带短裙，竖向鱼骨压线收出上身轮廓，腿环贴着大腿外侧",
-        f"{color}轻薄裹胸连衣短裙，胸前交叠薄料斜向收腰，裙摆到大腿中段，侧边细带垂落",
-        f"{color}短款开襟蕾丝胸衣，搭配浅灰色高腰薄纱蕾丝边短裙，前襟小纽扣排列到上腰，细腰链贴住裙腰",
-        f"{color}网纱拼接连体衣，袖口透亮，腰侧有小银扣，外层薄纱从腰部垂到大腿外侧",
-    )
-
-    def pick(options: tuple[str, ...]) -> str:
-        digest = hashlib.sha1(f"{shot}|{outfit}".encode("utf-8")).hexdigest()
-        return options[int(digest[:8], 16) % len(options)]
-
-    if shot in {"head_shot", "face_closeup"}:
-        head_styles = (
-            f"{color}缎面方领领口出现在画面下缘，领口有窄缎边，{accent}扣在颈部",
-            f"{color}哑光蕾丝吊带领口出现在画面下缘，窄肩带带小调节扣，边缘是柔雾布料",
-            f"{color}挂脖带绕过颈侧，领口只露出上缘，细金属耳饰贴近脸侧",
-            f"{color}短款衬衫领口出现在画面下缘，最上方两颗纽扣扣住，细链项链贴近领口",
-            f"{color}蕾丝胸衣领口出现在画面下缘，弧形杯线和细蕾丝边贴近锁骨下方",
-            f"{color}薄纱吊带领口从画面下缘斜向露出，透明纱边贴近颈侧，细银项链贴在颈侧",
-            f"{color}束腰胸衣深V领出现在画面下缘，一颗金属扣露出，鱼骨压线贴住胸前中心",
-            f"{color}挂脖胸衣肩带贴住肩头，领口细窄包边出现在画面下缘",
-            f"{color}蕾丝边吊带领口沿画面下缘展开，细小花边清楚，肩带有金属调节扣",
-            f"{color}一字领领口贴近画面下缘，袖口有轻微褶皱，细链饰品露出一点反光",
-            f"{color}法式短上衣领口出现在画面下缘，弧形压线露出一小段，细项圈扣在颈部",
-            f"{color}柔雾薄纱裹胸领口出现在画面下缘，斜向交叠褶皱是哑光轻薄质地，细链项链贴在颈侧",
-            f"{color}网纱拼接上衣领口贴近颈侧，透亮袖口只露出边缘，领口滚边很细",
-            f"{color}开襟缎面胸衣领口出现在画面下缘，小纽扣露出两颗，蕾丝滚边贴住衣缘",
-        )
-        return pick(head_styles)
-    if shot == "half_body":
-        return pick(upper_styles)
-    if shot == "half_body":
-        return pick(half_styles)
-    if shot == "half_body":
-        return pick(full_styles)
-    return pick(full_styles)
-
-
-def _normalize_normal_outfit_artistry(text: str, shot: str) -> str:
-    outfit = re.sub(r"，{2,}", "，", str(text or "")).strip("，、 \n\t")
-    color_match = re.search(
-        r"(象牙白|奶白|雾蓝|湖蓝|孔雀蓝|深蓝|炭灰|银灰|玫瑰粉|樱桃粉|薄荷绿|橄榄绿|柠檬黄|酒红|黑色|白色)",
-        outfit,
-    )
-    color = color_match.group(1) if color_match else "雾蓝"
-    accent = "小号金属耳环"
-    upper_styles = (
-        f"{color}解构衬衫，斜向门襟穿过锁骨后收进腰侧，前片上下错层，宽袖口露出内层折边，衣片边缘有细密压线，{accent}贴近脸侧",
-        f"{color}丝质立领上衣，领口有细褶，肩线利落，布面有柔和垂坠光，珍珠耳钉点亮脸侧",
-        f"{color}短款针织开衫，细密罗纹沿肩线垂到袖口，敞开的一段门襟露出白色方领背心，上腰处的窄衣摆和圆纽扣层次分明",
-        f"{color}宽肩短外套，内搭白色圆领背心，外套敞开的前襟露出背心领缘，金属纽扣沿一侧衣襟排列，肩部挺括衣片在袖窿处折出清楚线条",
-        f"{color}薄纱叠层上衣，白色背心打底，袖口有轻盈透明层次，叠层边缘微微飘开",
-        f"{color}褶皱抹胸外搭短西装，西装敞开的翻领围住抹胸的横向压褶，肩线硬挺而袖身自然垂落，短西装的下摆停在上腰，金属耳骨夹贴近耳侧",
-        f"{color}飘带领雪纺衬衫，领口的长飘带系成松散蝴蝶结后垂到胸前，双层雪纺在前襟错开，窄袖口收住轻盈的袖身，扣眼与衣缘压线清楚",
-        f"{color}廓形牛仔短外套，内搭白色背心，翻领有明线车缝，银色纽扣沿门襟排列",
-        f"{color}不对称针织背心，一侧肩带更宽，衣摆斜切到腰侧，罗纹纹理清楚",
-        f"{color}轻薄风衣式短上衣，翻领打开，腰侧有细带打结，袖口卷起露出内层浅色布边",
-        f"{color}短款飞行员夹克，尼龙面料带轻微褶皱感，内搭白色罗纹背心，袖口和下摆有弹力织边",
-        f"{color}拼色棒球领衬衫，领口和袖口有撞色织带，前襟暗扣整齐，布面带轻微光泽",
-        f"{color}宽松短款牛仔衬衫，胸前有两个翻盖口袋，明线车缝清楚，内搭浅色吊带背心",
-        f"{color}艺术感斜肩上衣，一侧是宽肩带，一侧是短袖结构，衣片从胸前斜向叠过",
-    )
-    half_styles = (
-        f"{color}解构衬衫搭配黑色高腰伞裙，衬衫一侧下摆收进裙腰，裙腰有宽压线，银色耳环贴近脸侧",
-        f"{color}丝质立领上衣搭配米白色阔腿长裤，裤腰高而利落，细皮带压住腰线，裤褶从腰侧垂下",
-        f"{color}短款针织开衫搭配深蓝高腰直筒半裙，内搭白色方领背心，开衫有细小圆纽扣",
-        f"{color}宽肩短外套搭配炭灰高腰西装短裤，内搭白色圆领背心，金属纽扣形成纵向节奏",
-        f"{color}薄纱叠层上衣搭配白色高腰百褶裙，白色背心打底，裙腰有细窄压褶",
-        f"{color}褶皱短上衣外搭短西装，搭配黑色高腰铅笔裙，裙腰有窄压线，西装下摆形成硬朗直线",
-        f"{color}飘带领雪纺衬衫搭配米白色高腰阔腿裤，飘带垂到胸前，裤腰有双排细扣",
-        f"{color}廓形牛仔短外套搭配白色高腰直筒半裙，外套下摆有毛边，半裙前片有直线开衩",
-        f"{color}不对称针织背心搭配炭灰高腰工装裙，裙侧有翻盖口袋，衣摆斜线贴住腰侧",
-        f"{color}轻薄风衣式短上衣搭配黑色高腰伞裙，腰侧细带打结，裙摆从腰线向外展开",
-        f"{color}短款飞行员夹克搭配米白色高腰直筒裤，尼龙袖口带弹力织边，裤腰有细皮带和金属方扣",
-        f"{color}拼色棒球领衬衫搭配深蓝高腰牛仔半裙，领口撞色织带清楚，半裙前片有金属排扣",
-        f"{color}宽松短款牛仔衬衫搭配白色高腰阔腿短裤，胸前翻盖口袋有明线，裤腰打褶利落",
-        f"{color}艺术感斜肩上衣搭配黑色高腰不规则半裙，裙摆一侧更长，斜向衣片和裙摆互相呼应",
-    )
-    full_styles = (
-        f"{color}解构衬衫搭配黑色高腰伞裙和黑色尖头平底鞋，斜向门襟和大裙摆形成艺术感轮廓，裙摆有宽阔弧线",
-        f"{color}丝质立领上衣搭配米白色阔腿长裤和银色低跟鞋，长裤垂坠到鞋面上方，裤褶从腰侧向下延伸",
-        f"{color}短款针织开衫搭配深蓝高腰直筒半裙和白色乐福鞋，内搭白色方领背心，裙摆线条笔直",
-        f"{color}宽肩短外套搭配炭灰高腰西装短裤和黑色中筒靴，金属纽扣形成纵向节奏，短裤有利落裤褶",
-        f"{color}薄纱叠层上衣搭配白色高腰百褶裙和银色玛丽珍鞋，透明袖口和百褶裙形成轻盈层次，裙摆细褶密集",
-        f"{color}褶皱短上衣外搭短西装，搭配黑色高腰铅笔裙和黑色尖头平底鞋，西装肩线硬挺，裙摆收窄到膝上",
-        f"{color}飘带领雪纺衬衫搭配米白色阔腿裤和银色低跟鞋，飘带垂到胸前，裤腿垂坠到脚背上方",
-        f"{color}廓形牛仔短外套搭配白色高腰直筒半裙和白色乐福鞋，外套下摆有毛边，裙摆前片有直线开衩",
-        f"{color}不对称针织背心搭配炭灰高腰工装裙和黑色中筒靴，裙侧有翻盖口袋，衣摆斜线贴住腰侧",
-        f"{color}轻薄风衣式短上衣搭配黑色高腰伞裙和银色玛丽珍鞋，腰侧细带打结，裙摆向外展开",
-        f"{color}短款飞行员夹克搭配米白色高腰直筒裤和白色乐福鞋，尼龙外套有轻微褶皱感，裤线从腰侧垂直落下",
-        f"{color}拼色棒球领衬衫搭配深蓝高腰牛仔半裙和黑色玛丽珍鞋，撞色领口带复古感，半裙前片金属排扣清楚",
-        f"{color}宽松短款牛仔衬衫搭配白色高腰阔腿短裤和银色低跟鞋，翻盖口袋和明线车缝形成利落层次",
-        f"{color}艺术感斜肩上衣搭配黑色高腰不规则半裙和黑色尖头平底鞋，斜向衣片和一侧加长裙摆形成设计感线条",
-    )
-
-    def pick(options: tuple[str, ...]) -> str:
-        return options[sum(ord(ch) for ch in outfit) % len(options)]
-
-    if shot in {"head_shot", "face_closeup"}:
-        head_styles = (
-            f"{color}解构衬衫的斜向领口出现在画面下缘，领口有细压线，{accent}贴近脸侧",
-            f"{color}丝质立领上衣的领口贴近颈侧，领边有细褶，珍珠耳钉点亮脸侧",
-            f"{color}针织开衫领口出现在画面下缘，白色方领背心露出上缘，针织纹理细密",
-            f"{color}宽肩短外套的肩线进入画面下缘，金属纽扣露出一枚，肩部剪裁硬挺",
-            f"{color}薄纱叠层上衣的透明袖口靠近肩侧，白色背心打底，纱层边缘微微飘开",
-            f"{color}褶皱短上衣外搭短西装的翻领进入画面下缘，横向压褶露出一小段",
-            f"{color}飘带领雪纺衬衫，领口蝴蝶结垂在颈侧，雪纺领缘有细窄滚边，肩线压缝清楚",
-            f"{color}廓形牛仔短外套的翻领进入画面下缘，明线车缝和银色纽扣清楚",
-            f"{color}不对称针织背心，一侧宽肩带贴住肩头，斜切领口露出细密罗纹",
-            f"{color}轻薄风衣式短上衣的翻领打开，领边压线和一枚扣子露在画面下缘",
-            f"{color}短款飞行员夹克的尼龙立领进入画面下缘，弹力织边和金属拉链露出一小段",
-            f"{color}拼色棒球领衬衫的撞色领口贴近颈侧，前襟暗扣露出两颗",
-            f"{color}牛仔短衬衫的翻领进入画面下缘，明线车缝和一枚金属扣清楚",
-            f"{color}斜肩上衣的一侧领口进入画面下缘，斜向叠片和细压线清楚",
-        )
-        return pick(head_styles)
-    if shot == "half_body":
-        return pick(upper_styles)
-    if shot == "half_body":
-        return pick(half_styles)
-    if shot == "half_body":
-        return pick(full_styles).replace("和黑色尖头平底鞋", "").replace("和银色低跟鞋", "").replace("和白色乐福鞋", "").replace("和黑色中筒靴", "").replace("和银色玛丽珍鞋", "")
-    return pick(full_styles)
-
-
-def _remove_bold_footwear(text: str) -> str:
-    cleaned = str(text or "")
-    replacements = (
-        "和银色细带高跟鞋",
-        "和透明细带凉鞋",
-        "和银色尖头高跟鞋",
-        "和米色细跟凉鞋",
-        "和银色细带高跟鞋",
-        "银色细带高跟鞋",
-        "透明细带凉鞋",
-        "银色尖头高跟鞋",
-        "米色细跟凉鞋",
-        "细带高跟鞋",
-        "高跟鞋",
-        "凉鞋",
-        "尖头鞋",
-        "细跟鞋",
-    )
-    for source in replacements:
-        cleaned = cleaned.replace(source, "")
-    cleaned = re.sub(r"，{2,}", "，", cleaned)
-    return cleaned.strip("，、 \n\t")
-
-
-def _fix_outfit_aesthetic_conflicts(text: str, scale: str, shot: str) -> str:
-    outfit = str(text or "")
-    if scale != "bold":
-        return outfit
-    if shot not in {"half_body", "full_body"}:
-        return outfit
-    has_stocking = any(marker in outfit for marker in ("吊带丝袜", "长筒丝袜", "连裤袜", "过膝长袜"))
-    if not has_stocking:
-        return outfit
-    conflict_markers = (
-        "工装短裤",
-        "运动短裤",
-        "运动短裙",
-        "牛仔短裤",
-        "直筒短裤",
-        "热裤",
-        "工字肩带",
-        "运动风短背心",
-    )
-    if not any(marker in outfit for marker in conflict_markers):
-        return outfit
-    replacements = (
-        ("炭灰高腰工装短裤", "炭灰高腰西装短裙"),
-        ("白色高腰直筒短裤", "白色高腰缎面短裙"),
-        ("白色高腰牛仔短裤", "白色高腰A字短裙"),
-        ("浅灰色高腰热裤", "浅灰色高腰包臀短裙"),
-        ("浅灰色低腰热裤", "浅灰色低腰包臀短裙"),
-        ("白色低腰运动短裙", "白色低腰百褶短裙"),
-        ("运动风短背心", "哑光蕾丝短款吊带背心"),
-        ("裤侧有小口袋，", ""),
-        ("裤腰有金属扣和双道压线", "裙腰有窄压线"),
-        ("裤腰有银色纽扣和浅色明线", "裙腰有银色纽扣和浅色压线"),
-        ("裤脚有细窄翻边", "裙摆有细窄滚边"),
-        ("裤脚停在大腿上方，", "裙摆停在大腿上方，"),
-    )
-    for source, replacement in replacements:
-        outfit = outfit.replace(source, replacement)
-    outfit = re.sub(r"，{2,}", "，", outfit)
-    return outfit.strip("，、 \n\t")
-
-
 _DISTANT_TONGUE_MARKERS = ("舌尖", "舌头", "伸舌", "探出")
 _HAND_TO_CAMERA_REPLACEMENTS = (
     ("左手手指靠近镜头", "左手手指停在脸旁"),
@@ -2387,10 +1425,13 @@ def _remove_hand_to_camera_pose(parts: dict[str, str]) -> dict[str, str]:
 
 
 def _remove_distant_tongue_expression(parts: dict[str, str], shot: str) -> dict[str, str]:
-    if shot not in {"half_body", "full_body"}:
+    if shot not in {"half_body", "full_body", "large_half_body", "upper_body"}:
         return parts
     cleaned = dict(parts)
     pose = str(cleaned.get("pose_expression") or "")
+    # NSFW 口交依赖舌/唇接触阴茎，禁止当「远距离吐舌」清掉
+    if any(marker in pose for marker in ("阴茎", "龟头", "柱身", "冠状沟", "马眼")):
+        return cleaned
     if not any(marker in pose for marker in _DISTANT_TONGUE_MARKERS):
         return cleaned
     clauses = _clauses(pose)
@@ -2495,16 +1536,6 @@ def clean_global_prompt_text(parts: dict[str, str], shot: str = "", scale: str =
         pose = pose.replace("沿栈道", "向画面下方")
         pose = pose.replace("身侧木板", "身侧边缘")
         cleaned["pose_expression"] = pose
-    if scale == "normal":
-        cleaned["outfit"] = _normalize_normal_outfit_artistry(cleaned.get("outfit", ""), shot)
-    if scale == "bold" and cleaned.get("outfit"):
-        cleaned["outfit"] = _fix_outfit_aesthetic_conflicts(
-            _remove_bold_footwear(_normalize_bold_outfit_coverage(cleaned.get("outfit", ""), shot)),
-            scale,
-            shot,
-        )
-    if scale == "bold_no_outfit" and cleaned.get("outfit"):
-        cleaned["outfit"] = ""
     cleaned = _strip_no_outfit_clothing_terms(cleaned, scale)
     cleaned = _remove_hand_to_camera_pose(cleaned)
     for name in ("camera", "outfit", "pose_expression", "scene_light", "quality"):
@@ -2557,58 +1588,22 @@ def _clean_pose_family_conflicts(text: str) -> str:
     clauses = _clauses(pose)
     if not clauses:
         return pose
+    # NSFW 双人：男人站立 + 女孩跪姿是合法组合，不能按「跪=删站」一刀切
+    if any(marker in pose for marker in ("阴茎", "龟头", "柱身", "冠状沟")):
+        return "，".join(clauses)
     is_seated_or_kneeling = any(marker in pose for marker in _SEATED_OR_KNEELING_MARKERS)
     if is_seated_or_kneeling:
         clauses = [
             clause
             for clause in clauses
             if not any(marker in clause for marker in _STANDING_LEG_CONFLICT_MARKERS)
+            or any(keep in clause for keep in ("男人", "男方", "他的"))
         ]
         clauses = [
             clause.replace("脚部落点完整可见", "腿部姿态清楚")
             for clause in clauses
         ]
     return "，".join(clauses)
-
-
-def _append_missing_clauses(text: str, clauses: tuple[str, ...]) -> str:
-    current = str(text or "").strip("，。 \n\t")
-    for clause in clauses:
-        if clause and clause not in current:
-            current = f"{current}，{clause}" if current else clause
-    return current
-
-
-def polish_photographic_naturalness(parts: dict[str, str], scale: str, shot: str) -> dict[str, str]:
-    polished = dict(parts)
-    for name in ("scene_light", "quality"):
-        text = str(polished.get(name) or "")
-        text = _apply_broken_phrase_replacements(text)
-        for source, replacement in _GENERIC_PHOTO_REPLACEMENTS:
-            text = text.replace(source, replacement)
-        text = _dedupe_clauses(text)
-        polished[name] = text.strip("，、 \n\t")
-
-    quality = str(polished.get("quality") or QUALITY_BY_SCALE.get(scale, QUALITY_BY_SCALE["bold"]))
-    full_text = "，".join(str(polished.get(name, "")) for name in ("scene_light", "quality"))
-    if not _text_has_any(full_text, _PHOTOGRAPHIC_MARKERS):
-        # 画质尾缀优先按镜头细分，缺省回退到按档
-        quality_tail = _QUALITY_TAIL_BY_SHOT.get(shot) or _PHOTOGRAPHIC_BOOSTS_BY_SCALE.get(scale, ())
-        quality = _append_missing_clauses(quality, quality_tail)
-    elif "高光不过曝" not in full_text and scale in {"bold", "bold_no_outfit", "nsfw"}:
-        quality = _append_missing_clauses(quality, ("高光不过曝",))
-    # 收尾去重：质量行三层叠加时近义短语（颗粒/色块/高光）可能重复，统一各保留一句
-    quality = _dedupe_quality_concepts(quality)
-    polished["quality"] = quality
-
-    if scale in {"bold", "bold_no_outfit", "nsfw"}:
-        pose = str(polished.get("pose_expression") or "")
-        if not _text_has_any(pose, _TENSION_MARKERS):
-            boosts = _TENSION_BOOSTS_BY_SCALE_AND_SHOT.get((scale, shot), _TENSION_BOOSTS_BY_SCALE.get(scale, ()))
-            pose = _append_missing_clauses(pose, boosts)
-        polished["pose_expression"] = pose
-
-    return polished
 
 
 def _soften_smile_language(text: str) -> str:
@@ -2883,6 +1878,12 @@ def strengthen_expression(parts: dict[str, str], scale: str, rng: random.Random 
         pose = pose.replace(source, replacement)
 
     full_text = "，".join(str(strengthened.get(name, "")) for name in ("makeup", "pose_expression"))
+    # NSFW 已有眼神/嘴角或口交动作时不再追加表情，避免「直视镜头」堆叠
+    if str(scale or "") == "nsfw" and _text_has_any(
+        pose, ("眼神", "直视", "抬眸", "斜视", "嘴角", "冷笑", "坏笑", "含住", "舔", "套弄", "撸动")
+    ):
+        strengthened["pose_expression"] = pose
+        return strengthened
     if not _text_has_any(full_text, _STRONG_EXPRESSION_MARKERS):
         boosts = _EXPRESSION_BOOST_BY_SCALE.get(scale, _EXPRESSION_BOOST_BY_SCALE.get("bold", ()))
         if boosts:
@@ -2896,37 +1897,13 @@ def strengthen_expression(parts: dict[str, str], scale: str, rng: random.Random 
     return strengthened
 
 
-def order_pose_before_expression(parts: dict[str, str]) -> dict[str, str]:
-    ordered = dict(parts)
-    pose = str(ordered.get("pose_expression") or "")
-    if _text_has_any(pose, ("双女", "两名女性", "接吻")):
-        return ordered
-    clauses = _clauses(pose.replace("；", "，"))
-    if len(clauses) < 3:
-        return ordered
-    body_clauses: list[str] = []
-    face_clauses: list[str] = []
-    other_clauses: list[str] = []
-    for clause in clauses:
-        has_body = _text_has_any(clause, _BODY_POSE_CLAUSE_MARKERS)
-        has_face = _text_has_any(clause, _FACE_EXPRESSION_CLAUSE_MARKERS)
-        if has_body and not has_face:
-            body_clauses.append(clause)
-        elif has_face and not has_body:
-            face_clauses.append(clause)
-        else:
-            other_clauses.append(clause)
-    if body_clauses and face_clauses:
-        ordered["pose_expression"] = "，".join(body_clauses + other_clauses + face_clauses)
-    return ordered
-
-
 def simplify_pose_language(parts: dict[str, str]) -> dict[str, str]:
     simplified = dict(parts)
     pose = str(simplified.get("pose_expression") or "")
     pose = _clean_pose_family_conflicts(pose)
-    # 无分隔的“一手…一手…”先区分左右手，避免后续统一替换成两只左手。
-    pose = re.sub(r"(一手[^，。]{1,20}?)一手", r"\1另一手", pose)
+    # “一手…一手…”先区分左右手，避免后续统一替换成两只左手。
+    pose = re.sub(r"(一手[^，。]{1,30}?)一手", r"\1另一手", pose)
+    pose = re.sub(r"(一手[^，。]{1,40}?)，一手", r"\1，另一手", pose)
     for source, replacement in _POSE_LANGUAGE_REPLACEMENTS:
         pose = pose.replace(source, replacement)
     for source, replacement in _VAGUE_PROMPT_REPLACEMENTS:
@@ -2942,95 +1919,6 @@ def simplify_pose_language(parts: dict[str, str]) -> dict[str, str]:
     pose = pose.replace("，。", "。").replace("，，", "，")
     simplified["pose_expression"] = pose.strip("，、 \n\t")
     return simplified
-
-
-def apply_conflict_cleaner(parts: dict[str, str], scale: str, shot: str, aspect: str) -> dict[str, str]:
-    cleaned = dict(parts)
-    cleaned["camera"] = _dedupe_full_body_camera(cleaned.get("camera", ""))
-    context = "，".join(str(cleaned.get(name, "")) for name in ("camera", "pose_expression", "scene_light"))
-    for name in ("camera", "pose_expression", "scene_light"):
-        cleaned[name] = _replace_generic_ground_margin(cleaned.get(name, ""), context)
-
-    if aspect == "landscape":
-        vertical_markers = ("站立", "站姿", "直立", "竖向", "从头顶到脚掌", "脚下站点")
-        cleaned["pose_expression"] = _remove_clauses_with_markers(cleaned.get("pose_expression", ""), vertical_markers)
-    if aspect == "portrait":
-        horizontal_markers = ("横躺", "侧躺", "平躺", "沿宽画幅", "横向展开", "宽画幅展开")
-        cleaned["pose_expression"] = _remove_clauses_with_markers(cleaned.get("pose_expression", ""), horizontal_markers)
-
-    if shot in {"head_shot", "half_body"}:
-        for name in ("camera", "pose_expression", "outfit", "scene_light"):
-            cleaned[name] = clean_sentence(cleaned.get(name, ""), shot, scale)
-        # 去除pose中与camera重复的镜头约束分句（入镜/入画/清楚/完整等）
-        camera_text = str(cleaned.get("camera") or "")
-        pose_text = str(cleaned.get("pose_expression") or "")
-        if camera_text and pose_text:
-            constraint_markers = ("入镜", "入画", "入图", "清楚", "完整身形", "占据主体", "边距")
-            for marker in constraint_markers:
-                # 如果camera含此标记而pose也含，移除pose中的该分句
-                if marker in camera_text and marker in pose_text:
-                    pose_text = _remove_clauses_with_markers(pose_text, (marker,))
-            cleaned["pose_expression"] = pose_text
-
-    if scale == "bold" and cleaned.get("outfit"):
-        cleaned["outfit"] = _fix_outfit_aesthetic_conflicts(
-            _remove_bold_footwear(_normalize_bold_outfit_coverage(cleaned.get("outfit", ""), shot)),
-            scale,
-            shot,
-        )
-    if scale == "bold_no_outfit" and cleaned.get("outfit"):
-        cleaned["outfit"] = _fix_outfit_aesthetic_conflicts(
-            _remove_bold_footwear(cleaned.get("outfit", "")),
-            scale,
-            shot,
-        )
-
-    for name in ("makeup", "pose_expression", "scene_light", "quality"):
-        text = str(cleaned.get(name) or "")
-        for source, replacement in _VAGUE_PROMPT_REPLACEMENTS:
-            text = text.replace(source, replacement)
-        if name in {"makeup", "pose_expression"}:
-            for marker in ("红唇", "深红", "酒红", "暗红", "浆果色"):
-                text = text.replace(marker, "浅粉自然唇色")
-        for marker in ("白边", "留白", "空白侧边", "纯白背景"):
-            text = text.replace(marker, "环境色边缘")
-        text = re.sub(r"，{2,}", "，", text).strip("，、 \n\t")
-        cleaned[name] = text
-    scene_light = str(cleaned.get("scene_light") or "")
-    for source, replacement in _SCENE_GLASS_PROP_REPLACEMENTS:
-        scene_light = scene_light.replace(source, replacement)
-    cleaned["scene_light"] = _clean_instantiated_prompt_artifacts(scene_light)
-    cleaned["pose_expression"] = _clean_pose_visual_language(_clean_pose_family_conflicts(cleaned.get("pose_expression", "")))
-    cleaned["scene_light"] = _apply_broken_phrase_replacements(cleaned.get("scene_light", ""))
-    cleaned["camera"] = _replace_generic_canvas_padding(cleaned.get("camera", ""))
-    cleaned["camera"] = _camera_first_clause(cleaned.get("camera", ""))
-    cleaned["scene_light"] = _replace_generic_canvas_padding(cleaned.get("scene_light", ""))
-    cleaned = _move_camera_ground_to_pose(cleaned)
-    cleaned["scene_light"] = re.sub(r"脚下脚下是", "脚下是", str(cleaned.get("scene_light") or ""))
-    cleaned["scene_light"] = re.sub(r"脚部落点和脚下是", "脚下是", str(cleaned.get("scene_light") or ""))
-    cleaned["scene_light"] = re.sub(
-        r"脚部落点和(浅金沙面和脚印纹理|湿润湖蓝泳池瓷砖|鲜绿色草地和花影|暖色木质露台地板|浅彩反光地面|高饱和彩色棚拍地面|带反光的彩色街道路面|暖色室内地面|浅暖色地面纹理)",
-        r"脚下是\1",
-        str(cleaned.get("scene_light") or ""),
-    )
-    cleaned["scene_light"] = re.sub(r"脚部落点和脚下地面边距", "地面材质", str(cleaned.get("scene_light") or ""))
-    for name in ("camera", "pose_expression", "scene_light", "quality"):
-        text = _apply_broken_phrase_replacements(cleaned.get(name, ""))
-        for source, replacement in _VAGUE_PROMPT_REPLACEMENTS:
-            text = text.replace(source, replacement)
-        text = text.replace("形成非显式边界", "手臂自然挡在胸前和腰侧")
-        text = text.replace("克制微笑", "嘴角轻轻上扬")
-        text = text.replace("腰线和身体曲线收紧", "腰背形成轻微S形曲线")
-        text = text.replace("双腿一前一后拉长，裸足落在暗色地面上", "人物背向镜头站立后扭腰回望，双腿一前一后拉长，裸足落在暗色地面上")
-        if name == "pose_expression":
-            text = _clean_pose_visual_language(text)
-        text = re.sub(r"，{2,}", "，", text).strip("，、 \n\t")
-        cleaned[name] = _clean_instantiated_prompt_artifacts(text)
-
-    cleaned = _remove_hand_to_camera_pose(cleaned)
-    for name in ("camera", "outfit", "pose_expression", "scene_light", "quality"):
-        cleaned[name] = _remove_hand_near_mouth_gestures(cleaned.get(name, ""))
-    return _remove_distant_tongue_expression(cleaned, shot)
 
 
 def feedback_tags(parts: dict[str, str], scale: str, shot: str, aspect: str) -> list[str]:
@@ -3052,46 +1940,3 @@ def feedback_tags(parts: dict[str, str], scale: str, shot: str, aspect: str) -> 
     return tags
 
 
-def score_prompt_parts(parts: dict[str, str], scale: str, shot: str, aspect: str) -> int:
-    tags = feedback_tags(parts, scale, shot, aspect)
-    text = _parts_text(parts)
-    quality_scene_text = "，".join(str(parts.get(name, "")) for name in ("scene_light", "quality"))
-    pose_text = str(parts.get("pose_expression") or "")
-    score = 100
-    score += 8 if "active_smile" in tags else -8
-    score += 5 if "vivid_color" in tags else -4
-    concrete_light_hits = sum(1 for marker in _CONCRETE_LIGHT_MARKERS if marker in quality_scene_text)
-    photo_natural_hits = sum(1 for marker in _PHOTOGRAPHIC_MARKERS if marker in text)
-    tension_hits = sum(1 for marker in _TENSION_MARKERS if marker in pose_text)
-    double_girl_contact_hits = sum(
-        1
-        for marker in ("双女", "两名女性", "接吻", "身体正面贴近", "上衣被手指向上提起")
-        if marker in pose_text
-    )
-    if scale in {"bold", "bold_no_outfit", "nsfw"}:
-        score += 10 if concrete_light_hits >= 2 else concrete_light_hits * 3
-    else:
-        score += min(14, concrete_light_hits * 3)
-    score += min(12, photo_natural_hits * 4)
-    if scale in {"bold", "bold_no_outfit", "nsfw"}:
-        score += min(14, tension_hits * 3)
-    if scale == "nsfw" and double_girl_contact_hits >= 3:
-        score += 18
-    generic_quality_hits = sum(text.count(marker) for marker in _GENERIC_QUALITY_MARKERS)
-    repeated_soft_words = sum(max(0, text.count(marker) - 2) for marker in ("高级", "质感", "光泽", "完整", "清楚", "冷白"))
-    score -= generic_quality_hits * 2
-    score -= repeated_soft_words * 5
-    if scale in {"bold", "bold_no_outfit", "nsfw"} and not _text_has_any(pose_text, _TENSION_MARKERS):
-        score -= 16
-    if not _text_has_any(quality_scene_text, _PHOTOGRAPHIC_MARKERS):
-        score -= 12
-    visual_focus_names = {name for name, _keywords in VISUAL_FOCUS_BY_SHOT.get(shot, ())}
-    score += 5 if str(parts.get("visual_focus") or "") in visual_focus_names else 0
-    if shot == "full_body":
-        score += 10 if "full_body_foot_anchor" in tags else -18
-    if "forced_perspective" in tags:
-        score += 4
-    for bad_tag in ("red_lip_risk", "white_padding_risk", "avoid_flat_face", "landscape_vertical_pose_risk", "portrait_horizontal_pose_risk"):
-        if bad_tag in tags:
-            score -= 14
-    return score

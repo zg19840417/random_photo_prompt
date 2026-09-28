@@ -169,13 +169,9 @@
     }
 
     .image-control-row {
-      grid-template-columns: minmax(0, 1.25fr) repeat(3, minmax(0, .85fr)) minmax(58px, .85fr);
+      grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(58px, .85fr);
       gap: 6px;
       align-items: end;
-    }
-
-    .image-control-row.k2-rule {
-      grid-template-columns: minmax(0, 1fr) minmax(58px, .85fr);
     }
 
     .model-workflow-row {
@@ -1218,11 +1214,12 @@
           </div>
           <div id="imageModePanel" class="mode-panel">
             <div class="row image-control-row">
-              <label id="promptRuleField">
-                <div class="label">规则</div>
-                <select id="promptRule">
-                  <option value="standard" selected>项目默认规则</option>
-                  <option value="k2_sfw">K2 SFW 叙事规则</option>
+              <label id="orientationField">
+                <div class="label">方向</div>
+                <select id="orientation">
+                  <option value="auto" selected>自动</option>
+                  <option value="landscape">横向</option>
+                  <option value="portrait">竖向</option>
                 </select>
               </label>
               <label id="scaleField">
@@ -1267,11 +1264,9 @@
                 <div class="label">工作流</div>
                 <select id="workflow">
                   <option value="zit_single" selected>单采-ZIT</option>
-                  <option value="zib_single">单采-ZIB</option>
                   <option value="zitb_double">双采-ZIT+ZIB</option>
-                  <option value="zimage_double_v2">新双采-ZIT+ZIB+Klein</option>
                   <option value="redcraft_krea2">单采-Krea2</option>
-                  <option value="krea2_cc">单采-Krea2+CC</option>
+                  <option value="krea2_double">双采-Krea2</option>
                 </select>
               </label>
               <div id="modelSelectGroup" class="model-select-group">
@@ -1497,7 +1492,7 @@
       viewerVideoPlayTimer: null,
       waterfallCols: 4,
       nextBatchId: 1,
-      maxActiveJobs: 99,
+      maxActiveJobs: 100,
       clientId: "",
       serialBatches: [],
       serialSubmitting: false,
@@ -1564,11 +1559,7 @@
     const confirmMessage = document.querySelector("#confirmMessage");
     const confirmCancel = document.querySelector("#confirmCancel");
     const confirmOk = document.querySelector("#confirmOk");
-    const imageControlRow = document.querySelector(".image-control-row");
-    const promptRuleSelect = document.querySelector("#promptRule");
-    const scaleField = document.querySelector("#scaleField");
-    const eraField = document.querySelector("#eraField");
-    const shotField = document.querySelector("#shotField");
+    const orientationSelect = document.querySelector("#orientation");
     const scaleSelect = document.querySelector("#scale");
     const videoInputModeSelect = document.querySelector("#videoInputMode");
     const eraSelect = document.querySelector("#era");
@@ -1699,15 +1690,6 @@
       select.appendChild(option);
     }
 
-    function updatePromptRuleControls() {
-      const k2Sfw = promptRuleSelect.value === "k2_sfw";
-      scaleField.hidden = k2Sfw;
-      eraField.hidden = k2Sfw;
-      shotField.hidden = k2Sfw;
-      imageControlRow.classList.toggle("k2-rule", k2Sfw);
-      renderCustomSelect(promptRuleSelect);
-    }
-
     function closeCustomSelect(select) {
       const custom = customSelects.get(select);
       if (!custom) return;
@@ -1734,12 +1716,12 @@
       try {
         localStorage.setItem(settingsKey, JSON.stringify({
           mode: state.mode,
-          promptRule: promptRuleSelect.value,
           scale: scaleSelect.value,
           videoInputMode: videoInputModeSelect.value,
           videoModel: videoModelSelect.value,
           era: eraSelect.value,
           shot: shotSelect.value,
+          orientation: orientationSelect.value,
           workflow: workflowSelect.value,
           zitModel: zitModelSelect.value,
           zibModel: zibModelSelect.value,
@@ -1766,13 +1748,12 @@
       try {
         const settings = JSON.parse(localStorage.getItem(settingsKey) || "{}");
         switchMode(settings.mode === "video" ? "video" : "image", false);
-        if (optionExists(promptRuleSelect, settings.promptRule)) setSelectValue(promptRuleSelect, settings.promptRule);
         if (optionExists(scaleSelect, settings.scale)) setSelectValue(scaleSelect, settings.scale);
-        updatePromptRuleControls();
         if (optionExists(videoInputModeSelect, settings.videoInputMode)) setSelectValue(videoInputModeSelect, settings.videoInputMode);
         if (optionExists(eraSelect, settings.era)) setSelectValue(eraSelect, settings.era);
         const shotValue = normalizeStoredShot(settings.shot, settings.preset);
         if (optionExists(shotSelect, shotValue)) setSelectValue(shotSelect, shotValue);
+        if (optionExists(orientationSelect, settings.orientation)) setSelectValue(orientationSelect, settings.orientation);
         if (optionExists(workflowSelect, settings.workflow)) setSelectValue(workflowSelect, settings.workflow);
         if (settings.zitModel) {
           zitModelSelect.dataset.pendingValue = settings.zitModel;
@@ -1809,7 +1790,7 @@
 
     function updateCustomPromptButton() {
       const hasPositivePrompt = Boolean(state.customPrompt.trim());
-      const hasNegativePrompt = ["zitb_double", "zimage_double_v2"].includes(workflowSelect.value) && Boolean(imageNegativePrompt.value.trim());
+      const hasNegativePrompt = workflowSelect.value === "zitb_double" && Boolean(imageNegativePrompt.value.trim());
       const active = hasPositivePrompt || hasNegativePrompt;
       customPromptButton.classList.toggle("active", active);
       const label = hasPositivePrompt
@@ -1842,10 +1823,10 @@
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify({
-            prompt_rule: promptRuleSelect.value,
             scale: scaleSelect.value,
             era: eraSelect.value,
             shot: shotSelect.value,
+            orientation: orientationSelect.value,
             seed: `${Date.now()}-${Math.random()}`
           })
         });
@@ -2189,10 +2170,10 @@
     }
 
     function updateWorkflowModelVisibility() {
-      const isDoubleWorkflow = ["zitb_double", "zimage_double_v2"].includes(workflowSelect.value) && state.mode === "image";
-      const showZit = ["zit_single", "zitb_double", "zimage_double_v2"].includes(workflowSelect.value) && state.mode === "image";
-      const showZib = ["zib_single", "zitb_double", "zimage_double_v2"].includes(workflowSelect.value) && state.mode === "image";
-      const showKrea2 = ["redcraft_krea2", "krea2_cc"].includes(workflowSelect.value) && state.mode === "image";
+      const isDoubleWorkflow = workflowSelect.value === "zitb_double" && state.mode === "image";
+      const showZit = ["zit_single", "zitb_double"].includes(workflowSelect.value) && state.mode === "image";
+      const showZib = workflowSelect.value === "zitb_double" && state.mode === "image";
+      const showKrea2 = ["redcraft_krea2", "krea2_double"].includes(workflowSelect.value) && state.mode === "image";
       zitModelField.hidden = !showZit;
       zibModelField.hidden = !showZib;
       krea2ModelField.hidden = !showKrea2;
@@ -3487,7 +3468,7 @@
       renderWaterfall();
     });
 
-    [promptRuleSelect, scaleSelect, videoInputModeSelect, eraSelect, shotSelect, workflowSelect, zitModelSelect, zibModelSelect, krea2ModelSelect, videoFpsSelect, videoSecondsSelect, customPromptResolution].forEach(enhanceSelect);
+    [orientationSelect, scaleSelect, videoInputModeSelect, eraSelect, shotSelect, workflowSelect, zitModelSelect, zibModelSelect, krea2ModelSelect, videoFpsSelect, videoSecondsSelect, customPromptResolution].forEach(enhanceSelect);
     document.addEventListener("click", () => closeAllCustomSelects());
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") closeAllCustomSelects();
@@ -3501,7 +3482,7 @@
       tab.addEventListener("click", () => switchMode(tab.dataset.mode));
     });
     enhanceSelect(videoModelSelect);
-    [scaleSelect, eraSelect, shotSelect, videoModelSelect].forEach(select => {
+    [scaleSelect, eraSelect, shotSelect, orientationSelect, videoModelSelect].forEach(select => {
       select.addEventListener("change", () => {
         renderCustomSelect(select);
         saveSettings();
@@ -3543,14 +3524,6 @@
       updateWorkflowModelVisibility();
       saveSettings();
       checkStatus();
-    });
-    promptRuleSelect.addEventListener("change", () => {
-      updatePromptRuleControls();
-      saveSettings();
-    });
-    scaleSelect.addEventListener("change", () => {
-      updatePromptRuleControls();
-      saveSettings();
     });
     zitModelSelect.addEventListener("change", () => {
       renderCustomSelect(zitModelSelect);
@@ -4121,17 +4094,17 @@
           }
         : {
             client_id: state.clientId,
-            prompt_rule: promptRuleSelect.value,
             scale: scaleSelect.value,
             era: eraSelect.value,
             shot: shotSelect.value,
+            orientation: orientationSelect.value,
             workflow: workflowSelect.value,
-            zit_model: ["zit_single", "zitb_double", "zimage_double_v2"].includes(workflowSelect.value) ? zitModelSelect.value : "",
-            zib_model: ["zib_single", "zitb_double", "zimage_double_v2"].includes(workflowSelect.value) ? zibModelSelect.value : "",
-            krea2_model: ["redcraft_krea2", "krea2_cc"].includes(workflowSelect.value) ? krea2ModelSelect.value : "",
+            zit_model: ["zit_single", "zitb_double"].includes(workflowSelect.value) ? zitModelSelect.value : "",
+            zib_model: workflowSelect.value === "zitb_double" ? zibModelSelect.value : "",
+            krea2_model: ["redcraft_krea2", "krea2_double"].includes(workflowSelect.value) ? krea2ModelSelect.value : "",
             loras: selectedLoras(),
             seed: imageSeedInput.value.trim(),
-            negative_prompt: ["zitb_double", "zimage_double_v2"].includes(workflowSelect.value) ? imageNegativePrompt.value.trim() : "",
+            negative_prompt: workflowSelect.value === "zitb_double" ? imageNegativePrompt.value.trim() : "",
             custom_prompt_source: state.customPromptSource,
             custom_prompt: ["manual", "pregenerated"].includes(state.customPromptSource) ? state.customPrompt.trim() : "",
             custom_resolution: ["manual", "pregenerated"].includes(state.customPromptSource) ? state.customResolution : "",

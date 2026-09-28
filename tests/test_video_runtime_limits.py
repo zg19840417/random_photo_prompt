@@ -23,7 +23,8 @@ class VideoRuntimeLimitsTests(unittest.TestCase):
         namespace = {
             "copy": copy, "Path": Path,
             "ensure_model_cleanup": lambda workflow: [],
-            "image_to_video_resolution": lambda path: (640, 960),
+            "image_to_video_resolution": lambda path: (480, 704),
+            "MAXIMUM_VIDEO_SIDE": 720,
             "_node_title": lambda node: node.get("_meta", {}).get("title", "").lower(),
             "_looks_negative_text": lambda node: False,
             "MOBILE_VIDEO_OUTPUT_SUBFOLDER": "videos",
@@ -40,6 +41,12 @@ class VideoRuntimeLimitsTests(unittest.TestCase):
                         seconds=seconds, positive_prompt="镜头前移", video_mode=mode, video_model=model,
                     )
                     self.assertEqual(workflow["163"]["inputs"]["model_name"], model)
+                    expected_size = (480, 704) if mode == "image" else (400, 720)
+                    self.assertEqual((params["width"], params["height"]), expected_size)
+                    self.assertEqual(
+                        (workflow["156"]["inputs"]["width"], workflow["156"]["inputs"]["height"]),
+                        expected_size,
+                    )
                     length_link = workflow["156"]["inputs"]["length"]
                     expression = workflow[length_link[0]]["inputs"]
                     duration_link = expression["values.a"]
@@ -60,10 +67,10 @@ class VideoRuntimeLimitsTests(unittest.TestCase):
 
     def test_image_to_video_resolution_preserves_aspect_ratio_and_caps_runtime_limits(self):
         cases = {
-            (1920, 1280): (960, 640),
-            (1280, 1920): (640, 960),
-            (1536, 1536): (768, 768),
-            (789, 1080): (672, 896),
+            (1920, 1280): (704, 480),
+            (1280, 1920): (480, 704),
+            (1536, 1536): (704, 704),
+            (789, 1080): (512, 704),
         }
         with tempfile.TemporaryDirectory() as directory:
             for source_size, expected_size in cases.items():
@@ -71,7 +78,7 @@ class VideoRuntimeLimitsTests(unittest.TestCase):
                 Image.new("RGB", source_size).save(image_path)
                 width, height = image_to_video_resolution(image_path)
                 self.assertEqual((width, height), expected_size)
-                self.assertLessEqual(max(width, height), 960)
+                self.assertLessEqual(max(width, height), 720)
                 self.assertLessEqual(width * height, 620_000)
                 self.assertEqual(width % 32, 0)
                 self.assertEqual(height % 32, 0)

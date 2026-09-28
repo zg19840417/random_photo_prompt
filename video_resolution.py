@@ -6,9 +6,10 @@ from PIL import Image
 
 
 MAXIMUM_VIDEO_PIXELS = 620_000
+MAXIMUM_VIDEO_SIDE = 720
 
 
-def image_to_video_resolution(source_image_path, maximum_side=960, maximum_pixels=MAXIMUM_VIDEO_PIXELS):
+def image_to_video_resolution(source_image_path, maximum_side=MAXIMUM_VIDEO_SIDE, maximum_pixels=MAXIMUM_VIDEO_PIXELS):
     """Return a source-bounded MiniMax H3 size on a 32-pixel grid within both limits."""
     multiple = 32
     maximum_side = max(multiple, int(maximum_side) // multiple * multiple)

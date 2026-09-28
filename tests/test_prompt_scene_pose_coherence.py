@@ -4,12 +4,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from prompt_engine import _RECENT_SCENE_CATEGORIES, generate_prompt_items
+from prompt_engine import generate_prompt_items
 
 
 class PromptScenePoseCoherenceTests(unittest.TestCase):
     def sample(self, scale, shot, seed):
-        _RECENT_SCENE_CATEGORIES.clear()
         return generate_prompt_items(1, {"scale": scale, "shot": shot, "era": "modern"}, seed)[0]
 
     def test_full_body_pose_does_not_use_absent_sofa(self):
@@ -53,12 +52,6 @@ class PromptScenePoseCoherenceTests(unittest.TestCase):
             self.assertIn("哑光地面", parts["scene_light"])
             self.assertIn("柔光", parts["scene_light"])
 
-    def test_reference_sitting_pose_has_readable_gaze_and_lips(self):
-        from prompt_engine import _REFERENCE_STYLE_POSE_BY_SHOT
-        pose = _REFERENCE_STYLE_POSE_BY_SHOT["full_body"][-1]
-        self.assertIn("视线看向镜头，单侧唇角轻轻上扬", pose)
-        self.assertNotIn("嘴角带弧度看向镜头", pose)
-
     def test_head_outfit_subject_precedes_shoulder_detail(self):
         item = self.sample("normal", "head_shot", "a3a1d707d623e15a")
         self.assertNotIn("针织背心的一侧宽肩带", item["positive_prompt"])
@@ -70,6 +63,13 @@ class PromptScenePoseCoherenceTests(unittest.TestCase):
                 scene = item["dimension_parts"]["scene_light"]
                 self.assertFalse(any(word in scene for word in ("甜品店", "咖啡馆", "电影院", "书店")), scene)
                 self.assertFalse(item["dimension_parts"]["outfit"])
+
+    def test_third_tier_scene_has_private_variety(self):
+        generated_scenes = {
+            self.sample("bold_no_outfit", "full_body", f"third-scene-{seed}")["dimension_parts"]["scene_light"]
+            for seed in range(12)
+        }
+        self.assertGreater(len(generated_scenes), 3)
 
 
 if __name__ == "__main__":

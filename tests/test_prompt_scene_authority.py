@@ -4,7 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from prompt_engine import _apply_environment_anchor_pose, _apply_theme_blueprint, generate_prompt_items
+from prompt_engine import _apply_theme_blueprint, generate_prompt_items
 
 
 class PromptSceneAuthorityTests(unittest.TestCase):
@@ -19,16 +19,6 @@ class PromptSceneAuthorityTests(unittest.TestCase):
         result = _apply_theme_blueprint(parts, "bold", "full_body", "portrait", "modern")
         for name in ("pose_expression", "quality", "outfit"):
             self.assertEqual(result[name], parts[name])
-
-    def test_environment_anchor_only_uses_final_scene(self):
-        parts = {
-            "scene_light": "书店落地窗前，暖白光照亮书架",
-            "theme_scene_keywords": "森林，木栈道，湿木板",
-            "theme_name": "garden_fog",
-            "pose_expression": "她倚着书架回望镜头",
-        }
-        result = _apply_environment_anchor_pose(parts, "normal", "half_body", "portrait")
-        self.assertEqual(result["pose_expression"], parts["pose_expression"])
 
     def test_generated_prompt_keeps_scene_and_grade_compatible(self):
         selections = {"scale": "bold", "shot": "full_body", "aspect": "portrait"}

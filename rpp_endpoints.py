@@ -16,7 +16,6 @@ from aiohttp import web
 from PIL import Image
 
 from rpp_globals import (
-    K2_SFW_RULE_KEY,
     MOBILE_DEFAULT_WORKFLOW_KEY,
     MOBILE_ENTRY_URL,
     MOBILE_FAVORITE_BACKUP_DIR,
@@ -54,7 +53,6 @@ from rpp_prompts import (
     _mobile_custom_resolution,
     _mobile_resolution_for_custom_prompt,
     _mobile_shot_config,
-    _normalize_mobile_prompt_rule,
     _prompt_text,
     _use_chinese_negative_prompt,
 )
@@ -79,6 +77,7 @@ from rpp_remote import (
     _lora_dir_display_path,
     _mac_proxy_source_image_url,
     _mac_proxy_video_upload_url,
+    _probe_remote_websocket,
     _queue_local_guarded_workflow,
     _queue_mobile_workflow,
     _resolve_krea2_model,
@@ -273,14 +272,13 @@ async def pregenerate_mobile_image_prompt(request):
         data = await request.json()
         scale = data.get("scale", "bold")
         era = data.get("era", "modern")
-        prompt_rule = _normalize_mobile_prompt_rule(data.get("prompt_rule"))
         shot_config = _mobile_shot_config(data.get("shot", "full_body_portrait"))
         seed_text = str(data.get("seed") or f"{time.time()}-{uuid.uuid4()}")
-        prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era, prompt_rule)
+        prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era, data.get("orientation", "auto"))
         width = int(resolution["width"])
         height = int(resolution["height"])
         workflow_key = str(data.get("workflow") or "")
-        if _is_krea2_workflow(workflow_key) and prompt_rule != K2_SFW_RULE_KEY:
+        if _is_krea2_workflow(workflow_key):
             prompt_item = _apply_krea2_prompt_item_orientation_guard(prompt_item, width, height)
         return web.json_response(
             {
@@ -288,9 +286,8 @@ async def pregenerate_mobile_image_prompt(request):
                 "display_prompt": _display_prompt_text(prompt_item),
                 "negative_prompt": prompt_item.get("negative_prompt", ""),
                 "scale": prompt_item.get("scale", scale),
-                "prompt_rule": prompt_rule,
                 "shot": prompt_item.get("shot_key", shot_config["shot"]),
-                "era": prompt_item.get("era", "") if prompt_rule == K2_SFW_RULE_KEY else prompt_item.get("era", era),
+                "era": prompt_item.get("era", era),
                 "aspect": resolution.get("aspect", "portrait"),
                 "width": width,
                 "height": height,
@@ -447,6 +444,10 @@ def _local_status_html(payload):
 
 
 async def local_status_page(request):
+    if request.query.get("probe") == "websocket":
+        if not REMOTE_COMFYUI_URL:
+            return web.json_response({"ok": False, "error": "未配置远端计算地址。"}, status=400)
+        return web.json_response(await _probe_remote_websocket())
     payload = await _mobile_entry_status()
     if request.query.get("format") == "json" or "application/json" in request.headers.get("Accept", ""):
         return web.json_response(payload)
@@ -554,11 +555,7 @@ async def generate_mobile_image(request):
             zit_model = ""
             zib_model = ""
             krea2_model = _resolve_krea2_model(requested_krea2_model, zimage_models["krea2_models"])
-        elif workflow_key == "zib_single":
-            zit_model = ""
-            zib_model = _resolve_zib_model(requested_zib_model, zimage_models["zib_models"])
-            krea2_model = ""
-        elif workflow_key in {"zitb_double", "zimage_double_v2"}:
+        elif workflow_key == "zitb_double":
             zit_model = _resolve_zit_model(requested_zit_model, zimage_models["zit_models"])
             zib_model = _resolve_zib_model(requested_zib_model, zimage_models["zib_models"])
             krea2_model = ""
@@ -569,7 +566,6 @@ async def generate_mobile_image(request):
         loras = [] if manual_only else _resolve_mobile_loras(data.get("loras"), available_loras)
         scale = data.get("scale", "bold")
         era = data.get("era", "modern")
-        prompt_rule = _normalize_mobile_prompt_rule(data.get("prompt_rule"))
         shot_config = _mobile_shot_config(data.get("shot", "full_body_portrait"))
         custom_prompt_source = str(data.get("custom_prompt_source") or "").strip()
         custom_prompt = (
@@ -578,10 +574,10 @@ async def generate_mobile_image(request):
             else ""
         )
         exact_prompt = manual_only and data.get("exact_prompt") is True
-        is_double_workflow = workflow_key in {"zitb_double", "zimage_double_v2"}
+        accepts_negative_prompt = workflow_key == "zitb_double"
         custom_negative_prompt = str(data.get("negative_prompt") or "").strip()
-        if not is_double_workflow and custom_negative_prompt:
-            return web.json_response({"error": "单采工作流只接受正向提示词。"}, status=400)
+        if not accepts_negative_prompt and custom_negative_prompt:
+            return web.json_response({"error": "此工作流只接受正向提示词。"}, status=400)
         client_id = str(data.get("client_id") or "").strip()
         batch_id = data.get("_batch_id")
         batch_index = max(1, int(data.get("_batch_index") or 1))
@@ -600,15 +596,15 @@ async def generate_mobile_image(request):
                 prompt_item = _custom_mobile_prompt_item(custom_prompt, seed_text)
                 resolution = _mobile_custom_resolution(custom_prompt, data.get("custom_resolution"))
             else:
-                prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era, prompt_rule)
+                prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era, data.get("orientation", "auto"))
             width = int(resolution["width"])
             height = int(resolution["height"])
             aspect = resolution["aspect"]
             if custom_negative_prompt:
                 prompt_item["negative_prompt"] = custom_negative_prompt
-            if is_double_workflow and prompt_rule != K2_SFW_RULE_KEY and not custom_negative_prompt:
+            if accepts_negative_prompt and not custom_negative_prompt:
                 _use_chinese_negative_prompt(prompt_item, scale, shot_config, width, height, aspect)
-            if _is_krea2_workflow(workflow_key) and prompt_rule != K2_SFW_RULE_KEY and not exact_prompt and not custom_prompt:
+            if _is_krea2_workflow(workflow_key) and not exact_prompt and not custom_prompt:
                 prompt_item = _apply_krea2_prompt_item_orientation_guard(prompt_item, width, height)
             seed = int(data.get("seed") or prompt_item.get("seed") or int(time.time() * 1000))
             if count > 1 and not data.get("seed"):
@@ -629,7 +625,7 @@ async def generate_mobile_image(request):
                 zib_model,
                 workflow_key,
                 krea2_model,
-                apply_krea2_orientation_guard=prompt_rule != K2_SFW_RULE_KEY and not exact_prompt,
+                apply_krea2_orientation_guard=not exact_prompt,
             )
             queued, error = await _queue_mobile_workflow(workflow, client_id)
             if error:
@@ -646,11 +642,10 @@ async def generate_mobile_image(request):
                 "krea2_model": krea2_model,
                 "loras": loras,
                 "scale": prompt_item.get("scale", scale),
-                "prompt_rule": prompt_rule,
                 "shot": prompt_item.get("shot_key", shot_config["shot"]),
                 "custom_prompt": bool(custom_prompt),
                 "custom_resolution": data.get("custom_resolution") if custom_prompt else "",
-                "era": prompt_item.get("era", "") if prompt_rule == K2_SFW_RULE_KEY else prompt_item.get("era", era),
+                "era": prompt_item.get("era", era),
                 "aspect": aspect,
                 "width": width,
                 "height": height,
@@ -707,7 +702,7 @@ async def generate_mobile_video(request):
         # Video has its own action field. Never inherit a manual still-image prompt.
         action_text = str(data.get("action_text") or "")
         fps = 24
-        requested_seconds = normalize_video_seconds(data.get("seconds", 8))
+        requested_seconds = normalize_video_seconds(data.get("seconds", 4))
         source_prompt = "" if video_mode == "text" or source_is_uploaded else _mobile_prompt_for_gallery_file(Path(source_filename).name)
         jobs = []
         errors = []
@@ -794,7 +789,7 @@ async def pregenerate_mobile_video_action(request):
             data.get("seconds", 8),
             data.get("previous_action", ""),
         )
-        seconds = normalize_video_seconds(data.get("seconds", 8))
+        seconds = normalize_video_seconds(data.get("seconds", 4))
         return web.json_response(
             {
                 "action": action,
