@@ -3,7 +3,10 @@ from __future__ import annotations
 from prompt_constants import NEGATIVE_PROMPT_RULES
 from prompt_data import NEGATIVE_PROMPT
 from prompt_normalize import normalize_aspect, normalize_scale, normalize_shot
-from prompt_postprocess import _text_has_any
+
+
+def _text_has_any(text: str, markers: tuple[str, ...]) -> bool:
+    return any(marker in text for marker in markers if marker)
 
 
 def _append_negative_terms(terms: list[str], additions: tuple[str, ...]) -> None:
@@ -158,7 +161,7 @@ CHINESE_NEGATIVE_PROMPT_RULES = {
     "shot_scope_head": ("全身", "半身", "腿部", "脚部", "鞋子", "站姿", "坐姿"),
     "shot_scope_upper": ("腿部", "脚部", "鞋子", "全身", "下半身", "肚脐"),
     "shot_scope_half": ("脚部", "鞋子", "小腿", "全身"),
-    "full_body_integrity": ("脚部裁切", "缺脚", "头部裁切", "缺头", "腿部截断", "腿短变形", "身体比例压缩"),
+    "full_body_integrity": ("脚部裁切", "缺脚", "头部裁切", "缺头", "腿部截断", "腿短变形", "身体比例压缩", "黑色脚趾甲", "尖长脚趾甲", "长脚趾甲"),
     "legal_safety": ("明确性行为", "暴露生殖器"),
     "nsfw_amateur_tone": ("业余摄影", "家庭录像感", "网络摄像头画质", "医疗光", "平光", "过曝", "发灰"),
 }

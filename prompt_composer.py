@@ -2,7 +2,7 @@
 
 数据只读 data/art_direction_pools.json：
 - 母题决定光线、空气感、前景、配色、调色和机位，保证一张图只有一个清楚的氛围；
-- 地点提供环境文本、可互动道具、室内外与私密属性；三档全部、二档全身只用私密地点；
+- 地点提供环境文本、可互动道具、室内外与私密属性；三档全部只用私密地点，二档不限地点；
 - 姿势只写身体动作并声明所需道具，神情单独成池，两者按动作能量组合；
 - 二档姿势不写服装，三档直接复用；服装按母题配色填色，赤脚姿势不写鞋。
 渲染后用 prompt_fluency 检查，不合格就重抽，不做字符串修补。固定人物容貌行始终取自原人物池，不在这里改写。
@@ -59,6 +59,11 @@ def _era(era: str) -> str:
     return "ancient" if str(era or "").strip() in {"ancient", "古装", "古代"} else "modern"
 
 
+def _name_hands(body: str) -> str:
+    """动作里的“一只手…另一只手”写成明确的左手、右手，图像模型才不会把两只手画成同一侧。"""
+    return body.replace("另一只手", "右手").replace("一只手", "左手")
+
+
 def _pick(rng: random.Random, values):
     return values[rng.randrange(len(values))]
 
@@ -79,7 +84,7 @@ def _pose_table(group: str, shot: str, aspect: str, era: str) -> list[dict]:
 def _place_allowed(place: dict, scale: str, shot: str) -> bool:
     if _group(scale) not in place["scales"]:
         return False
-    if scale == "bold_no_outfit" or (scale == "bold" and shot == "full_body"):
+    if scale == "bold_no_outfit":
         return bool(place.get("private"))
     return True
 
@@ -144,8 +149,6 @@ def _camera_line(group: str, shot: str, aspect: str, direction: dict, wild: dict
 
 def _outfit_fits_place(option, place: dict) -> bool:
     requires = option.get("requires") if isinstance(option, dict) else None
-    if requires == "private":
-        return bool(place.get("private"))
     if requires == "water":
         return bool(place.get("water"))
     return True
@@ -160,10 +163,10 @@ def _outfit_line(group: str, era: str, shot: str, place: dict, palette: list[str
     else:
         options = POOLS["OUTFITS"][group][shot]
     options = [option for option in options if _outfit_fits_place(option, place)]
-    # 私密地点一半概率优先挑情趣内衣类，泳装只出现在水边。
-    private_only = [option for option in options if isinstance(option, dict) and option.get("requires") == "private"]
-    if private_only and rng.random() < 0.5:
-        options = private_only
+    # 泳装只出现在水边；水边地点一半概率优先挑泳装，内衣类不限地点。
+    swim_only = [option for option in options if isinstance(option, dict) and option.get("requires") == "water"]
+    if swim_only and rng.random() < 0.5:
+        options = swim_only
     option = _pick(rng, options)
     if isinstance(option, dict):
         text = option["text"]
@@ -220,7 +223,7 @@ def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Rand
         "character": _pick(rng, character_identity_options_by_aspect(shot, aspect)),
         "makeup": _makeup(group, direction, place, aspect, rng),
         "outfit": outfit,
-        "pose_expression": f"{pose['body']}，{expression}",
+        "pose_expression": f"{_name_hands(pose['body'])}。{expression}",
         "scene_light": _scene_line(group, shot, direction, place, rng),
         "quality": f"{lens}，{direction['grade']}，画面以{main}和{support}为主色，点缀一点{accent}，{texture}，高光不过曝",
         "director": direction["name"],

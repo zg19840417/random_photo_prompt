@@ -5,29 +5,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from prompt_engine import generate_prompt_items
-from prompt_postprocess import clean_global_prompt_text, simplify_pose_language
 
 
 class PromptExpressionOutfitDetailTests(unittest.TestCase):
 
-    def test_two_hands_without_separator_keep_distinct_sides(self):
-        pose = simplify_pose_language(
-            {"pose_expression": "她倚着栏杆，一手搭栏一手垂落，眼神看向镜头，嘴角带笑"}
-        )["pose_expression"]
-        self.assertIn("左手搭栏右手垂落", pose)
-        self.assertNotIn("左手搭栏左手", pose)
-
-    def test_rail_pose_does_not_invent_rail_without_scene(self):
-        pose = "她倚着栏杆，左手搭栏右手垂落，抬眼看镜头"
-        no_rail = clean_global_prompt_text(
-            {"pose_expression": pose, "scene_light": "酒店落地窗前，阳光照进室内"}, "half_body", "normal"
-        )["pose_expression"]
-        self.assertNotIn("栏杆", no_rail)
-        self.assertIn("左手拢住发尾，右手自然垂落", no_rail)
-        with_rail = clean_global_prompt_text(
-            {"pose_expression": pose, "scene_light": "阳台栏杆边，阳光照进来"}, "half_body", "normal"
-        )["pose_expression"]
-        self.assertIn("栏杆", with_rail)
+    def test_props_named_in_the_pose_exist_in_the_scene(self):
         for index in range(12):
             parts = generate_prompt_items(
                 1, {"scale": "normal", "shot": "half_body", "era": "modern"}, f"detail-normal-mobile-{index}"

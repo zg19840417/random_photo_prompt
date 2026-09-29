@@ -23,7 +23,6 @@ FILES = [
     "prompt_data.py",
     "prompt_engine.py",
     "prompt_normalize.py",
-    "prompt_postprocess.py",
     "prompt_composer.py",
     "prompt_fluency.py",
     "negative_prompt_engine.py",
@@ -70,6 +69,9 @@ def verify_remote_object_info():
     url = "http://192.168.123.111:8188/object_info/RandomPhotoPrompt"
     with urllib.request.urlopen(url, timeout=20) as response:
         body = response.read(500)
+    if b"RandomPhotoPrompt" not in body:
+        # 节点导入失败时接口仍返回 200 和 {}，必须明确报错，不能当作同步成功。
+        raise RuntimeError(f"远端没有注册 RandomPhotoPrompt 节点（custom node 导入失败），返回：{body[:120]!r}")
     print(f"remote object_info ok: HTTP {response.status} {body[:120]!r}", flush=True)
 
 

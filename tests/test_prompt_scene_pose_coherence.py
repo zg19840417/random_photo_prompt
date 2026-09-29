@@ -39,10 +39,6 @@ class PromptScenePoseCoherenceTests(unittest.TestCase):
         self.assertNotIn("浅棕美瞳", parts["makeup"])
         self.assertNotIn("浅棕瞳孔", parts["makeup"])
 
-    def test_skin_base_makeup_is_not_rewritten_as_backdrop(self):
-        from prompt_postprocess import clean_sentence
-        self.assertEqual(clean_sentence("冷白底妆保留肤纹", "full_body", "bold"), "冷白底妆保留肤纹")
-
     def test_bold_studio_pose_makeup_and_scene_are_drawable(self):
         item = self.sample("bold", "full_body", "fd07b2260012bfd6")
         parts = item["dimension_parts"]

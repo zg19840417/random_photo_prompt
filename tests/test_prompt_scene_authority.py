@@ -4,22 +4,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from prompt_engine import _apply_theme_blueprint, generate_prompt_items
+from prompt_engine import generate_prompt_items
 
 
 class PromptSceneAuthorityTests(unittest.TestCase):
-    def test_theme_cannot_rewrite_other_scene_pose_and_grade(self):
-        parts = {
-            "theme_name": "pool_noon",
-            "scene_light": "书店落地窗前，自然光映暖白侧脸，书架在背景里",
-            "pose_expression": "她倚着书架回望镜头",
-            "quality": "暖色自然光写真",
-            "outfit": "蓝色棉衬衫",
-        }
-        result = _apply_theme_blueprint(parts, "bold", "full_body", "portrait", "modern")
-        for name in ("pose_expression", "quality", "outfit"):
-            self.assertEqual(result[name], parts[name])
-
     def test_generated_prompt_keeps_scene_and_grade_compatible(self):
         selections = {"scale": "bold", "shot": "full_body", "aspect": "portrait"}
         for seed in range(12):

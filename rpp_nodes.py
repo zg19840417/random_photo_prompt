@@ -21,11 +21,9 @@ from rpp_globals import (
 )
 from rpp_prompts import (
     _build_desktop_prompt_with_mobile_logic,
-    _enforce_mobile_ancient_barefoot_text,
     _prompt_text,
 )
 from rpp_utils import _normalize_aspect, _prompt_signature
-from prompt_postprocess import clean_prompt_text
 
 __all__ = sorted(["RandomPhotoImageInterrogator", "RandomPhotoPrompt", "RandomPhotoPromptRemoteLoadImageFromMac", "RandomPhotoPromptRemoteUploadImage", "RandomPhotoPromptRemoteUploadVideo", "RandomPhotoPromptStreamImage", "__all__"])
 
@@ -228,7 +226,7 @@ class RandomPhotoPrompt:
             aspect = _normalize_aspect(cached_aspect)
             signature = _prompt_signature(scale, shot, aspect, era)
             if use_pregenerated_prompt and cached_prompt and str(cached_signature or "") == signature:
-                return (clean_prompt_text(_enforce_mobile_ancient_barefoot_text(cached_prompt, era)), cached_negative_prompt)
+                return (str(cached_prompt), cached_negative_prompt)
             item, _resolution = _build_desktop_prompt_with_mobile_logic(scale, shot, str(time.time()), era)
             return (_prompt_text(item), item.get("negative_prompt", ""))
         except Exception:
@@ -252,5 +250,5 @@ class RandomPhotoImageInterrogator:
     CATEGORY = "Random Photo"
 
     def generate(self, cached_prompt="", cached_signature=""):
-        return (clean_prompt_text(cached_prompt) or "请在节点上选择图片并点击反推提示词。",)
+        return (str(cached_prompt or "").strip() or "请在节点上选择图片并点击反推提示词。",)
 

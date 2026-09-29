@@ -8,14 +8,12 @@ import time
 import folder_paths
 
 from rpp_globals import (
-    ANCIENT_SHOE_REPLACEMENTS,
     CHARACTER_BY_SHOT,
     FIXED_CHARACTER_IDENTITY,
     KREA2_PORTRAIT_HORIZONTAL_MARKERS,
     MOBILE_CUSTOM_RESOLUTION_PRESETS,
     MOBILE_DEFAULT_RESOLUTIONS,
     MOBILE_DIRECTOR_RESOLUTION_RULES,
-    MOBILE_FRAMING_COMPACT_REPLACEMENTS,
     MOBILE_RESOLUTION_RULES,
     MOBILE_SCOPE_PRESETS,
     MOBILE_STANDING_FULL_BODY_RESOLUTION,
@@ -23,13 +21,10 @@ from rpp_globals import (
 )
 from rpp_utils import (
     _clean_mobile_prompt_clause_text,
-    _is_ancient_mobile_era,
     _load_prompt_generator,
     _normalize_aspect,
     _prompt_clauses,
     _remove_mobile_clauses_with_markers,
-    _round_to_multiple,
-    _strip_outfit_palette_clause,
 )
 from prompt_resolution import (
     MOBILE_RESOLUTION_MULTIPLE,
@@ -41,9 +36,8 @@ from prompt_resolution import (
     round_to_multiple,
     workflow_output_scale,
 )
-from prompt_postprocess import clean_prompt_text
 
-__all__ = sorted(["__all__", "_apply_krea2_portrait_orientation_guard", "_apply_krea2_prompt_item_orientation_guard", "_apply_mobile_framing", "_build_desktop_prompt_with_mobile_logic", "_build_mobile_prompt_for_scope", "_normalize_mobile_orientation", "_resolve_mobile_orientation", "MOBILE_ORIENTATIONS", "_build_mobile_prompt_item", "_build_prompt_item", "_build_prompt_with_mobile_logic", "_clamp_mobile_resolution", "_clean_mobile_prompt_parts", "_custom_mobile_prompt_item", "_display_prompt_text", "_enforce_mobile_ancient_barefoot_parts", "_enforce_mobile_ancient_barefoot_text", "_ensure_scoped_character_prompt", "_krea2_upright_pose_fallback", "_mobile_custom_resolution", "_mobile_ground_anchor", "_mobile_prompt_text_for_resolution", "_mobile_resolution_for_custom_prompt", "_mobile_resolution_for_prompt", "_mobile_shot_config", "_prompt_text", "_rebuild_prompt_text_from_parts", "_resolve_mobile_framing", "_use_chinese_negative_prompt"])
+__all__ = sorted(["__all__", "_apply_krea2_portrait_orientation_guard", "_apply_krea2_prompt_item_orientation_guard", "_build_desktop_prompt_with_mobile_logic", "_build_mobile_prompt_for_scope", "_normalize_mobile_orientation", "_resolve_mobile_orientation", "MOBILE_ORIENTATIONS", "_build_mobile_prompt_item", "_build_prompt_item", "_clamp_mobile_resolution", "_custom_mobile_prompt_item", "_display_prompt_text", "_ensure_scoped_character_prompt", "_krea2_upright_pose_fallback", "_mobile_custom_resolution", "_mobile_prompt_text_for_resolution", "_mobile_resolution_for_custom_prompt", "_mobile_resolution_for_prompt", "_mobile_shot_config", "_prompt_text", "_rebuild_prompt_text_from_parts", "_use_chinese_negative_prompt"])
 
 def _build_prompt_item(scale, shot, seed_text="", aspect="portrait", width=None, height=None, era="modern"):
     generate_prompt_items = _load_prompt_generator()
@@ -89,11 +83,11 @@ def _build_mobile_prompt_item(scale, shot_config, seed_text, era="modern"):
 
 
 def _ensure_scoped_character_prompt(prompt_item, era="modern"):
+    """保证固定人物身份行在提示词里；其余文字原样保留，不做清理或改写。"""
     item = copy.deepcopy(prompt_item)
     parts = item.get("dimension_parts")
     if isinstance(parts, dict):
         shot_key = item.get("shot_key") or ""
-        parts = _clean_mobile_prompt_parts(parts, shot_key, era)
         character = str(parts.get("character") or "").strip()
         if not character:
             character = CHARACTER_BY_SHOT.get(shot_key) or CHARACTER_BY_SHOT["full_body"]
@@ -125,7 +119,8 @@ def _mobile_prompt_text_for_resolution(prompt_item):
 
 
 def _prompt_text(prompt_item):
-    return clean_prompt_text(prompt_item.get("compact_prompt") or prompt_item["positive_prompt"])
+    """提交给模型的正面提示词：原样使用，用户手填的提示词同样不改写。"""
+    return str(prompt_item.get("compact_prompt") or prompt_item["positive_prompt"])
 
 
 def _krea2_upright_pose_fallback(shot):
@@ -185,7 +180,7 @@ def _apply_krea2_portrait_orientation_guard(positive_prompt, negative_prompt, pr
     negative_guard = "sideways, head sideways, body sideways, rotated image, rotated face, rotated 90 degrees, landscape body in portrait canvas, horizontal person, lying sideways, side lying pose, tilted 90 degrees, 横躺人物, 侧躺人物, 横向脸部, 画面旋转, 人物旋转90度"
     positive = f"{positive_guard}\n\n{positive_prompt}" if positive_prompt else positive_guard
     negative = f"{negative_prompt}, {negative_guard}" if negative_prompt else negative_guard
-    return clean_prompt_text(positive), clean_prompt_text(negative)
+    return positive, negative
 
 
 def _rebuild_prompt_text_from_parts(parts, aspect=None):
@@ -194,52 +189,7 @@ def _rebuild_prompt_text_from_parts(parts, aspect=None):
     source = dict(parts or {})
     if aspect is not None:
         source["aspect"] = aspect
-    return clean_prompt_text(build_prompt(source))
-
-
-def _enforce_mobile_ancient_barefoot_text(text, era):
-    cleaned = str(text or "")
-    if not _is_ancient_mobile_era(era):
-        return cleaned
-    for old, new in ANCIENT_SHOE_REPLACEMENTS:
-        cleaned = cleaned.replace(old, new)
-    cleaned = cleaned.replace("和裸足完整入镜", "，裸足完整入镜")
-    cleaned = cleaned.replace("配裸足", "，裸足")
-    return cleaned
-
-
-def _enforce_mobile_ancient_barefoot_parts(parts, era, shot_key="full_body"):
-    cleaned = dict(parts or {})
-    if not _is_ancient_mobile_era(era):
-        return cleaned
-    for name in ("camera", "outfit", "pose_expression", "scene_light"):
-        cleaned[name] = _enforce_mobile_ancient_barefoot_text(cleaned.get(name, ""), era)
-    # 脚只在全身镜头可见，头部和半身不补写裸足。
-    if shot_key == "full_body" and cleaned.get("outfit") and "裸足" not in str(cleaned["outfit"]):
-        cleaned["outfit"] = f'{cleaned["outfit"]}，裙摆下方保持裸足'
-    return cleaned
-
-
-def _clean_mobile_prompt_parts(parts, shot_key, era="modern"):
-    cleaned = dict(parts or {})
-    cleaned["outfit"] = _strip_outfit_palette_clause(cleaned.get("outfit", ""))
-    if shot_key == "head_shot":
-        for name in ("pose_expression", "scene_light", "outfit", "camera"):
-            text = str(cleaned.get(name) or "")
-            text = text.replace("完整胸部和上腰短截", "胸部上缘")
-            text = text.replace("完整胸部与一小段腰部", "胸部线条")
-            text = text.replace("完整胸部和少量上腰", "胸部线条")
-            text = text.replace("和上腰短截", "")
-            text = _remove_mobile_clauses_with_markers(text, ("腰线", "细腰", "腰部", "腰侧", "腰缘", "身体曲线"))
-            cleaned[name] = _clean_mobile_prompt_clause_text(text)
-    if shot_key == "head_shot":
-        for name in ("pose_expression", "scene_light", "outfit", "camera"):
-            cleaned[name] = _remove_mobile_clauses_with_markers(
-                cleaned.get(name, ""),
-                ("胸部", "胸前", "乳沟", "腰", "臀", "腿", "脚"),
-            )
-    cleaned = _enforce_mobile_ancient_barefoot_parts(cleaned, era, shot_key)
-    return cleaned
+    return build_prompt(source)
 
 
 def _display_prompt_text(prompt_item):
@@ -319,80 +269,7 @@ def _clamp_mobile_resolution(resolution):
     return clamp_mobile_resolution(resolution)
 
 
-def _mobile_ground_anchor(parts, era="modern"):
-    if str(era or "").strip() in {"ancient", "古装", "古代"}:
-        return "暗色木地板或木质甲板"
-    context = "，".join(
-        str(parts.get(name, ""))
-        for name in ("scene_light", "camera", "pose_expression")
-        if parts.get(name)
-    )
-    ground_options = (
-        (("沙滩", "海边", "海岸", "沙面", "海浪", "阳光海"), "浅金沙面和脚印纹理"),
-        (("泳池", "池边", "水面", "池水", "水光"), "湿润湖蓝泳池瓷砖"),
-        (("花园", "草地", "庭院", "热带", "花丛", "植物"), "鲜绿色草地和花影"),
-        (("露台", "阳台", "屋顶", "甲板"), "暖色木质露台地板"),
-        (("玻璃", "橱窗", "镜面", "反射"), "浅彩玻璃反射地面"),
-        (("棚拍", "影棚", "彩色背景", "彩色棚"), "高饱和彩色棚拍地面"),
-        (("街", "路面", "城市", "霓虹", "雨夜", "停车场"), "带反光的彩色街道路面"),
-        (("房间", "酒店", "套房", "室内", "浴室", "更衣"), "暖色室内地面"),
-    )
-    for markers, anchor in ground_options:
-        if any(marker in context for marker in markers):
-            return anchor
-    return "浅暖色地面纹理"
-
-
-def _resolve_mobile_framing(framing, parts, era="modern"):
-    if "{ground_anchor}" in framing:
-        return framing.replace("{ground_anchor}", _mobile_ground_anchor(parts, era))
-    return framing
-
-
-def _apply_mobile_framing(prompt_item, resolution, era="modern"):
-    framing = resolution.get("framing")
-    if not framing:
-        return prompt_item
-    item = copy.deepcopy(prompt_item)
-    parts = item.setdefault("dimension_parts", {})
-    framing = _resolve_mobile_framing(framing, parts, era)
-    camera = str(parts.get("camera") or "")
-    if any(marker in camera for marker in ("入镜", "镜头", "构图", "画面", "头顶", "完整")):
-        framing = MOBILE_FRAMING_COMPACT_REPLACEMENTS.get(framing, framing)
-    # 去重：如果camera的开头分句与framing的开头分句重复，跳过追加
-    camera_first = re.split(r"[，,]", camera)[0].strip() if camera else ""
-    framing_first = re.split(r"[，,]", framing)[0].strip()
-    scope_markers = ("腰部及以上入镜", "肩膀及以上入镜", "从头到脚完整入镜", "头顶完整")
-    # 任何含"全身"的相机描述都已表达全身构图意图，无需再追加泛化的"竖向全身构图"
-    camera_has_full_body_framing = "全身" in camera
-    framing_has_full_body_framing = "全身" in framing and "构图" in framing
-    already_covered = (
-        framing in camera or
-        camera_first == framing_first or
-        camera_first in framing or
-        framing_first in camera or
-        any(marker in camera and marker in framing for marker in scope_markers) or
-        (camera_has_full_body_framing and framing_has_full_body_framing)
-    )
-    if not already_covered:
-        parts["camera"] = f"{camera}，{framing}" if camera else framing
-    parts = _clean_mobile_prompt_parts(parts, item.get("shot_key") or "", era)
-    parts["shot_key"] = str(item.get("shot_key") or "")
-    parts["scale"] = str(item.get("scale") or "")
-    item["dimension_parts"] = parts
-    prompt = _rebuild_prompt_text_from_parts(parts, resolution.get("aspect"))
-    item["compact_prompt"] = prompt
-    item["positive_prompt"] = prompt
-    return item
-
-
 MOBILE_ORIENTATIONS = ("auto", "landscape", "portrait", "square")
-_FORCED_LANDSCAPE_FRAMING = {
-    "head_shot": "横向头部构图，头顶完整",
-    "half_body": "横向半身镜头，腰部及以上入镜",
-    "full_body": "横向全身构图，身体沿宽画幅展开，从头到脚完整入镜",
-}
-
 
 def _normalize_mobile_orientation(value):
     text = str(value or "").strip().lower()
@@ -419,7 +296,7 @@ def _forced_mobile_resolution(prompt_item, shot, aspect):
         return _clamp_mobile_resolution({"aspect": "square", "width": 1536, "height": 1536, "framing": ""})
     if aspect == "landscape":
         return _clamp_mobile_resolution(
-            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": _FORCED_LANDSCAPE_FRAMING[shot]}
+            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": ""}
         )
     inferred = _mobile_resolution_for_prompt(prompt_item, shot)
     if inferred["aspect"] == "portrait":
@@ -436,7 +313,7 @@ def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern", 
         item = _build_mobile_prompt_item(scale, oriented_config, seed_text, era)
         item = _ensure_scoped_character_prompt(item, era)
         resolution = _forced_mobile_resolution(item, shot_config["shot"], aspect)
-        return _apply_mobile_framing(item, resolution, era), resolution
+        return item, resolution
     initial = _build_mobile_prompt_item(scale, shot_config, seed_text, era)
     initial = _ensure_scoped_character_prompt(initial, era)
     resolution = _mobile_resolution_for_prompt(initial, shot_config["shot"])
@@ -450,13 +327,9 @@ def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern", 
         initial = _build_mobile_prompt_item(scale, resolved_config, f"{seed_text}-{resolution['aspect']}", era)
         initial = _ensure_scoped_character_prompt(initial)
         resolution = _mobile_resolution_for_prompt(initial, shot_config["shot"])
-    return _apply_mobile_framing(initial, resolution, era), resolution
+    return initial, resolution
 
 
-def _build_prompt_with_mobile_logic(scale, shot, seed_text="", era="modern"):
-    shot_config = _mobile_shot_config(shot)
-    item, _resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era)
-    return _prompt_text(item)
 
 
 def _build_desktop_prompt_with_mobile_logic(scale, shot, seed_text="", era="modern"):

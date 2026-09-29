@@ -46,7 +46,6 @@ from rpp_globals import (
     REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID,
 )
 from rpp_utils import (
-    _image_longest_side,
     _looks_internal_prompt_link,
     _looks_negative_text,
     _mobile_local_output_dir,

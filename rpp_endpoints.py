@@ -49,7 +49,6 @@ from rpp_prompts import (
     _build_mobile_prompt_for_scope,
     _custom_mobile_prompt_item,
     _display_prompt_text,
-    _enforce_mobile_ancient_barefoot_text,
     _mobile_custom_resolution,
     _mobile_resolution_for_custom_prompt,
     _mobile_shot_config,
@@ -592,7 +591,6 @@ async def generate_mobile_image(request):
         for index in range(count):
             seed_text = f"{time.time()}-{uuid.uuid4()}-{index}"
             if custom_prompt:
-                custom_prompt = _enforce_mobile_ancient_barefoot_text(custom_prompt, era)
                 prompt_item = _custom_mobile_prompt_item(custom_prompt, seed_text)
                 resolution = _mobile_custom_resolution(custom_prompt, data.get("custom_resolution"))
             else:

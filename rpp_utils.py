@@ -16,7 +16,7 @@ from rpp_globals import (
 )
 from prompt_resolution import MOBILE_RESOLUTION_MULTIPLE
 
-__all__ = sorted(["__all__", "_clean_mobile_prompt_clause_text", "_image_longest_side", "_is_ancient_mobile_era", "_load_prompt_generator", "_looks_internal_prompt_link", "_looks_negative_text", "_mobile_local_output_dir", "_mobile_output_dir", "_mobile_validation_error_message", "_mobile_video_output_dir", "_node_meta", "_node_title", "_normalize_aspect", "_nsfw_pose_data_hash", "_prompt_clauses", "_prompt_signature", "_queue_contains", "_queue_waiting_count", "_remote_transfer_source_is_allowed", "_remove_mobile_clauses_with_markers", "_round_to_multiple", "_route_exists", "_strip_outfit_palette_clause"])
+__all__ = sorted(["__all__", "_clean_mobile_prompt_clause_text", "_load_prompt_generator", "_looks_internal_prompt_link", "_looks_negative_text", "_mobile_local_output_dir", "_mobile_output_dir", "_mobile_validation_error_message", "_mobile_video_output_dir", "_node_meta", "_node_title", "_normalize_aspect", "_nsfw_pose_data_hash", "_prompt_clauses", "_prompt_signature", "_queue_contains", "_queue_waiting_count", "_remote_transfer_source_is_allowed", "_remove_mobile_clauses_with_markers", "_route_exists"])
 
 def _load_prompt_generator():
     if str(NODE_DIR) not in sys.path:
@@ -86,22 +86,14 @@ def _remove_mobile_clauses_with_markers(text, markers):
     return "，".join(clauses)
 
 
-def _strip_outfit_palette_clause(text):
-    cleaned = re.sub(r"阳光鲜艳配色以[^，。]+为主", "", str(text or ""))
-    cleaned = re.sub(r"，{2,}", "，", cleaned)
-    return cleaned.strip("，、 \n\t")
 
 
-def _is_ancient_mobile_era(era):
-    return str(era or "").strip() in {"ancient", "古装", "古代"}
 
 
 def _prompt_clauses(text):
     return [part.strip("，。 \n\t") for part in str(text or "").replace("；", "，").split("，") if part.strip("，。 \n\t")]
 
 
-def _round_to_multiple(value, multiple=MOBILE_RESOLUTION_MULTIPLE):
-    return max(multiple, int(round(float(value) / multiple) * multiple))
 
 
 def _node_meta(node):
@@ -126,14 +118,6 @@ def _looks_internal_prompt_link(text):
     return bool(re.fullmatch(r"\[['\"][^'\"]+['\"],\s*\d+\]", text))
 
 
-def _image_longest_side(path):
-    try:
-        from PIL import Image
-        with Image.open(path) as image:
-            width, height = image.size
-        return max(int(width), int(height))
-    except Exception:
-        return 640
 
 
 def _queue_contains(prompt_id, items):

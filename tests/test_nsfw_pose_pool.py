@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import prompt_data
-from prompt_postprocess import strengthen_expression
+from prompt_engine import generate_prompt_items
 
 
 class NsfwPosePoolTest(unittest.TestCase):
@@ -21,9 +21,11 @@ class NsfwPosePoolTest(unittest.TestCase):
         self.assertTrue(all(len(pool[shot]) == 10 for shot in pool))
         self.assertIn("data/nsfw_pose_expression_options.json", prompt_data.PROMPT_DATA_SOURCE)
 
-    def test_nsfw_cleanup_preserves_action_and_existing_expression(self):
-        pose = "动作清楚，眼神直视镜头"
-        self.assertEqual(strengthen_expression({"pose_expression": pose}, "nsfw")["pose_expression"], pose)
+    def test_nsfw_pose_line_is_not_rewritten_after_selection(self):
+        for shot in ("half_body", "full_body"):
+            item = generate_prompt_items(1, {"scale": "nsfw", "shot": shot, "era": "modern"}, f"nsfw-verbatim-{shot}")[0]
+            pose = item["dimension_parts"]["pose_expression"].strip("，。 ")
+            self.assertIn(pose, item["positive_prompt"])
 
 
 if __name__ == "__main__":

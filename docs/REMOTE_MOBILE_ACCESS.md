@@ -20,6 +20,14 @@ Mac 本机不执行图片或视频推理。Mac `8188` 仅提供页面与编排�
 http://Mac当前局域网IP:8188/random_photo_prompt/mobile
 ```
 
+推荐入口是 Bonjour 主机名，IP 变化后地址不变，手机可直接收藏或加到主屏幕：
+
+```text
+http://<Mac 本地主机名>.local:8188/random_photo_prompt/mobile
+```
+
+本地主机名用 `scutil --get LocalHostName` 读取，不写死在文档或代码里。iPhone/Safari 支持稳定；部分安卓浏览器不解析 `.local`，此时改用当前局域网 IP。主机名只在同一局域网内有效，经 VPN 访问时使用 VPN 分配的地址。这是 Mac 系统自带的 mDNS 广播，不新增任何代理或网络中间层，也不修改网络设置。
+
 远端 `192.168.123.111:8188` 不是手机入口；它只供 Mac 提交工作流、读取模型列表与接收执行状态。Mac IP 变化后，应使用当前局域网 IP，不要添加网络中间层来固定地址。
 
 Mac 存在多张局域网网卡时，所有到远端计算主机的 HTTP 与 WebSocket 连接必须绑定到系统对该远端路由选出的本机源 IP；每次连接重新计算，不能固定写入某一个 Mac IP，也不得修改系统路由。

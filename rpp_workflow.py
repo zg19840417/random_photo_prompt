@@ -38,7 +38,6 @@ from prompt_resolution import (
     linked_float_value,
     workflow_output_scale,
 )
-from prompt_postprocess import clean_prompt_text
 from video_resolution import MAXIMUM_VIDEO_SIDE, image_to_video_resolution
 
 __all__ = sorted(["__all__", "_append_mobile_lora_nodes", "_available_loras", "_block_remote_asset_save_on_prompt", "_bypass_lora_nodes", "_force_websocket_only_image_outputs", "_insert_exact_output_scale", "_is_krea2_workflow", "_is_mobile_lora_node", "_is_zib_distilled_model_name", "_is_zit_turbo_model_name", "_krea2_unet_value", "_load_mobile_workflow", "_mobile_image_workflows", "_mobile_lora_nodes", "_mobile_workflow_config", "_mobile_workflow_statuses", "_next_workflow_node_id", "_node_depends_on_any", "_patch_existing_lora_nodes", "_patch_mobile_video_workflow", "_patch_mobile_workflow", "_patch_remote_websocket_outputs", "_patch_zitb_double_sampler_settings", "_prune_non_final_image_outputs", "_remove_mobile_auxiliary_outputs", "_remove_unreferenced_mobile_prompt_nodes", "_remove_unreferenced_workflow_nodes", "_reroute_lora_model_consumers", "_resolve_lora_name", "_resolve_lora_strength", "_resolve_mobile_loras", "_set_lora_inputs", "_set_mobile_ultimate_upscale_by", "_ultimate_sd_upscale_node_ids", "_unpatched_remote_save_node_classes", "_workflow_model_consumers", "_workflow_status_item", "_zimage_unet_value"])
