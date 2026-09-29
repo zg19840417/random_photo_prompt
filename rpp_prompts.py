@@ -386,7 +386,7 @@ def _apply_mobile_framing(prompt_item, resolution, era="modern"):
     return item
 
 
-MOBILE_ORIENTATIONS = ("auto", "landscape", "portrait")
+MOBILE_ORIENTATIONS = ("auto", "landscape", "portrait", "square")
 _FORCED_LANDSCAPE_FRAMING = {
     "head_shot": "横向头部构图，头顶完整",
     "half_body": "横向半身镜头，腰部及以上入镜",
@@ -396,20 +396,27 @@ _FORCED_LANDSCAPE_FRAMING = {
 
 def _normalize_mobile_orientation(value):
     text = str(value or "").strip().lower()
-    aliases = {"自动": "auto", "横向": "landscape", "横": "landscape", "竖向": "portrait", "竖": "portrait"}
+    aliases = {
+        "自动": "auto",
+        "横图": "landscape", "横向": "landscape", "横": "landscape",
+        "竖图": "portrait", "竖向": "portrait", "竖": "portrait",
+        "方图": "square", "方形": "square", "方": "square",
+    }
     text = aliases.get(text, text)
     return text if text in MOBILE_ORIENTATIONS else "auto"
 
 
 def _resolve_mobile_orientation(orientation, seed_text):
-    """自动模式按本张种子各一半概率取横或竖，同一种子结果可复现。"""
+    """自动模式按本张种子在横图、竖图、方图中等权重抽取，同一种子结果可复现。"""
     orientation = _normalize_mobile_orientation(orientation)
     if orientation != "auto":
         return orientation
-    return "landscape" if random.Random(f"{seed_text}|orientation").random() < 0.5 else "portrait"
+    return random.Random(f"{seed_text}|orientation").choice(("landscape", "portrait", "square"))
 
 
 def _forced_mobile_resolution(prompt_item, shot, aspect):
+    if aspect == "square":
+        return _clamp_mobile_resolution({"aspect": "square", "width": 1536, "height": 1536, "framing": ""})
     if aspect == "landscape":
         return _clamp_mobile_resolution(
             {"aspect": "landscape", "width": 1536, "height": 1024, "framing": _FORCED_LANDSCAPE_FRAMING[shot]}
@@ -424,7 +431,7 @@ def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern", 
     if orientation is not None:
         # 用户选定方向（或自动抽定）后，提示词与分辨率都按该方向生成，不再由姿势文本反推。
         aspect = _resolve_mobile_orientation(orientation, seed_text)
-        width, height = (1536, 1024) if aspect == "landscape" else (1024, 1536)
+        width, height = {"landscape": (1536, 1024), "square": (1536, 1536)}.get(aspect, (1024, 1536))
         oriented_config = {**shot_config, "aspect": aspect, "width": width, "height": height}
         item = _build_mobile_prompt_item(scale, oriented_config, seed_text, era)
         item = _ensure_scoped_character_prompt(item, era)

@@ -23,11 +23,14 @@ _NIGHT_MAKEUP_MARKERS = ("夜景", "夜色", "暗夜", "夜拍", "暗调", "月�
 _DAY_MAKEUP_MARKERS = ("晨光", "日系", "晴日", "暖阳", "阳光")
 _STUDIO_MAKEUP_MARKERS = ("摄影棚", "棚拍")
 _ATTEMPTS = 8
+# 二档、三档一半的画面使用非常规镜头（畸变、低机位、荷兰角、俯拍、动态模糊）。
+_WILD_CAMERA_CHANCE = 0.5
+_WILD_POSE_CHANCE = 0.55
 
 
 def _load_pools() -> dict:
     pools = json.loads(DATA_PATH.read_text(encoding="utf-8"))
-    for key in ("ART_DIRECTIONS", "PLACES", "EXPRESSIONS", "POSES", "OUTFITS", "OUTFITS_ANCIENT", "COMPOSITION", "LENSES"):
+    for key in ("ART_DIRECTIONS", "PLACES", "EXPRESSIONS", "POSES", "OUTFITS", "OUTFITS_ANCIENT", "COMPOSITION", "LENSES", "WILD_CAMERA"):
         if key not in pools:
             raise ValueError(f"{DATA_PATH.name} 缺少 {key}")
     for direction in pools["ART_DIRECTIONS"]:
@@ -65,6 +68,9 @@ def _pose_table(group: str, shot: str, aspect: str, era: str) -> list[dict]:
     if shot == "head_shot":
         # 头部动作与画幅无关，横构图额外加入横向头部动作。
         table = poses["portrait"]["head_shot"] + (poses["landscape"]["head_shot"] if aspect == "landscape" else [])
+    elif aspect == "square" and "square" in poses:
+        # 方图放斜向身体线条的姿势（慵懒斜靠、斜坐、斜倾）；没有专用方图池的档位沿用竖构图姿势。
+        table = poses["square"][shot]
     else:
         table = poses["landscape" if aspect == "landscape" else "portrait"][shot]
     return [pose for pose in table if era in pose.get("eras", ("modern", "ancient"))]
@@ -83,6 +89,10 @@ def _fitting_poses(group: str, shot: str, aspect: str, era: str, props: list[str
 
 
 def _choose_pose(rng: random.Random, poses: list[dict]) -> dict:
+    # 二档、三档更偏向大胆动态的姿势：可用时 55% 概率只从 wild 姿势里选。
+    wild = [pose for pose in poses if pose.get("wild")]
+    if wild and rng.random() < _WILD_POSE_CHANCE:
+        poses = wild
     # 地点提供了可互动道具时，一半概率优先让人物与场景互动。
     interactive = [pose for pose in poses if pose.get("props")]
     if interactive and rng.random() < 0.5:
@@ -108,11 +118,21 @@ def _scene_line(group: str, shot: str, direction: dict, place: dict, rng: random
     return "，".join(clauses)
 
 
-def _camera_line(group: str, shot: str, aspect: str, direction: dict, rng: random.Random) -> str:
-    angle = _pick(rng, direction["camera"])
+def _wild_camera(group: str, shot: str, aspect: str, rng: random.Random) -> dict | None:
+    if group != "bold" or rng.random() >= _WILD_CAMERA_CHANCE:
+        return None
+    options = [bundle for bundle in POOLS["WILD_CAMERA"][shot] if aspect in bundle["aspects"]]
+    return _pick(rng, options) if options else None
+
+
+def _camera_line(group: str, shot: str, aspect: str, direction: dict, wild: dict | None, rng: random.Random) -> str:
     light_type = _light_type(group, direction)
-    composition = _pick(rng, light_type["compositions"][shot] if light_type else POOLS["COMPOSITION"][shot])
-    orientation = "横向" if aspect == "landscape" else "竖向"
+    if wild:
+        angle, composition = wild["angle"], wild["composition"]
+    else:
+        angle = _pick(rng, direction["camera"])
+        composition = _pick(rng, light_type["compositions"][shot] if light_type else POOLS["COMPOSITION"][shot])
+    orientation = {"landscape": "横向", "square": "方形"}.get(aspect, "竖向")
     if shot == "head_shot":
         scope = "肩部以上近景"
     elif shot == "half_body":
@@ -188,9 +208,10 @@ def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Rand
     pose = _choose_pose(rng, poses)
     expression = _pick(rng, POOLS["EXPRESSIONS"][group][pose["energy"]])
     palette = _pick(rng, direction["palettes"][group])
-    lens = _pick(rng, POOLS["LENSES"][shot])
+    wild = _wild_camera(group, shot, aspect, rng)
+    lens = wild["lens"] if wild else _pick(rng, POOLS["LENSES"][shot])
     main, support, accent = palette
-    camera = _camera_line(group, shot, aspect, direction, rng)
+    camera = _camera_line(group, shot, aspect, direction, wild, rng)
     texture = "肤质细腻并保留真实纹理" if group == "bold" else "肤质保留真实纹理"
     outfit, outfit_style = ("", "") if scale == "bold_no_outfit" else _outfit_line(group, era, shot, place, palette, bool(pose.get("barefoot")), rng)
     return {
@@ -206,6 +227,7 @@ def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Rand
         "art_direction": direction["name"],
         "art_place": place_name,
         "art_pose": pose["body"],
+        "art_wild_camera": wild["angle"] if wild else "",
         "art_outfit_style": outfit_style,
         "color_palette": "、".join(palette),
         "theme_name": "",
@@ -222,7 +244,8 @@ def compose_parts(
     render_lines: Callable[[dict[str, str]], dict[str, str]],
     era: str = "modern",
 ) -> dict[str, str]:
-    """返回维度文本；render_lines 是最终拼装的逐行渲染函数，用于通顺检查。"""
+    """返回维度文本；render_lines 是最终拼装的逐行渲染函数，用于通顺检查。
+    """
     if scale not in COMPOSER_SCALES:
         raise ValueError(f"构图器不处理 {scale}")
     best: dict[str, str] | None = None

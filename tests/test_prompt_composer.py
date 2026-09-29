@@ -1,4 +1,5 @@
 import random
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -88,6 +89,67 @@ class PromptComposerTests(unittest.TestCase):
                         self.assertIn("裸足", parts["outfit"])
                         self.assertNotIn("脚上是", parts["outfit"])
                         self.assertIn(parts["art_outfit_style"], place["styles"])
+
+    def test_body_axis_matches_frame_orientation(self):
+        for group, orientations in POOLS["POSES"].items():
+            for shot, options in orientations["portrait"].items():
+                for pose in options:
+                    with self.subTest(group=group, orientation="portrait", pose=pose["body"]):
+                        self.assertNotRegex(pose["body"], r"横向|躺|趴|侧卧|俯卧")
+            for shot, options in orientations["landscape"].items():
+                if shot == "head_shot":
+                    continue
+                for pose in options:
+                    with self.subTest(group=group, orientation="landscape", pose=pose["body"]):
+                        self.assertRegex(pose["body"], r"横向|躺|卧|趴|沿.*展开")
+
+    def test_square_frame_uses_diagonal_poses_and_square_camera(self):
+        for shot, options in POOLS["POSES"]["bold"]["square"].items():
+            for pose in options:
+                with self.subTest(pose=pose["body"]):
+                    self.assertRegex(pose["body"], "斜")
+        for scale in COMPOSER_SCALES:
+            for shot in ("head_shot", "half_body", "full_body"):
+                for index in range(15):
+                    parts = compose_parts(scale, shot, "square", random.Random(f"sq-{scale}-{shot}-{index}"), render_prompt_lines)
+                    with self.subTest(scale=scale, shot=shot, index=index):
+                        if shot != "head_shot":
+                            self.assertIn("方形", parts["camera_line"])
+                        self.assertNotRegex(parts["camera_line"], r"竖向|横向")
+                        if scale != "normal" and shot != "head_shot":
+                            self.assertRegex(parts["art_pose"], "斜")
+                        lines = render_prompt_lines({**parts, "shot_key": shot, "scale": scale, "aspect": "square"})
+                        self.assertEqual(fluency_defects(lines, scale, shot), [])
+
+    def test_camera_compositions_do_not_imply_a_posture(self):
+        texts = [t for l in POOLS["COMPOSITION"].values() for t in l]
+        texts += [t for lt in POOLS["LIGHT_TYPES"].values() for l in lt["compositions"].values() for t in l]
+        texts += [b["composition"] for l in POOLS["WILD_CAMERA"].values() for b in l]
+        for text in texts:
+            with self.subTest(text=text):
+                self.assertNotRegex(text, r"站|坐|躺|走|侧身|前倾")
+
+    def test_engine_square_items_are_1536(self):
+        item = generate_prompt_items(1, {"scale": "bold", "shot": "full_body", "era": "modern", "aspect": "square", "width": 1536, "height": 1536}, "sq-item")[0]
+        self.assertEqual((item["aspect"], item["width"], item["height"]), ("square", 1536, 1536))
+        self.assertIn("方形", item["positive_prompt"])
+
+    def test_wild_camera_and_poses_reach_bold_prompts_and_stay_fluent(self):
+        for shot in ("head_shot", "half_body", "full_body"):
+            for aspect in ("portrait", "landscape"):
+                self.assertTrue(any(aspect in bundle["aspects"] for bundle in POOLS["WILD_CAMERA"][shot]))
+        wild_camera = wild_pose = total = 0
+        for scale in ("bold", "bold_no_outfit"):
+            for shot in ("head_shot", "half_body", "full_body"):
+                for index in range(20):
+                    parts = compose_parts(scale, shot, "portrait", random.Random(f"wild-{scale}-{shot}-{index}"), render_prompt_lines)
+                    total += 1
+                    wild_camera += bool(parts["art_wild_camera"])
+                    wild_pose += any(pose.get("wild") and pose["body"] == parts["art_pose"] for table in POOLS["POSES"]["bold"].values() for options in table.values() for pose in options)
+        self.assertGreater(wild_camera, total * 0.3)
+        self.assertGreater(wild_pose, total * 0.3)
+        normal = compose_parts("normal", "full_body", "portrait", random.Random("wild-normal"), render_prompt_lines)
+        self.assertEqual(normal["art_wild_camera"], "")
 
     def test_nsfw_matches_bold_no_outfit_except_pose(self):
         for era in ("modern", "ancient"):

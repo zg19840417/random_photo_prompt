@@ -25,6 +25,8 @@ def normalize_aspect(value: str = "", width: int | None = None, height: int | No
     value = (value or "").strip().lower()
     if value in {"landscape", "horizontal", "横屏", "横向", "wide"}:
         return "landscape"
+    if value in {"square", "方图", "方形"}:
+        return "square"
     if value in {"portrait", "vertical", "竖屏", "竖向", "tall"}:
         return "portrait"
     if width and height and width > height:

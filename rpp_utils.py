@@ -27,20 +27,11 @@ def _load_prompt_generator():
 
 
 def _normalize_aspect(value, width=None, height=None):
-    text = str(value or "").strip().lower()
-    if text in {"landscape", "horizontal", "妯睆", "妯悜", "wide"}:
-        return "landscape"
-    if text in {"portrait", "vertical", "绔栧睆", "绔栧悜", "tall"}:
-        return "portrait"
-    try:
-        parsed_width = int(width) if width is not None else None
-        parsed_height = int(height) if height is not None else None
-    except (TypeError, ValueError):
-        parsed_width = None
-        parsed_height = None
-    if parsed_width and parsed_height and parsed_width > parsed_height:
-        return "landscape"
-    return "portrait"
+    if str(NODE_DIR) not in sys.path:
+        sys.path.insert(0, str(NODE_DIR))
+    from prompt_normalize import normalize_aspect
+
+    return normalize_aspect(value, width, height)
 
 
 def _nsfw_pose_data_hash():
