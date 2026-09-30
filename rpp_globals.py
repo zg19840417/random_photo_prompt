@@ -17,11 +17,12 @@ CHARACTER_BY_SHOT = {'head_shot': '22岁瓷白冷白皮K-pop韩国美女，黑�
 
 
 NODE_DIR = Path(__file__).resolve().parent
+PROJECT_VERSION = "0.1.0"
 
 
 MOBILE_PAGE_PATH = NODE_DIR / "web" / "mobile.html"
 MANUAL_PAGE_PATH = NODE_DIR / "web" / "manual_generate.html"
-MOBILE_PAGE_HTML = MOBILE_PAGE_PATH.read_text(encoding="utf-8")
+MOBILE_PAGE_HTML = MOBILE_PAGE_PATH.read_text(encoding="utf-8").replace("{{PROJECT_VERSION}}", PROJECT_VERSION)
 MANUAL_PAGE_HTML = MANUAL_PAGE_PATH.read_text(encoding="utf-8")
 MOBILE_WORKFLOW_PATH = NODE_DIR / "mobile_workflow_api.json"
 MOBILE_WORKFLOWS = {
@@ -236,5 +237,4 @@ KREA2_PORTRAIT_HORIZONTAL_MARKERS = (
     "左手枕在头侧",
     "头发铺散在脸侧和头下",
 )
-
 

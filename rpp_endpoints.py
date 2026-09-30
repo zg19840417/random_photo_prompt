@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import html
 import os
 import shutil
 import subprocess
@@ -23,6 +24,7 @@ from rpp_globals import (
     MOBILE_MAX_ACTIVE_JOBS,
     MOBILE_PAGE_HTML,
     NODE_DIR,
+    PROJECT_VERSION,
     MANUAL_PAGE_HTML,
     MOBILE_PROMPT_BY_FILENAME,
     MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID,
@@ -77,7 +79,6 @@ from rpp_remote import (
     _mac_proxy_source_image_url,
     _mac_proxy_video_upload_url,
     _probe_remote_websocket,
-    _queue_local_guarded_workflow,
     _queue_mobile_workflow,
     _resolve_krea2_model,
     _resolve_zib_model,
@@ -86,7 +87,6 @@ from rpp_remote import (
 from rpp_mobile import (
     _active_mobile_session_jobs,
     _infer_frame_scope_from_prompt,
-    _load_image_interrogator,
     _load_mobile_favorite_metadata,
     _load_mobile_prompt_index,
     _mobile_active_job_count,
@@ -243,27 +243,7 @@ async def resolve_random_photo_prompt_resolution(request):
 
 
 async def interrogate_random_photo_prompt(request):
-    try:
-        reader = await request.multipart()
-        image_bytes = b""
-        async for part in reader:
-            if part.name != "image":
-                continue
-            image_bytes = await part.read(decode=False)
-            break
-        if not image_bytes:
-            return web.json_response({"error": "未收到图片文件。"}, status=400)
-        ImageInterrogationError, interrogate_image_bytes = _load_image_interrogator()
-        try:
-            result = await asyncio.to_thread(interrogate_image_bytes, image_bytes)
-        except ImageInterrogationError as exc:
-            return web.json_response({"error": str(exc)}, status=400)
-        return web.json_response(result)
-    except Exception:
-        return web.json_response(
-            {"error": traceback.format_exc()},
-            status=500,
-        )
+    return web.json_response({"error": "图片反推仅在远端 ComfyUI 节点入口可用；Mac 不加载推理模型。"}, status=503)
 
 
 async def pregenerate_mobile_image_prompt(request):
@@ -328,12 +308,31 @@ async def _mobile_entry_status():
     workflow_statuses = _mobile_workflow_statuses()
     image_workflows_ready = all(item["template_ready"] for item in workflow_statuses.values() if item["type"] == "image")
     video_workflow_ready = workflow_statuses.get(MOBILE_VIDEO_WORKFLOW_KEY, {}).get("template_ready", False)
-    zimage_models = await _available_mobile_zimage_models()
+    results = await asyncio.gather(
+        _available_mobile_zimage_models(),
+        _available_mobile_loras(),
+        _available_mobile_video_models(),
+        return_exceptions=True,
+    )
+    errors = [str(result) for result in results if isinstance(result, Exception)]
+    zimage_models = results[0] if not isinstance(results[0], Exception) else {
+        "source": "remote" if remote_compute else "local", "zit_models": [], "zib_models": [], "krea2_models": [],
+    }
+    loras = results[1] if not isinstance(results[1], Exception) else []
+    video_models = results[2] if not isinstance(results[2], Exception) else []
     zit_models = zimage_models["zit_models"]
     zib_models = zimage_models["zib_models"]
     krea2_models = zimage_models["krea2_models"]
-    loras = await _available_mobile_loras()
     return {
+        "connected": not errors,
+        "message": "；".join(errors),
+        "zit_models": zit_models,
+        "zib_models": zib_models,
+        "krea2_models": krea2_models,
+        "model_source": zimage_models["source"],
+        "loras": loras,
+        "video_models": video_models,
+        "project_version": PROJECT_VERSION,
         "entry_mode": "remote_compute" if remote_compute else "local",
         "entry_label": "Mac 本地资产，远端计算" if remote_compute else "Mac 本机计算",
         "remote_compute": remote_compute,
@@ -354,6 +353,7 @@ async def _mobile_entry_status():
         },
         "workflow_statuses": workflow_statuses,
         "health": {
+            "remote_compute": {"ok": not errors, "message": "；".join(errors) or "模型列表读取正常。"},
             "local_mobile": {
                 "ok": True,
                 "message": "Mac 手机页接口正常，生成请求仅发送至远端计算。" if remote_compute else "Mac 手机页接口正常。",
@@ -398,11 +398,12 @@ def _local_status_html(payload):
         for item in workflows.values()
     )
     items = [
+        _local_status_item(health["remote_compute"]["ok"], "计算服务", health["remote_compute"]["message"]),
         _local_status_item(health["local_mobile"]["ok"], "手机端内部服务", health["local_mobile"]["message"]),
         _local_status_item(health["output_dir"]["ok"], "输出目录", health["output_dir"]["message"]),
         _local_status_item(health["zit_models"]["ok"], "ZIT 模型", health["zit_models"]["message"]),
         _local_status_item(True, "ZIB / Krea2 / LoRA", f"ZIB {payload['models']['zib_count']} 个，Krea2 {payload['models']['krea2_count']} 个，LoRA {payload['models']['lora_count']} 个。"),
-        _local_status_item(True, "手机入口", "手机和 Mac 直接使用本机 ComfyUI 8188 手机页。"),
+        _local_status_item(True, "手机入口", "手机和 Mac 直接使用本机 8188 手机页。"),
     ]
     return f"""<!doctype html>
 <html lang="zh-CN">
@@ -462,11 +463,6 @@ async def mobile_generation_status(request):
     template_ready = selected_workflow_status["template_ready"]
     video_config = MOBILE_WORKFLOWS[MOBILE_VIDEO_WORKFLOW_KEY]
     image_workflows = _mobile_image_workflows()
-    zimage_models = await _available_mobile_zimage_models()
-    zit_models = zimage_models["zit_models"]
-    zib_models = zimage_models["zib_models"]
-    krea2_models = zimage_models["krea2_models"]
-    loras = await _available_mobile_loras()
     return web.json_response(
         {
             "template_ready": template_ready,
@@ -494,17 +490,9 @@ async def mobile_generation_status(request):
                 "message": workflow_statuses.get(MOBILE_VIDEO_WORKFLOW_KEY, {}).get("message", ""),
                 "guidance": workflow_statuses.get(MOBILE_VIDEO_WORKFLOW_KEY, {}).get("guidance", ""),
             },
-            "zit_models": zit_models,
-            "zib_models": zib_models,
-            "krea2_models": krea2_models,
-            "model_source": zimage_models["source"],
-            "video_models": await _available_mobile_video_models(),
-            "zit_model_dir_ready": bool(zit_models) if REMOTE_COMFYUI_URL else ZIT_MODEL_DIR.exists(),
-            "loras": loras,
+            "zit_model_dir_ready": bool(entry_status["zit_models"]) if REMOTE_COMFYUI_URL else ZIT_MODEL_DIR.exists(),
             "lora_dir": _lora_dir_display_path(),
-            "connected": True,
             "qview_available": _request_from_local_mac_browser(request),
-            "message": "" if template_ready else (selected_workflow_status.get("message") or f"请先保存 {workflow_path.name} 后再生成。"),
             "guidance": selected_workflow_status.get("guidance", ""),
             "template_path": str(workflow_path),
             **entry_status,
@@ -1056,27 +1044,4 @@ async def delete_remote_output_file(request):
 
 
 async def submit_guarded_remote_workflow(request):
-    try:
-        data = await request.json()
-        workflow = data.get("prompt")
-        if not isinstance(workflow, dict) or not workflow:
-            return web.json_response({"error": "缺少有效工作流。"}, status=400)
-        result = _force_websocket_only_image_outputs(workflow)
-        blocked = sorted(set(result["blocked"] + _unpatched_remote_save_node_classes(workflow)))
-        if blocked:
-            detail = ", ".join(blocked) or "unknown"
-            return web.json_response(
-                {"error": f"远端工作流仍包含保存节点，已阻止提交：{detail}"},
-                status=400,
-            )
-        extra_data = data.get("extra_data") if isinstance(data.get("extra_data"), dict) else {}
-        queued, error = await _queue_local_guarded_workflow(
-            workflow,
-            data.get("client_id", ""),
-            extra_data.get("source", "random_photo_prompt_guarded_remote"),
-        )
-        if error:
-            return web.json_response(error, status=int(error.get("status") or 400))
-        return web.json_response(queued)
-    except Exception:
-        return web.json_response({"error": traceback.format_exc()}, status=500)
+    return web.json_response({"error": "此接口只在远端 ComfyUI 接收推理任务；Mac 请使用手机生成接口。"}, status=503)

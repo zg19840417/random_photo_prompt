@@ -26,7 +26,7 @@ External callers should continue importing from `prompt_engine.py` unless they a
 
 Positive prompt generation, mobile generation, desktop node generation, and audit tools still share the same public prompt engine entry points. Future work can adjust one responsibility without reopening the whole engine file.
 
-The JSON workflow applies: edit `data/prompt_pools.json` (or `data/nsfw_pose_expression_options.json`), then restart the relevant ComfyUI service; audits run via `tools/audit_prompt_pools.py` and `tools/audit_generated_prompts.py`.
+The JSON workflow applies: edit `data/prompt_pools.json` (or `data/nsfw_pose_expression_options.json`), then restart the relevant Mac aiohttp service or Windows ComfyUI service; audits run via `tools/audit_prompt_pools.py` and `tools/audit_generated_prompts.py`.
 
 ## Update: legacy rewrite layers removed
 
@@ -35,3 +35,7 @@ After the composer took over normal, bold, and bold_no_outfit (modern and ancien
 ## Update: rewrite layer removed
 
 `prompt_postprocess.py` (about 1900 lines of string replacement tables) was deleted. Measured on 810 composer samples it only did three things: name hands left/right, strip leftover "A或B" alternatives and drop a duplicated quality concept. Those are now fixed in the data (`_name_hands` in `prompt_composer.py`, no "或" in data, no duplicate quality concepts) and guarded by tests. It also rewrote user-typed prompts at submission and was not idempotent, so `prompt_engine.py` now renders each dimension verbatim (only sentence punctuation and `她穿着`), mobile generation no longer rebuilds or cleans prompts, and `_prompt_text` returns text unchanged. Camera-scope filtering remains only for the protected NSFW pose pool (head shots drop clauses about the lower body).
+
+## Host boundary
+
+The public prompt engine is unchanged. Mac uses `tools/run_mac_local_server.py`, `rpp_server.py` and the lightweight `rpp_folder_paths.py` directory provider. `rpp_routes.py` owns the single route table shared with `__init__.py`. Only the ComfyUI entry imports `rpp_nodes.py` and `rpp_comfy.py` (queue validation/admission and interrogation). Mac mobile jobs use remote queue/history and local asset receipts; no local ComfyUI queue fallback remains.

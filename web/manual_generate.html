@@ -259,6 +259,11 @@
     async function loadStatus() {
       try {
         const data = await requestJson("/random_photo_prompt/manual/status");
+        if (data.connected === false) {
+          workflowsReady = false;
+          updateGenerateState();
+          throw new Error(data.message || "远端计算服务不可用。");
+        }
         const workflows = (data.workflows || []).filter(item => item.template_ready);
         setOptions(els.workflow,workflows.map(item=>item.key),key=>workflows.find(item=>item.key===key)?.label || key);
         setOptions(els["zit-model"],data.zit_models || []);

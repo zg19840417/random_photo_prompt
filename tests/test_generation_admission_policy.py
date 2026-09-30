@@ -19,9 +19,9 @@ class GenerationAdmissionPolicyTest(unittest.TestCase):
         )
 
     def test_remote_generation_uses_the_guarded_submission_endpoint(self):
-        plugin = (ROOT / "__init__.py").read_text(encoding="utf-8")
+        plugin = (ROOT / "rpp_routes.py").read_text(encoding="utf-8")
 
-        self.assertIn('"/random_photo_prompt/remote/submit"', plugin)
+        self.assertIn('/random_photo_prompt/remote/submit', plugin)
         self.assertNotIn('_remote_json("POST", "/prompt", json=payload)', plugin)
 
     def test_remote_sync_includes_direct_runtime_dependencies(self):

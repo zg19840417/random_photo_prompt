@@ -580,7 +580,7 @@
 
     .connection {
       display: inline-flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: flex-end;
       gap: 6px;
       color: var(--muted);
@@ -589,9 +589,23 @@
       min-width: 0;
     }
 
+    .connection-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      line-height: 16px;
+    }
+
+    .connection-version {
+      font-size: 11px;
+      line-height: 14px;
+    }
+
     .dot {
       width: 9px;
       height: 9px;
+      flex: 0 0 9px;
+      margin-top: 3px;
       border-radius: 50%;
       background: var(--danger);
       box-shadow: 0 0 0 3px rgba(240, 113, 120, .12);
@@ -1134,6 +1148,14 @@
         padding: 2px 12px 10px;
       }
 
+      .connection {
+        font-size: 11px;
+      }
+
+      .connection-version {
+        font-size: 10px;
+      }
+
       .section {
         padding: 12px;
       }
@@ -1200,7 +1222,10 @@
       </nav>
       <div id="connection" class="connection">
         <span class="dot"></span>
-        <span id="connectionText">未连接</span>
+        <span class="connection-copy">
+          <span id="connectionText">未连接</span>
+          <span id="connectionVersion" class="connection-version">v{{PROJECT_VERSION}}</span>
+        </span>
         <a id="healthLink" class="health-link" href="/random_photo_prompt/local/status" target="_blank" rel="noopener">健康</a>
       </div>
     </div>
@@ -2063,6 +2088,12 @@
         updateWorkflowModelVisibility();
         const ready = state.mode === "video" ? data.video_workflow?.template_ready : data.template_ready;
         updateEntryInfo(data, ready);
+        if (data.connected === false) {
+          setConnection(false);
+          setStatus(readableError(data) || "远端计算服务不可用。", true);
+          generateBtn.disabled = true;
+          return;
+        }
         const output = data.output || {};
         if (output.exists === false || output.writable === false) {
           setConnection(false);

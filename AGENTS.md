@@ -4,13 +4,13 @@
 
 ## 1. 项目边界
 
-本项目是 ComfyUI 自定义节点：生成成人时尚/写真提示词，提供 Mac 手机网页、远端 Windows 4090 推理、Mac 本地图片/视频图库与收藏。
+本项目由 Mac 独立 aiohttp 服务与 Windows ComfyUI 自定义节点组成：生成成人时尚/写真提示词，提供 Mac 手机网页、远端 Windows 4090 推理、Mac 本地图片/视频图库与收藏。
 
 运行链路固定如下：
 
 ```text
 手机或 Mac 浏览器
-  -> Mac 本机 8188 /random_photo_prompt/mobile
+  -> Mac 轻量 aiohttp 8188 /random_photo_prompt/mobile
   -> Windows 4090 192.168.123.111:8188（仅计算）
   -> 直连回传
   -> Mac 本机资产目录与图库索引
@@ -18,14 +18,14 @@
 
 - `18199` 代理已经废弃。禁止启动、恢复、新增代理、隧道或其他网络中间层。
 - 不得修改 Mac 网络设置、路由、代理或 DNS 来解决项目问题。
-- Mac 本机 `8188` 只负责页面编排、提示词与工作流提交、远端结果回传及本地资产存储；图片和视频推理一律在 Windows 4090 执行，本机不得承担生成计算。
+- Mac 本机 `8188` 由 `tools/run_mac_local_server.py` 承载，不加载 ComfyUI 本体、PyTorch 或第三方节点；只负责页面编排、提示词与工作流提交、远端结果回传及本地资产存储；图片和视频推理一律在 Windows 4090 执行，本机不得承担生成计算。
 - 远端 `192.168.123.111:8188` 不是手机入口；手机入口始终是 Mac 本机 `8188`，优先用 Bonjour 主机名 `http://<Mac 本地主机名>.local:8188/random_photo_prompt/mobile`（主机名用 `scutil --get LocalHostName` 读取，不随 IP 变化），主机名不可用时用 `http://<Mac 当前局域网 IP>:8188/random_photo_prompt/mobile`。
 - Mac IP 会变化。需要连接地址时读取当前活动网卡或到远端路由选出的源 IP，绝不把旧 IP 写死。
 
 ## 2. 唯一源码与部署副本
 
 - 唯一可编辑源码：`/Users/zouge/Project/1-myProject/random_photo_prompt/`。
-- Mac ComfyUI 的 `custom_nodes/random_photo_prompt` 必须是指向上述目录的软链接，只是运行入口，禁止直接编辑或复制成第二份源码。
+- Mac ComfyUI 的 `custom_nodes/random_photo_prompt` 必须是指向上述目录的软链接，仅供 ComfyUI 节点导入验证；Mac 独立服务直接加载唯一源码。禁止直接编辑或复制成第二份源码。
 - Windows `D:\ComfyUI\ComfyUI\custom_nodes\random_photo_prompt` 是部署副本，只能从唯一源码同步，禁止作为改动来源。
 - 修改前先确认文件位于唯一源码。发现重复副本时，先识别当前 Mac 服务加载的副本；只保留唯一源码与软链接关系，不保留镜像源码。
 
@@ -66,7 +66,9 @@
 
 | 改动目标 | 首选位置 |
 | --- | --- |
-| ComfyUI 导入、节点映射、HTTP 路由 | `__init__.py`、`rpp_nodes.py`、`rpp_endpoints.py` |
+| 远端 ComfyUI 入口、节点映射与推理端点 | `__init__.py`、`rpp_nodes.py`、`rpp_comfy.py`、`image_interrogator.py` |
+| 两端共用路由表与 HTTP 业务 | `rpp_routes.py`、`rpp_endpoints.py` |
+| Mac 独立服务、目录接口、守护启动 | `rpp_server.py`、`rpp_folder_paths.py`、`tools/run_mac_local_server.py`、`tools/run_mac_local_comfyui_daemon.py` |
 | 手机任务、图库、收藏、任务状态、视频输入 | `rpp_mobile.py` |
 | 远端提交、WebSocket/视频回传、模型列表 | `rpp_remote.py` |
 | 图片/视频工作流 patch、清理节点、LoRA | `rpp_workflow.py`、`workflow_cleanup_policy.py` |
@@ -118,7 +120,9 @@
 6. 本机通过拉取、合并、恢复或手工修改获得运行时改动后，如该改动同时需要 Mac 本机与 Windows 4090 加载，必须先同步到远端，再重启 Mac 本机 `8188` 和远端 `8188`，并分别验证两个实际入口；不得只重启其中一端。
 6. 验证必须匹配用户入口：手机端、图库与资产问题验证 Mac `8188` 的真实接口和本地文件；远端节点/工作流问题验证远端 `8188`。一端成功不能代替另一端验证。
 
-常用命令使用 ComfyUI 的 Python：
+Mac 复用现有 venv 中的 Python/aiohttp/PIL，不导入 ComfyUI；输出、输入、模型目录仍为 `RPP_COMFYUI_ROOT` 下原目录，收藏和索引位置不变。原 daemon 命令现在会安全停止已识别的旧服务再启动独立服务，PID/日志/令牌位置不变。临时验证可用新入口的 `--port`（或 `RPP_MAC_LOCAL_PORT`），不得启停用户正在使用的服务。
+
+常用命令使用原 venv 的 Python：
 
 ```text
 /Users/zouge/Documents/ComfyUI/.venv/bin/python tools/run_mac_local_comfyui_daemon.py

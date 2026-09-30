@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 
 import folder_paths
-from server import PromptServer
 
 from rpp_globals import (
     MOBILE_VIDEO_OUTPUT_SUBFOLDER,
@@ -16,7 +15,7 @@ from rpp_globals import (
 )
 from prompt_resolution import MOBILE_RESOLUTION_MULTIPLE
 
-__all__ = sorted(["__all__", "_clean_mobile_prompt_clause_text", "_load_prompt_generator", "_looks_internal_prompt_link", "_looks_negative_text", "_mobile_local_output_dir", "_mobile_output_dir", "_mobile_validation_error_message", "_mobile_video_output_dir", "_node_meta", "_node_title", "_normalize_aspect", "_nsfw_pose_data_hash", "_prompt_clauses", "_prompt_signature", "_queue_contains", "_queue_waiting_count", "_remote_transfer_source_is_allowed", "_remove_mobile_clauses_with_markers", "_route_exists"])
+__all__ = sorted(["__all__", "_clean_mobile_prompt_clause_text", "_load_prompt_generator", "_looks_internal_prompt_link", "_looks_negative_text", "_mobile_local_output_dir", "_mobile_output_dir", "_mobile_validation_error_message", "_mobile_video_output_dir", "_node_meta", "_node_title", "_normalize_aspect", "_nsfw_pose_data_hash", "_prompt_clauses", "_prompt_signature", "_queue_contains", "_queue_waiting_count", "_remote_transfer_source_is_allowed", "_remove_mobile_clauses_with_markers"])
 
 def _load_prompt_generator():
     if str(NODE_DIR) not in sys.path:
@@ -44,13 +43,6 @@ def _nsfw_pose_data_hash():
 
 def _prompt_signature(scale, shot, aspect="portrait", era="modern"):
     return f"mobile-logic-v15-ancient-barefoot|{_nsfw_pose_data_hash()}|{scale or ''}|{shot or ''}|{era or 'modern'}"
-
-
-def _route_exists(method, path):
-    for route in getattr(PromptServer.instance.routes, "_items", []):
-        if getattr(route, "method", None) == method and getattr(route, "path", None) == path:
-            return True
-    return False
 
 
 def _remote_transfer_source_is_allowed(request, allowed_ips):

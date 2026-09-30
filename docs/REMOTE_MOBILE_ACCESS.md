@@ -2,13 +2,13 @@
 
 ## 当前架构
 
-手机和 Mac 浏览器直接访问 Mac 本机 ComfyUI 的手机页面；Mac 仅向 Windows 4090 提交计算任务。不得建立任何网络中间层。
+手机和 Mac 浏览器直接访问 Mac 本机独立 aiohttp 服务的手机页面；Mac 仅向 Windows 4090 提交计算任务。不得建立任何网络中间层。
 
 Mac 本机不执行图片或视频推理。Mac `8188` 仅提供页面与编排、生成提示词、提交远端工作流、接收回传，以及把资产写入本机目录；模型加载和生成计算只发生在 Windows 4090。
 
 ```text
 手机或 Mac 浏览器
-  -> Mac 本机 8188 /random_photo_prompt/mobile
+  -> Mac 独立 aiohttp 8188 /random_photo_prompt/mobile
   -> 远端 4090 ComfyUI（仅计算）
   -> WebSocket 二进制结果帧
   -> Mac 本地图库与收藏目录
@@ -19,6 +19,8 @@ Mac 本机不执行图片或视频推理。Mac `8188` 仅提供页面与编排�
 ```text
 http://Mac当前局域网IP:8188/random_photo_prompt/mobile
 ```
+
+手机页顶部连接状态分两行显示：第一行保持“Mac 本地资产，远端计算”等运行状态，第二行显示 Mac 服务当前加载的项目版本。版本由 `rpp_globals.py` 的 `PROJECT_VERSION` 维护，并随运行时发布递增；即使远端计算暂时不可达，页面仍显示本机加载的版本。该版本只证明 Mac 入口已更新，远端部署须另行核对远端接口。
 
 推荐入口是 Bonjour 主机名，IP 变化后地址不变，手机可直接收藏或加到主屏幕：
 
@@ -40,7 +42,7 @@ Mac 存在多张局域网网卡时，所有到远端计算主机的 HTTP 与 Web
 
 远端重启时会清除该节点的 Python 代码缓存，确保同步后的节点代码立即生效。
 
-Mac ComfyUI 的 `custom_nodes/random_photo_prompt` 必须链接到本项目目录，不能维护第二份可编辑副本。项目目录是唯一源码；远端由同步脚本更新。
+Mac 独立服务直接读取本项目源码；Mac ComfyUI 的 `custom_nodes/random_photo_prompt` 链接仅供节点入口验证，不能维护第二份可编辑副本。远端继续由同步脚本部署为 ComfyUI 自定义节点。
 
 ## 瀑布流 NEW 标记
 
@@ -57,6 +59,14 @@ Krea2 单采和双采只各保留一个最终图片输出：单采取第一采�
 视频遵循同一资产驻留原则：远端内存编码后通过已授权的回传接口直接写入 Mac 本地视频目录；不得在远端落盘视频。
 
 ## 启动与验证
+
+Mac 生产启动沿用 `/Users/zouge/Documents/ComfyUI/.venv/bin/python tools/run_mac_local_comfyui_daemon.py`；该命令现在识别并停止原 ComfyUI 或独立服务，再启动 `tools/run_mac_local_server.py`，不加载 ComfyUI/PyTorch。PID 与日志仍在原 ComfyUI 根目录，令牌与环境变量注入不变。无法识别的 8188 进程会明确报错，禁止误杀。
+
+前台启动：同一 Python 执行 `tools/run_mac_local_server.py --listen 0.0.0.0 --port 8188`；临时验证换端口，也可设 `RPP_MAC_LOCAL_PORT`。根目录沿用 `RPP_COMFYUI_ROOT`，默认仍是 `/Users/zouge/Documents/ComfyUI`；`output`、`input`、`models`、收藏、任务/提示词/已查看索引均不迁移。图库 `/view` 原 URL 保留，支持视频 Range，禁止隐藏文件和目录越界。`/ws` 保留页面握手，按原 clientId 转发远端真实执行通知与已在 Mac 落盘的图片帧；不创建本地推理队列。原 macOS aiohttp SO_KEEPALIVE 容错在新入口中保留。
+
+`rpp_routes.py` 是两端唯一路由表。Mac 无本地队列或 history，只读取远端队列、远端历史与本机落盘收据；`/interrogate` 和 `/remote/submit` 在 Mac 返回明确 503，仅 Windows 注入真实推理处理器。Mac 状态接口在远端断线时仍返回 200，通过 `connected=false`、`message` 和 `health.remote_compute` 报告失败；手机页与手动页据此显示断线并禁用生成，不把 HTTP 200 当成远端可用。
+
+部署顺序：等待活动任务结束，先运行 `tools/sync_prompt_runtime_to_remote.py`（同步并重启 Windows），再运行上述 Mac daemon；桌面脚本仍按此顺序调用，无需修改。同步检查只读取 Mac `/random_photo_prompt/mobile/jobs` 和远端 `/queue`；本机连接被拒绝视为未启动，但 HTTP 错误/超时不能视为无任务。真实出图与回传仍须部署后验收。
 
 视频页提供远端模型选择，文生视频和图生视频共用该选择并保存页面偏好。列表从远端 `DiffusionModelLoaderKJ` 注册信息读取，目前允许 `minimax_h3_fl2va_pruned_int8_convrot.safetensors`、`h3ErosMax_beta5_fp8.safetensors` 和 `DasiwaMinimaxH3_dasiwaHybridV2_int8.safetensors`；视频模型及 MiniMax/LTX 专用编码器、VAE 存于 Windows `E:\ComfyUI_models`，图片模型仍存于 `F:\ComfyUI_models`。远端 `extra_model_paths.yaml` 同时注册两处目录，工作流按文件名从对应盘读取。提交必须携带有效 `video_model`，写入工作流模型加载节点并记录在任务中；不读取 Mac 模型库，不自动替换无效选择。文本编码器、视频/音频 VAE 与采样参数保持原流程配置。
 

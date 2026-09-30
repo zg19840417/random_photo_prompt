@@ -14,13 +14,13 @@ When a long-term rule changes, update this index with a short pointer and update
 
 ## Project
 
-`random_photo_prompt` is a ComfyUI custom node that generates randomized portrait prompt text and writes that text into connected CLIP text encode nodes before queue execution.
+`random_photo_prompt` combines a standalone Mac aiohttp orchestration service with Windows ComfyUI custom nodes. The Windows node generates portrait prompt text and writes it into connected CLIP text encode nodes before queue execution.
 
 ## Source Of Truth
 
-本机唯一编辑源是 `/Users/zouge/Project/1-myProject/random_photo_prompt/`。Mac ComfyUI 的 `custom_nodes/random_photo_prompt` 是指向该目录的软链接，不是独立运行副本；Windows `D:\ComfyUI\ComfyUI\custom_nodes\random_photo_prompt` 只是由同步脚本更新的部署副本。任何 AI 修改前必须以本机编辑源为准，不能把运行路径、镜像或远端部署目录当作源真相。手机入口是 Mac `8188`，`18199` 代理已废弃且禁止恢复。
+本机唯一编辑源是 `/Users/zouge/Project/1-myProject/random_photo_prompt/`。Mac ComfyUI 的 `custom_nodes/random_photo_prompt` 是供节点验证的软链接；Mac 独立服务直接加载该目录，不是另一份运行副本；Windows `D:\ComfyUI\ComfyUI\custom_nodes\random_photo_prompt` 只是由同步脚本更新的部署副本。任何 AI 修改前必须以本机编辑源为准，不能把运行路径、镜像或远端部署目录当作源真相。手机入口是 Mac `8188`，`18199` 代理已废弃且禁止恢复。
 
-Mac `8188` 只做页面编排、提示词和工作流提交、远端结果回传及本地资产存储；图片和视频推理统一在 Windows 4090 执行，本机不承担生成计算。
+Mac `8188` 使用独立 aiohttp 服务，不导入 ComfyUI、torch、comfy、execution 或 ComfyUI server；只做页面编排、提示词和工作流提交、远端结果回传及本地资产存储；图片和视频推理统一在 Windows 4090 执行，本机不承担生成计算。
 
 手机与 Mac 手动页的图片工作流为单采-ZIT、双采-ZIT+ZIB、单采-Krea2、双采-Krea2。Krea2 两档使用 `mobile_workflow_api_krea2*.json`：单采 8 步；双采为 8 步一采、bicubic 潜空间 1.5 倍、5 步/denoise 0.5 二采，最终图来自二采解码。附件里的 SeedVR2、Ultimate SD 和锐化是默认绕过的独立支线，不作为生成后的自动放大流程。模型来源仍由远端模型列表校验；原附件的 moodyKrea2Mix v8 当前不在远端，以现有 v50 为默认。两套 Krea2 保留零化负面条件，不接收手填负面词；输出由远端 WebSocket 直回 Mac。
 
@@ -28,7 +28,7 @@ Mac `8188` 只做页面编排、提示词和工作流提交、远端结果回传
 
 ## Current Goal
 
-The project should remain a lightweight prompt-generation node, not a standalone application.
+Mac runs a lightweight aiohttp service; Windows retains the ComfyUI custom-node entry. Both hosts share `rpp_routes.register_routes`; only Windows loads `rpp_nodes.py`, `rpp_comfy.py` and `image_interrogator.py`. Mac `/interrogate` and `/remote/submit` return explicit HTTP 503 because those two inference endpoints belong to Windows. Mobile generation continues submitting directly to the Windows guarded endpoint.
 
 The generator now uses a simplified six-dimension prompt model with four user-facing scales. 一档 maps to `normal`, 二档 maps to `bold`, 三档 maps to `bold_no_outfit`, and 四档 maps to `nsfw`. 三档 reuses 二档 prompt logic but omits the outfit dimension during final prompt assembly. 四档 is the original NSFW behavior and also omits outfit.
 
@@ -89,7 +89,7 @@ Rule 1 character/body text must remain camera-scoped after all post-processing. 
 
 Do not revive old fragmented dimension systems, including style packs, scene packs, separate pose child pools, expression/head/face-action pools, clothing-state pools, prop pools, foreground pools, photo-finish pools, or fallback compatibility bridges.
 
-Prompt option data is maintained as JSON. The editable source file is `data/prompt_pools.json`; `prompt_data.py` loads it at runtime (`_load_generated_prompt_data`), so changing the JSON takes effect on the next ComfyUI restart without any build step. `data/prompt_pools.json` now holds only the fixed character, makeup, quality suffix and base negative prompt; composer data lives in `data/art_direction_pools.json`. The in-file values in `prompt_data.py` serve only as startup fallback.
+Prompt option data is maintained as JSON. The editable source file is `data/prompt_pools.json`; `prompt_data.py` loads it at runtime (`_load_generated_prompt_data`), so changing the JSON takes effect on the next relevant service restart without any build step. `data/prompt_pools.json` now holds only the fixed character, makeup, quality suffix and base negative prompt; composer data lives in `data/art_direction_pools.json`. The in-file values in `prompt_data.py` serve only as startup fallback.
 
 Exception: 四档/`nsfw` 的 `POSE_EXPRESSION_OPTIONS` 姿势和表情维度只使用 `data/nsfw_pose_expression_options.json`。它不走 `data/prompt_pools.json` 加载链路，不读取主池的 `POSE_EXPRESSION_OPTIONS/nsfw`，也不读取 `landscape_pose_expression_options/nsfw`。运行时先加载 `data/prompt_pools.json`，再用 `data/nsfw_pose_expression_options.json` 覆盖 `POSE_EXPRESSION_OPTIONS["nsfw"]`；`pose_expression_options_by_aspect("nsfw", ...)` 必须直接从该 JSON 覆盖后的池读取。
 
@@ -126,7 +126,7 @@ The remote Windows 8188 service is not a mobile entry because it has no local as
 
 Mobile API workflow templates may contain an embedded `RandomPhotoPrompt` node copied from the desktop graph. Mobile submission must patch the target text-encode nodes directly with the generated prompt and remove any unreferenced embedded `RandomPhotoPrompt` nodes before validation, so the mobile request does not depend on stale cached node inputs inside the template.
 
-Mobile generation keeps an in-memory list of jobs created during the current ComfyUI process for queue progress and prompt association. Completed remote mobile images are atomically saved in the local Mac ComfyUI `output` directory, and the phone image gallery recursively reads local images below that directory by file modification time, newest first. Completed mobile videos remain under `random_photo_prompt_mobile_video`. Remote image WebSocket clients must accept messages of at least 64 MiB so high-resolution PNG results are not dropped by the aiohttp default message-size limit.
+Mobile generation keeps an in-memory list of jobs created during the current Mac service process for queue progress and prompt association. Completed remote mobile images are atomically saved in the local Mac ComfyUI `output` directory, and the phone image gallery recursively reads local images below that directory by file modification time, newest first. Completed mobile videos remain under `random_photo_prompt_mobile_video`. Remote image WebSocket clients must accept messages of at least 64 MiB so high-resolution PNG results are not dropped by the aiohttp default message-size limit.
 
 
 Mobile image/video generation uses the allowlisted API workflow template `minimax_h3_workflow_api.json`（MiniMax H3，`MiniMaxH3ImageToVideo` 节点，固定 24 FPS，支持文生视频 `video_mode=text` 与图生视频 `video_mode=image`；LTX 线路已删除）。The phone generation page has image and video tabs: image mode exposes the existing text-to-image workflow/model choices, while video mode exposes the same scale selector as image generation (一档, 二档, 三档, 四档), video count, source image selection, action description, frame-rate controls, and seconds controls. Video mode does not expose shot selectors because the selected source image already defines the content and composition. After the user selects a new source image, the phone page should automatically generate one suitable motion prompt for that image. After that, each click on the video prompt-generation button should randomly generate a new motion prompt for the current source image, scale, and seconds, and should avoid returning the exact same text as the currently displayed motion prompt when possible. The backend receives the selected scale for both pre-generating action text and queueing the video workflow. The video page may pre-generate an action description only after a source image is selected; this fills the action description text field and does not queue a job. The pre-generation should prefer the selected gallery image's remembered still prompt to infer likely pose/framing, falling back to a general seductive motion choreography when no remembered prompt exists. Framing inference has priority over pose-family inference: upper-body source prompts may describe only visible head, eyes, mouth, hair, neck, shoulders, collarbones, complete chest/upper chest, upper-waist edge, hands near those areas, camera movement, and light movement; they must not receive full-body, waist-hip, leg, walking, or whole-torso turning choreography. Half-body source prompts may use waist, hip, thigh-edge, and upper-body movement but must not require feet or full-body steps. Full-body source prompts may use complete body turns, steps, leg lines, and whole-silhouette motion. The backend copies the selected gallery image into a dedicated ComfyUI input subfolder only, never into `output` or a gallery-scanned directory, patches the workflow source node, writes only the compact motion prompt into the positive CLIP text node, patches negative text, seed, seconds, frame rate, and `SaveVideo.filename_prefix`. The video submission always uses the video action field as its sole prompt source; it must never inherit a manual still-image prompt retained by the image tab. The image gallery excludes the video-output subdirectory so legacy input copies cannot appear as generated assets. For image-to-video, it directly sets `MiniMaxH3ImageToVideo.width` and `.height` from the source image ratio, proportionally reducing only when needed so the longest output side is at most 720 pixels (704 after 32-pixel alignment), total pixels are at most 620,000, and both dimensions are aligned to 32 pixels; it must not use the template's fixed 9:16 `ResolutionSelector`. The video prompt should describe only how the selected image moves. It should use direct positive motion choreography with visibly large body, pose, gesture, expression, hair, accessory, camera, and light changes that serve seductive glamour presentation toward the camera. Do not repeat still-image dimensions such as identity, outfit, scene, camera scope, body description, or full image prompt. Avoid restrictive wording such as “保持原图”, “延续”, “克制”, “轻微”, “不大幅变形”, or similar no-change instructions.
@@ -211,8 +211,14 @@ The mobile gallery has matching image, video, and favorite-image browsing behavi
   - `POSE_EXPRESSION_OPTIONS["nsfw"]` and `pose_expression_options_by_aspect` (四档 only)
   - `QUALITY_SUFFIX`
   - `NEGATIVE_PROMPT`
-- `__init__.py`
-  - node inputs, endpoint, cache behavior.
+- `__init__.py` / `rpp_nodes.py` / `rpp_comfy.py`
+  - Windows node registration, inference queue admission and image interrogation; ComfyUI prompt-save guard remains installed.
+- `rpp_routes.py` / `rpp_endpoints.py`
+  - single shared route table and HTTP business handlers; unavailable remote models return explicit status health errors without HTTP 500; both pages honor `connected=false` and disable submission.
+- `rpp_server.py` / `rpp_folder_paths.py` / `tools/run_mac_local_server.py`
+  - Mac standalone aiohttp host and original ComfyUI directory layout; no local inference queue/history.
+  - `/view` serves original media URLs with path confinement and video Range support; `/ws` forwards real remote events/result frames to the originating browser without a local inference queue.
+  - `tools/run_mac_local_comfyui_daemon.py` retains PID/log/token/environment injection and now restarts identified old services instead of returning early.
   - `/random_photo_prompt/mobile`: phone-friendly generation page.
   - `/random_photo_prompt/mobile/generate`: queues one or more runs from the selected allowlisted mobile API workflow template.
   - `/random_photo_prompt/mobile/job/{prompt_id}`: returns queue/history status and generated image URLs.
@@ -260,14 +266,16 @@ When a user provides a screenshot of a generated prompt, treat every issue as a 
 
 - Verify the same text surface the user sees. Desktop node previews and mobile/web pages may display `display_prompt`, while generation may use `positive_prompt` or `compact_prompt`; all surfaces must share final cleanup.
 - Do not rely on pool-only inspection. Instantiate complete prompts, split them into sentences/clauses, and review whether each sentence is concrete, drawable, and natural.
-- Trace the source before patching: composer data, the rendered final lines, display text, and whether the running ComfyUI process has loaded the newest files.
-- If local validation is needed, kill the actual process bound to port 8188 and start a fresh local ComfyUI process before API checks. A stale process invalidates any self-check.
+- Trace the source before patching: composer data, the rendered final lines, display text, and whether the serving Mac aiohttp or Windows ComfyUI process has loaded the newest files.
+- If local validation is needed, kill the actual process bound to port 8188 and start a fresh local aiohttp service before API checks. A stale process invalidates any self-check.
 - Add screenshot failures to the bad-example audit set when possible. Typical failures include abstract purpose words, explanation words, unclear pronouns such as "观众", repeated gaze/lip clauses, and stitched phrases such as "完整S线被姿态拉开".
 - Real display-prompt review must also scan for evaluative intensifiers and doubled words such as "更直接", "更强", "更明显", "眼神眼神", "嘴角嘴角", or "身体身体"; these usually indicate generated text is judging the image instead of describing drawable visual facts.
 - Pose sentences longer than 40 Chinese characters must have clear comma-separated action boundaries. If body, hands, gaze, lips, and expression are fused into one unpunctuated chain, the prompt fails even if no known bad word appears.
 - Passing QA means both offline audit and real local API display-prompt sampling pass. Offline `tools/audit_generated_prompts.py` alone is not enough for screenshot-facing fixes.
 
 ## Remote Sync Rule
+
+The phone header displays the running Mac project's release version below its connection label. `rpp_globals.py` owns `PROJECT_VERSION`; the server substitutes it into `web/mobile.html` when loading the page and returns the same value as `project_version` in `/random_photo_prompt/mobile/status` and `/random_photo_prompt/local/status?format=json`. Start at `0.1.0` and increment it for each deployed runtime release. A version change requires restarting Mac 8188; the remote copy is synced and restarted when that release changes remote-read files. The displayed version identifies the Mac service that served the page, so remote deployment still needs its own interface check.
 
 Video task metadata and the mobile generation status bar report the dimensions written to `MiniMaxH3ImageToVideo`, not the still-image prompt resolution. Image-to-video dimensions preserve the source-image ratio as closely as the required 32-pixel grid permits, with a maximum side of 720 pixels (704 after alignment) and a maximum total of 620,000 pixels; text-to-video uses a 400x720 canvas.
 
@@ -296,4 +304,4 @@ After every code or prompt-rule change, decide which running service actually se
 - Phone/web entry uses the Mac LAN address on port `8188` for prompt generation, resolution inference, mobile workflow patching, gallery prompt records, local file management, and remote WebSocket reception. Changes to `prompt_engine.py`, `prompt_composer.py`, `prompt_fluency.py`, `data/art_direction_pools.json`, `prompt_data.py`, `data/prompt_pools.json`, `prompt_constants.py`, `negative_prompt_engine.py`, `prompt_resolution.py`, `video_prompt_engine.py`, `__init__.py`, or mobile generation logic require restarting the actual Mac process bound to 8188.
 - Remote Windows `192.168.123.111:8188` executes the remote ComfyUI graph and may load its own copy of this custom node. Changes that affect remote node definitions, remote workflows, prompt/runtime files read by the remote process, model/LoRA list logic, or remote web usage require syncing files to `D:\ComfyUI\ComfyUI\custom_nodes\random_photo_prompt` and restarting remote 8188.
 - Verification must match the affected entry point: phone prompt and asset issues require inspecting Mac local 8188 API output and local files; remote node/workflow issues require inspecting remote 8188. A successful check on one service does not prove another service has loaded the change.
-- To prevent stale prompt jobs from occupying the remote GPU, after prompt-rule, mobile-generation, or workflow-patching changes prefer `python3 tools/restart_prompt_services.py --remote`. The script interrupts the remote current job, clears the remote queue, clears Mac mobile runtime state, restarts Mac local 8188, and optionally restarts remote 8188 in one ordered flow.
+- Wait for active tasks to finish, then run `tools/sync_prompt_runtime_to_remote.py` and `tools/run_mac_local_comfyui_daemon.py` with the existing venv Python. The sync script checks Mac `/random_photo_prompt/mobile/jobs` (connection refused means stopped; HTTP failures remain errors) and Windows `/queue`, syncs runtime dependencies and restarts Windows. The daemon restarts Mac aiohttp. The existing desktop command calls these same two tools. User restrictions on remote access or existing-process restarts take precedence; validate on a temporary port and leave deployment to the user in that case.

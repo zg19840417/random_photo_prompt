@@ -6,6 +6,7 @@ import json
 import os
 import re
 import socket
+import struct
 import time
 import traceback
 import urllib.error
@@ -14,10 +15,8 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-import execution
 import folder_paths
 from aiohttp import ClientSession, ClientTimeout, TCPConnector, WSMsgType, web
-from server import PromptServer
 
 from rpp_globals import (
     BLOCK_REMOTE_ASSET_SAVE,
@@ -83,7 +82,16 @@ from remote_preview_protocol import (
     websocket_connect_kwargs,
 )
 
-__all__ = sorted(["__all__", "_available_krea2_models", "_available_mobile_loras", "_available_mobile_zimage_models", "_available_zib_models", "_available_zimage_models", "_available_zit_models", "_clear_remote_mobile_runtime_state", "_ensure_mobile_session_jobs_loaded", "_load_mobile_session_jobs", "_local_uploaded_image_path_for_remote_result", "_lora_dir_display_path", "_mac_proxy_source_image_url", "_mac_proxy_video_upload_url", "_mobile_session_jobs_path", "_normalize_remote_krea2_model_name", "_normalize_remote_output_subfolder", "_normalize_remote_zimage_model_name", "_queue_local_guarded_workflow", "_queue_mobile_workflow", "_queue_remote_mobile_workflow", "_remote_bytes", "_remote_delete_output_file", "_remote_history", "_remote_image_extension_from_bytes", "_remote_json", "_remote_local_path_for_image", "_remote_local_path_for_video", "_remote_queue", "_remote_websocket_image_filename", "_remote_websocket_local_path", "_resolve_krea2_model", "_resolve_zib_model", "_resolve_zit_model", "_save_mobile_session_jobs", "_save_remote_websocket_image", "_sort_krea2_models", "_sort_zib_models", "_sort_zit_models", "_split_remote_krea2_models", "_split_remote_zimage_models", "_template_krea2_models", "_watch_remote_websocket_outputs", "receive_remote_video"])
+__all__ = sorted(["__all__", "_available_krea2_models", "_available_mobile_loras", "_available_mobile_zimage_models", "_available_zib_models", "_available_zimage_models", "_available_zit_models", "_clear_remote_mobile_runtime_state", "_ensure_mobile_session_jobs_loaded", "_load_mobile_session_jobs", "_local_uploaded_image_path_for_remote_result", "_lora_dir_display_path", "_mac_proxy_source_image_url", "_mac_proxy_video_upload_url", "_mobile_session_jobs_path", "_normalize_remote_krea2_model_name", "_normalize_remote_output_subfolder", "_normalize_remote_zimage_model_name", "_queue_mobile_workflow", "_queue_remote_mobile_workflow", "_remote_bytes", "_remote_delete_output_file", "_remote_history", "_remote_image_extension_from_bytes", "_remote_json", "_remote_local_path_for_image", "_remote_local_path_for_video", "_remote_queue", "_remote_websocket_image_filename", "_remote_websocket_local_path", "_resolve_krea2_model", "_resolve_zib_model", "_resolve_zit_model", "_save_mobile_session_jobs", "_save_remote_websocket_image", "_sort_krea2_models", "_sort_zib_models", "_sort_zit_models", "_split_remote_krea2_models", "_split_remote_zimage_models", "_template_krea2_models", "_watch_remote_websocket_outputs", "receive_remote_video"])
+
+# 仅 Mac aiohttp 宿主安装浏览器通知回调；远端节点无需导入 Mac 宿主。
+_browser_event_callback = None
+
+
+async def _send_browser_event(client_id, payload):
+    if client_id and _browser_event_callback is not None:
+        await _browser_event_callback(client_id, payload)
+
 
 def _available_zimage_models(prefix):
     try:
@@ -413,7 +421,7 @@ def _mac_proxy_source_image_url(filename):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
             probe.connect((remote_host, 9))
             mac_ip = probe.getsockname()[0]
-        source_base_url = f"http://{mac_ip}:8188/random_photo_prompt/remote/video/source_image"
+        source_base_url = f"http://{mac_ip}:{int(os.environ.get('RPP_MAC_LOCAL_PORT', '8188'))}/random_photo_prompt/remote/video/source_image"
     return f"{source_base_url}?{urllib.parse.urlencode({'filename': safe_name})}"
 
 
@@ -426,40 +434,7 @@ def _mac_proxy_video_upload_url():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
         probe.connect((remote_host, 9))
         mac_ip = probe.getsockname()[0]
-    return f"http://{mac_ip}:8188/random_photo_prompt/remote/video/upload"
-
-
-async def _queue_local_guarded_workflow(workflow, client_id="", source="random_photo_prompt_mobile"):
-    async with GENERATION_SUBMISSION_LOCK:
-        running, pending = PromptServer.instance.prompt_queue.get_current_queue_volatile()
-        if running or pending:
-            return None, {
-                "error": "远端已有生成任务，请等待当前任务完成后再提交。",
-                "status": 409,
-                "node_errors": {},
-            }
-        prompt_id = str(uuid.uuid4())
-        PromptServer.instance.node_replace_manager.apply_replacements(workflow)
-        valid = await execution.validate_prompt(prompt_id, workflow, None)
-        if not valid[0]:
-            return None, {
-                "error": _mobile_validation_error_message(valid[1], valid[3]),
-                "raw_error": valid[1],
-                "node_errors": valid[3],
-            }
-        number = PromptServer.instance.number
-        PromptServer.instance.number += 1
-        extra_data = {"create_time": int(time.time() * 1000), "source": str(source or "random_photo_prompt_mobile")}
-        client_id = str(client_id or "").strip()
-        if client_id:
-            extra_data["client_id"] = client_id
-        PromptServer.instance.prompt_queue.put((number, prompt_id, workflow, extra_data, valid[2], {}))
-        return {
-            "prompt_id": prompt_id,
-            "number": number,
-            "node_errors": valid[3],
-            "node_total": max(1, len(workflow)),
-        }, None
+    return f"http://{mac_ip}:{int(os.environ.get('RPP_MAC_LOCAL_PORT', '8188'))}/random_photo_prompt/remote/video/upload"
 
 
 async def _queue_mobile_workflow(workflow, client_id=""):
@@ -467,13 +442,7 @@ async def _queue_mobile_workflow(workflow, client_id=""):
         # In remote-compute mode this Mac never queues image/video inference locally.
         # The remote workflow is limited to WebSocket output so assets return to Mac memory first.
         return await _queue_remote_mobile_workflow(workflow, client_id, output_mode="phone")
-    if BLOCK_REMOTE_ASSET_SAVE:
-        result = _force_websocket_only_image_outputs(workflow)
-        blocked = sorted(set(result["blocked"] + _unpatched_remote_save_node_classes(workflow)))
-        if blocked:
-            detail = ", ".join(blocked) or "unknown"
-            return None, {"error": f"远端工作流仍包含保存节点，已阻止提交，避免资产保存在远端：{detail}", "node_errors": {}}
-    return await _queue_local_guarded_workflow(workflow, client_id)
+    return None, {"error": "Mac 不执行本地推理；请配置远端 ComfyUI 地址。", "status": 503, "node_errors": {}}
 
 
 def _remote_compute_connector():
@@ -588,6 +557,7 @@ async def _queue_remote_mobile_workflow(workflow, client_id="", output_mode="mac
                 node_total=node_total,
                 output_mode=output_mode,
                 expect_image_frames=expect_image_frames,
+                browser_client_id=client_id,
             )
         )
         ready_waiter = asyncio.create_task(ready_event.wait())
@@ -745,7 +715,7 @@ async def _probe_remote_websocket():
     return result
 
 
-async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=None, output_nodes=None, output_prefix="", node_total=0, output_mode="mac", expect_image_frames=True):
+async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=None, output_nodes=None, output_prefix="", node_total=0, output_mode="mac", expect_image_frames=True, browser_client_id=""):
     if isinstance(prompt_ref, dict):
         prompt_id = str(prompt_ref.get("value") or "").strip()
     else:
@@ -818,6 +788,8 @@ async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=Non
                                 REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID[prompt_id] = output_prefix
                             REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID[prompt_id] = "phone" if str(output_mode or "").strip().lower() == "phone" else "mac"
                         message_type = message.get("type")
+                        if message_prompt_id and message_prompt_id == prompt_id and message_type in {"executing", "execution_error", "progress"}:
+                            await _send_browser_event(browser_client_id, message)
                         if message_type == "progress":
                             if message_prompt_id and prompt_id and message_prompt_id != prompt_id:
                                 continue
@@ -893,6 +865,10 @@ async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=Non
                             continue
                         _save_remote_websocket_image(prompt_id, frame["image_bytes"], frame["image_type"])
                         received_image_count += 1
+                        await _send_browser_event(
+                            browser_client_id,
+                            struct.pack(">II", 1, frame["image_type"]) + frame["image_bytes"],
+                        )
     except asyncio.CancelledError:
         raise
     except Exception as exc:

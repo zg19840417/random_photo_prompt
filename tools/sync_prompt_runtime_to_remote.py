@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -11,6 +12,9 @@ REMOTE = f"{REMOTE_SSH}:D:/ComfyUI/ComfyUI/custom_nodes/random_photo_prompt/"
 
 FILES = [
     "__init__.py",
+    "rpp_routes.py",
+    "rpp_comfy.py",
+    "image_interrogator.py",
     "rpp_globals.py",
     "rpp_utils.py",
     "rpp_prompts.py",
@@ -54,15 +58,22 @@ def run(args, cwd=PROJECT):
 def require_idle_queues():
     import json
 
-    for host in ("127.0.0.1", "192.168.123.111"):
-        with urllib.request.urlopen(f"http://{host}:8188/queue", timeout=5) as response:
-            queue = json.load(response)
-        if queue["queue_running"] or queue["queue_pending"]:
-            raise RuntimeError(f"{host}:8188 有运行或待执行任务，停止同步重启")
-    with urllib.request.urlopen("http://127.0.0.1:8188/random_photo_prompt/mobile/jobs", timeout=5) as response:
-        jobs = json.load(response)["jobs"]
+    try:
+        with urllib.request.urlopen("http://127.0.0.1:8188/random_photo_prompt/mobile/jobs", timeout=5) as response:
+            jobs = json.load(response)["jobs"]
+    except urllib.error.HTTPError:
+        raise  # HTTP 错误不能冒充“本机未启动”。
+    except urllib.error.URLError as exc:
+        import errno
+        if not isinstance(exc.reason, ConnectionRefusedError) and getattr(exc.reason, "errno", None) != errno.ECONNREFUSED:
+            raise
+        jobs = []  # Mac 未启动时无活动任务；后续启动步骤负责恢复。
     if jobs:
         raise RuntimeError("手机端仍有活动任务，停止同步重启")
+    with urllib.request.urlopen("http://192.168.123.111:8188/queue", timeout=5) as response:
+        queue = json.load(response)
+    if queue["queue_running"] or queue["queue_pending"]:
+        raise RuntimeError("192.168.123.111:8188 有运行或待执行任务，停止同步重启")
 
 
 def verify_remote_object_info():

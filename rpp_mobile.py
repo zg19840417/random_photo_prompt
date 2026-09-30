@@ -15,7 +15,6 @@ from pathlib import Path
 
 import folder_paths
 from PIL import Image
-from server import PromptServer
 
 from rpp_globals import (
     MOBILE_FAVORITE_BACKUP_DIR,
@@ -70,7 +69,7 @@ from video_prompt_engine import (
     video_prompt_from_action,
 )
 
-__all__ = sorted(["__all__", "_active_mobile_session_jobs", "_copy_mobile_gallery_image_to_input", "_image_dimensions_for_file", "_infer_frame_scope_from_prompt", "_load_image_interrogator", "_load_mobile_favorite_metadata", "_load_mobile_prompt_index", "_mobile_active_job_count", "_mobile_favorite_backup_file", "_mobile_favorite_backup_images", "_mobile_favorite_metadata_path", "_mobile_gallery_images", "_mobile_gallery_videos", "_mobile_image_urls", "_mobile_job_output_prefix", "_mobile_job_status", "_mobile_local_images_for_prompt", "_mobile_output_file", "_mobile_output_file_from_item", "_mobile_output_file_key", "_mobile_output_relative_path", "_mobile_output_subfolder_for_path", "_mobile_prompt_for_gallery_file", "_mobile_prompt_for_video_file", "_mobile_prompt_index_path", "_mobile_prompt_metadata_for_gallery_file", "_mobile_remote_history_entry", "_mobile_video_input_dir", "_mobile_video_output_file", "_mobile_video_source_path", "_mobile_video_urls", "_mobile_video_view_url", "_mobile_view_subfolder", "_mobile_view_url", "_pregenerate_video_action_for_image", "_prompt_text_from_canvas_workflow_metadata", "_prompt_text_from_png_metadata", "_qview_image_path", "_remember_mobile_prompt_file", "_remember_mobile_prompt_images", "_remember_mobile_prompt_videos", "_remote_history_error_message", "_request_from_local_mac_browser", "_save_mobile_favorite_metadata", "_save_mobile_prompt_index", "_video_dimensions_for_file", "_video_prompt_from_action"])
+__all__ = sorted(["__all__", "_active_mobile_session_jobs", "_copy_mobile_gallery_image_to_input", "_image_dimensions_for_file", "_infer_frame_scope_from_prompt", "_load_mobile_favorite_metadata", "_load_mobile_prompt_index", "_mobile_active_job_count", "_mobile_favorite_backup_file", "_mobile_favorite_backup_images", "_mobile_favorite_metadata_path", "_mobile_gallery_images", "_mobile_gallery_videos", "_mobile_image_urls", "_mobile_job_output_prefix", "_mobile_job_status", "_mobile_local_images_for_prompt", "_mobile_output_file", "_mobile_output_file_from_item", "_mobile_output_file_key", "_mobile_output_relative_path", "_mobile_output_subfolder_for_path", "_mobile_prompt_for_gallery_file", "_mobile_prompt_for_video_file", "_mobile_prompt_index_path", "_mobile_prompt_metadata_for_gallery_file", "_mobile_remote_history_entry", "_mobile_video_input_dir", "_mobile_video_output_file", "_mobile_video_source_path", "_mobile_video_urls", "_mobile_video_view_url", "_mobile_view_subfolder", "_mobile_view_url", "_pregenerate_video_action_for_image", "_prompt_text_from_canvas_workflow_metadata", "_prompt_text_from_png_metadata", "_qview_image_path", "_remember_mobile_prompt_file", "_remember_mobile_prompt_images", "_remember_mobile_prompt_videos", "_remote_history_error_message", "_request_from_local_mac_browser", "_save_mobile_favorite_metadata", "_save_mobile_prompt_index", "_video_dimensions_for_file", "_video_prompt_from_action"])
 
 
 def _infer_frame_scope_from_prompt(prompt):
@@ -780,29 +779,7 @@ def _mobile_local_images_for_prompt(prompt_id):
 
 
 async def _mobile_image_urls(prompt_id):
-    local_images = _mobile_local_images_for_prompt(prompt_id)
-    if local_images:
-        return local_images
-    history = PromptServer.instance.prompt_queue.get_history(prompt_id=prompt_id) or {}
-    entry = history.get(prompt_id) if isinstance(history, dict) else None
-    images = []
-    if isinstance(entry, dict):
-        for output in (entry.get("outputs") or {}).values():
-            if not isinstance(output, dict):
-                continue
-            for image in output.get("images") or []:
-                filename = image.get("filename", "")
-                if not filename:
-                    continue
-                params = urllib.parse.urlencode(
-                    {
-                        "filename": filename,
-                        "subfolder": image.get("subfolder", ""),
-                        "type": image.get("type", "output"),
-                    }
-                )
-                images.append({"url": f"/view?{params}", **image})
-    return images
+    return _mobile_local_images_for_prompt(prompt_id)
 
 
 async def _mobile_remote_history_entry(prompt_id):
@@ -830,35 +807,7 @@ def _remote_history_error_message(entry):
 
 
 async def _mobile_video_urls(prompt_id):
-    local_videos = _mobile_local_videos_for_prompt(prompt_id)
-    if local_videos:
-        return local_videos
-    history = PromptServer.instance.prompt_queue.get_history(prompt_id=prompt_id) or {}
-    entry = history.get(prompt_id) if isinstance(history, dict) else None
-    videos = []
-    if isinstance(entry, dict):
-        for output in (entry.get("outputs") or {}).values():
-            if not isinstance(output, dict):
-                continue
-            for key in ("videos", "gifs"):
-                for video in output.get(key) or []:
-                    filename = video.get("filename", "")
-                    if not filename:
-                        continue
-                    params = urllib.parse.urlencode(
-                        {
-                            "filename": filename,
-                            "subfolder": video.get("subfolder", ""),
-                            "type": video.get("type", "output"),
-                        }
-                    )
-                    item = {"url": f"/view?{params}", **video}
-                    if video.get("subfolder") == MOBILE_VIDEO_OUTPUT_SUBFOLDER and filename:
-                        path = _mobile_video_output_file(filename)
-                        if path.is_file():
-                            item.update(_video_dimensions_for_file(path))
-                    videos.append(item)
-    return videos
+    return _mobile_local_videos_for_prompt(prompt_id)
 
 
 def _mobile_local_videos_for_prompt(prompt_id):
@@ -945,18 +894,12 @@ async def _mobile_job_status(prompt_id):
         (str(job.get("media_type") or "") for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id") or "") == prompt_id),
         "",
     )
-    running, pending = PromptServer.instance.prompt_queue.get_current_queue_volatile()
-    if REMOTE_COMFYUI_URL:
-        remote_running, remote_pending = await _remote_queue()
-        if remote_running or remote_pending:
-            running, pending = remote_running, remote_pending
+    running, pending = await _remote_queue() if REMOTE_COMFYUI_URL else ([], [])
     queue_ahead = _queue_waiting_count(prompt_id, running, pending)
     images = await _mobile_image_urls(prompt_id)
     videos = await _mobile_video_urls(prompt_id)
     _remember_mobile_prompt_images(prompt_id, images)
     _remember_mobile_prompt_videos(prompt_id, videos)
-    history = PromptServer.instance.prompt_queue.get_history(prompt_id=prompt_id) or {}
-    history_entry = history.get(prompt_id) if isinstance(history, dict) else None
     remote_entry = None
     remote_error = ""
     remote_finished = False
@@ -1003,10 +946,6 @@ async def _mobile_job_status(prompt_id):
             status = "running"
     elif remote_entry is not None:
         status = "running"
-    elif _remote_history_error_message(history_entry):
-        status = "failed"
-    elif history_entry is not None:
-        status = "completed"
     else:
         status = "unknown"
     if status in {"completed", "failed"}:
@@ -1021,7 +960,7 @@ async def _mobile_job_status(prompt_id):
         result["progress"] = REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id]
     if status == "failed":
         missing_result = "远端已完成，但 Mac 未收到视频回传。" if media_type == "video" else "远端已完成，但 Mac 未收到内存回传图片。"
-        result["error"] = remote_error or _remote_history_error_message(history_entry) or missing_result
+        result["error"] = remote_error or missing_result
     return result
 
 
@@ -1068,11 +1007,3 @@ async def _active_mobile_session_jobs():
         if len(MOBILE_SESSION_JOBS) != before:
             _save_mobile_session_jobs()
     return active_jobs
-
-
-def _load_image_interrogator():
-    if str(NODE_DIR) not in sys.path:
-        sys.path.insert(0, str(NODE_DIR))
-    from image_interrogator import ImageInterrogationError, interrogate_image_bytes
-
-    return ImageInterrogationError, interrogate_image_bytes
