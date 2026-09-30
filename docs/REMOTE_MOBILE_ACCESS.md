@@ -60,7 +60,9 @@ Krea2 单采和双采只各保留一个最终图片输出：单采取第一采�
 
 ## 启动与验证
 
-Mac 生产启动沿用 `/Users/zouge/Documents/ComfyUI/.venv/bin/python tools/run_mac_local_comfyui_daemon.py`；该命令现在识别并停止原 ComfyUI 或独立服务，再启动 `tools/run_mac_local_server.py`，不加载 ComfyUI/PyTorch。PID 与日志仍在原 ComfyUI 根目录，令牌与环境变量注入不变。无法识别的 8188 进程会明确报错，禁止误杀。
+LaunchAgent 使用项目目录作为工作目录；系统启动阶段的诊断日志写入 `/tmp/random-photo-prompt-launchd.{out,err}.log`，避免 launchd 在执行 Python 前访问受保护的 Documents 路径。Python 启动后将日志重定向至原 ComfyUI 日志文件。启动失败同时检查这两处日志。
+
+Mac 生产启动沿用 `/Users/zouge/Documents/ComfyUI/.venv/bin/python tools/run_mac_local_comfyui_daemon.py`；该命令卸载已有托管实例、识别并停止旧服务，然后安装并加载用户 LaunchAgent `com.random-photo-prompt.mac-server`。配置位于 `~/Library/LaunchAgents/com.random-photo-prompt.mac-server.plist`，由 macOS 独立启动 `tools/run_mac_local_server.py`；登录自启，退出后自动重启（最短启动间隔 10 秒），不加载 ComfyUI/PyTorch。重启前必须确认任务为空。PID 与日志仍在原 ComfyUI 根目录；令牌每次启动从原文件读取，不写入 plist，也不继承桌面应用的会话环境。无法识别的 8188 进程会明确报错，禁止误杀。仅 PPID=1 不能证明服务受 launchd 托管，须用 `launchctl print gui/$(id -u)/com.random-photo-prompt.mac-server` 核对登记与实际 PID。
 
 前台启动：同一 Python 执行 `tools/run_mac_local_server.py --listen 0.0.0.0 --port 8188`；临时验证换端口，也可设 `RPP_MAC_LOCAL_PORT`。根目录沿用 `RPP_COMFYUI_ROOT`，默认仍是 `/Users/zouge/Documents/ComfyUI`；`output`、`input`、`models`、收藏、任务/提示词/已查看索引均不迁移。图库 `/view` 原 URL 保留，支持视频 Range，禁止隐藏文件和目录越界。`/ws` 保留页面握手，按原 clientId 转发远端真实执行通知与已在 Mac 落盘的图片帧；不创建本地推理队列。原 macOS aiohttp SO_KEEPALIVE 容错在新入口中保留。
 
@@ -68,7 +70,13 @@ Mac 生产启动沿用 `/Users/zouge/Documents/ComfyUI/.venv/bin/python tools/ru
 
 部署顺序：等待活动任务结束，先运行 `tools/sync_prompt_runtime_to_remote.py`（同步并重启 Windows），再运行上述 Mac daemon；桌面脚本仍按此顺序调用，无需修改。同步检查只读取 Mac `/random_photo_prompt/mobile/jobs` 和远端 `/queue`；本机连接被拒绝视为未启动，但 HTTP 错误/超时不能视为无任务。真实出图与回传仍须部署后验收。
 
-视频页提供远端模型选择，文生视频和图生视频共用该选择并保存页面偏好。列表从远端 `DiffusionModelLoaderKJ` 注册信息读取，目前允许 `minimax_h3_fl2va_pruned_int8_convrot.safetensors`、`h3ErosMax_beta5_fp8.safetensors` 和 `DasiwaMinimaxH3_dasiwaHybridV2_int8.safetensors`；视频模型及 MiniMax/LTX 专用编码器、VAE 存于 Windows `E:\ComfyUI_models`，图片模型仍存于 `F:\ComfyUI_models`。远端 `extra_model_paths.yaml` 同时注册两处目录，工作流按文件名从对应盘读取。提交必须携带有效 `video_model`，写入工作流模型加载节点并记录在任务中；不读取 Mac 模型库，不自动替换无效选择。文本编码器、视频/音频 VAE 与采样参数保持原流程配置。
+视频页提供远端模型选择，文生视频和图生视频共用该选择并保存页面偏好。列表从远端 `DiffusionModelLoaderKJ` 注册信息读取，目前允许 `minimax_h3_fl2va_pruned_int8_convrot.safetensors`、`h3ErosMax_beta5_fp8.safetensors` 和 `DasiwaMinimaxH3_dasiwaHybridV2_int8.safetensors`；视频模型及 MiniMax/LTX 专用编码器、VAE 存于 Windows `E:\ComfyUI_models`，图片模型仍存于 `F:\ComfyUI_models`。远端 `extra_model_paths.yaml` 同时注册两处目录，工作流按文件名从对应盘读取。提交必须携带有效 `video_model`，写入工作流模型加载节点并记录在任务中；不读取 Mac 模型库，不自动替换无效选择。文本编码器与视频/音频 VAE 保持原流程配置；采样参数由下述 Turbo 开关决定。
+
+`POST /random_photo_prompt/mobile/video/generate` 接受 JSON 布尔参数 `turbo`，省略等同 `false`，字符串、数字或 `null` 返回 HTTP 400 中文错误。可选参数 `turbo_steps` 必须是整数 8 或 4，省略默认 8；开启 Turbo 时，其他值（包括字符串、浮点数、布尔值与 `null`）返回 HTTP 400“turbo_steps 参数必须是整数 8 或 4。”，关闭 Turbo 时完全忽略该参数。文生视频 `video_mode=text` 和图生视频 `video_mode=image` 共用这些参数；任务记录保存实际 `turbo` 和 `turbo_steps`，关闭时 `turbo_steps=null`。默认关闭时保持原补丁输出逐字节一致：不插入 LoRA / SigmaShift，保留 12 步与 `res_multistep`。开启时仅允许官方 `minimax_h3_fl2va_pruned_int8_convrot.safetensors`（允许远端注册的目录前缀），并在提交前读取远端 `/object_info/LoraLoaderModelOnly` 的 LoRA 列表（沿用既有 `LoraLoader` 列表回退）；8 步必须存在 `minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors`，4 步必须存在 `minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors`，均使用对应文件的完整注册路径。社区模型返回“Turbo 加速仅支持官方模型…”；缺文件返回“远端缺少 <对应完整文件名> 文件…”；均不提交任务、不回退到其他步数。
+
+Turbo 在现有 `minimax_h3_workflow_api.json` 上动态改写，不另建模板：`DiffusionModelLoaderKJ` → `LoraLoaderModelOnly`（对应步数的官方文件，`strength_model=1.0`）→ `MiniMaxH3SigmaShift`（`shift_video=12.0`、`shift_audio=3.0`）；`BasicGuider.model` 与 `BasicScheduler.model` 都接 SigmaShift 输出。`BasicScheduler` 使用 `simple`、实际 `turbo_steps`（8 或 4）、`denoise=1.0`，`KSamplerSelect` 使用 `euler`，无 CFG。8 步补丁输出与增加 4 步前逐字节一致；4 步仅改变 LoRA 文件与采样步数，清理节点、时长、尺寸、提示词与任务进度沿用既有逻辑。
+
+视频模型下方的“Turbo 加速”复选框默认关闭，沿用 `randomPhotoPrompt.mobile.settings` 的 `videoTurbo` 保存偏好。勾选且模型支持时，旁边显示“8 步 / 4 步”下拉，默认 8 步，同一设置对象的 `videoTurboSteps` 保存整数步数，随提交发送 `turbo_steps`。未勾选或模型不支持时下拉隐藏并禁用；选择其他模型仍禁用 Turbo 并显示“仅支持官方 MiniMax H3 模型”，提交强制发送 `turbo=false`；再次选择官方模型恢复原勾选与步数偏好。LoRA 需先由部署会话传入远端 LoRA 目录并确认注册列表可见，Mac 临时下载文件不代表远端已可用。
 
 Windows 将视频模型根目录 `E:\ComfyUI_models` 以 SMB 共享名 `ComfyUIVideoModels` 开放给专用账号 `ComfyShare`；Mac 挂载点为 `/Users/zouge/远程视频模型文件夹`，Finder 可直接连接 `smb://192.168.123.111/ComfyUIVideoModels`。图片模型仍使用独立的 `ComfyUIModels` 共享与 `/Users/zouge/远程模型文件夹` 挂载点。共享只用于管理模型文件，不改变推理和生成资产的驻留规则。
 
@@ -80,7 +88,7 @@ Windows 将视频模型根目录 `E:\ComfyUI_models` 以 SMB 共享名 `ComfyUIV
 
 图生视频选图弹窗提供“默认 / 收藏”页签，分别读取本机普通图库和收藏备份；任一页签为空仍可切换另一页签。点击图片完成单选，收藏图片即使原图已删除也能作为首帧，使用时仅复制到 Mac 本机视频 input 目录。
 
-视频瀑布流详情展示“视频提示词”，只使用该视频任务实际提交的 `generation_prompt`，不读取参考图片提示词。回传落盘时按视频子目录和文件名写入 Mac 本地提示词索引，图库通过 `video_prompt` 字段提供；现存任务可恢复记录，缺失时明确显示“未记录视频提示词”。复制按钮仅复制提示词正文。
+视频瀑布流详情展示“视频提示词”，只使用该视频任务实际提交的 `generation_prompt`，不读取参考图片提示词。回传落盘时按视频子目录和文件名写入 Mac 本地提示词索引，图库通过 `video_prompt` 字段提供；现存任务可恢复记录，缺失时明确显示“未记录视频提示词”。复制按钮仅复制提示词正文。回传落盘时另在同一索引条目写入 `run_info`（`elapsed_seconds` 为任务创建到回传完成的总耗时，含排队与模型加载；`turbo` 为是否开启加速；`turbo_steps` 为实际 8 或 4，关闭时为 `null`），图库经 `run_info` 字段提供，详情首行按实际参数显示“耗时：N 秒（含排队与加载）· Turbo 4 步”“耗时：N 秒（含排队与加载）· Turbo 8 步”或“耗时：N 秒（含排队与加载）· 标准采样”；旧 Turbo 任务或索引记录缺少 `turbo_steps` 时按 8 步处理，无耗时记录的旧视频不显示该行。
 
 视频详情提供“循环播放：开/关”按钮，默认关闭，使用浏览器原生视频循环播放。在当前页面内切换视频、关闭再打开详情均保留开关状态；刷新页面恢复关闭。图片详情不显示此按钮。原有延迟 1 秒静音自动播放行为保持不变。
 
@@ -100,7 +108,7 @@ Mac 本机 8188 负责手机页面、提示词、工作流改写、本地图库�
 
 手机版任务状态栏显示的视频像素必须取实际写入 `MiniMaxH3ImageToVideo` 的宽高，不能复用文生图提示词的分辨率字段。
 
-远端视频回传到 Mac 本地视频目录后，接收接口必须立即把视频文件名与任务前缀绑定并持久化；任务状态优先按该收据和任务文件名前缀检出该视频并标记完成，不能依赖 Mac 本地 ComfyUI history。视频回传等待窗口独立于图片，并至少保留 300 秒，避免编码或传输较慢时误报“未收到内存回传图片”。视频任务不依赖图片 WebSocket：视频由远端内存编码后直接 HTTP 回传 Mac；状态栏按远端队列显示“生成中”，不显示无法保证准确性的伪步骤数。视频详情打开后延迟 1 秒静音内联播放，关闭或切换视频时取消待执行播放。
+远端视频回传到 Mac 本地视频目录后，接收接口必须立即把视频文件名与任务前缀绑定并持久化；任务状态优先按该收据和任务文件名前缀检出该视频并标记完成，不能依赖 Mac 本地 ComfyUI history。视频回传等待窗口独立于图片，并至少保留 300 秒，避免编码或传输较慢时误报“未收到内存回传图片”。视频任务不依赖图片 WebSocket：视频由远端内存编码后直接 HTTP 回传 Mac；状态栏与图片一致显示“步骤：x/y”：视频任务同样建立远端 WebSocket 监听，x 为已执行的工作流节点数，y 为工作流节点总数（分母固定，采样器子步数不参与）；该监听只用于进度展示，建立失败不拒绝提交，退回“步骤：等待”。视频详情打开后延迟 1 秒静音内联播放，关闭或切换视频时取消待执行播放。
 
 文生视频和图生视频的动作输入框一旦提交非空自定义提示词，Mac 必须原样将该文本写入视频工作流正向提示词节点；不得二次清洗、分段、补全、裁剪或改写。仅空输入允许自动生成动作提示词。
 

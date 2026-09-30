@@ -41,7 +41,9 @@ class GenerationAdmissionPolicyTest(unittest.TestCase):
     def test_remote_video_progress_listener_does_not_wait_for_an_image_frame(self):
         remote = (ROOT / "rpp_remote.py").read_text(encoding="utf-8")
 
-        self.assertIn('watch_remote_progress = bool(ws_patch.get("websocket_node_ids"))', remote)
+        # 视频同样监听节点进度以显示“步骤 x/y”，但监听失败不得拒绝提交。
+        self.assertIn("watch_remote_progress = True", remote)
+        self.assertIn("if expect_image_frames:\n                return None, {\"error\": f\"远端 WebSocket 回传连接失败", remote)
         self.assertIn("expect_image_frames=expect_image_frames", remote)
         self.assertIn('if not expect_image_frames:\n                                break', remote)
         self.assertIn('if message_type == "progress":', remote)

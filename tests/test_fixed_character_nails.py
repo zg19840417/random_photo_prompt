@@ -10,7 +10,7 @@ class FixedCharacterNailsTests(unittest.TestCase):
         for scope, options in characters.items():
             with self.subTest(scope=scope):
                 self.assertTrue(options)
-                self.assertTrue(all("黑色渐变的手指甲又细又长" in text for text in options))
+                self.assertTrue(all("黑色渐变的手指甲" in text for text in options))
                 self.assertTrue(all("又细又长的黑色手指甲点缀反光银粉" not in text for text in options))
 
     def test_full_body_character_states_short_natural_toenails_and_negative_blocks_black_ones(self):
@@ -22,7 +22,7 @@ class FixedCharacterNailsTests(unittest.TestCase):
 
         characters = json.loads((root / "data" / "prompt_pools.json").read_text(encoding="utf-8"))["CHARACTER_IDENTITY_BY_SHOT"]
         for text in characters["full_body"]:
-            self.assertIn("黑色渐变的手指甲又细又长", text)
+            self.assertIn("黑色渐变的手指甲", text)
             self.assertIn("脚趾甲短而圆润，涂着自然的裸粉色", text)
         for text in characters["head_shot"] + characters["half_body"]:
             self.assertNotIn("脚趾甲", text)

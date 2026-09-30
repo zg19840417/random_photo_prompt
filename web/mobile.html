@@ -222,6 +222,40 @@
       caret-color: var(--accent);
     }
 
+    .video-turbo-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .video-turbo-steps {
+      flex: 0 0 104px;
+    }
+
+    .video-turbo-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      font-size: 14px;
+    }
+
+    .video-turbo-control input {
+      flex: 0 0 18px;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      accent-color: var(--accent);
+    }
+
+    .video-turbo-hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
     .negative-prompt-field textarea {
       min-height: 88px;
     }
@@ -1367,6 +1401,19 @@
               <div class="label">视频模型</div>
               <select id="videoModel"><option value="">加载中</option></select>
             </label>
+            <div class="video-turbo-row">
+              <label class="video-turbo-control">
+                <input id="videoTurbo" type="checkbox" disabled aria-describedby="videoTurboHint">
+                <span>Turbo 加速</span>
+              </label>
+              <div id="videoTurboStepsRow" class="video-turbo-steps" hidden>
+                <select id="videoTurboSteps" disabled aria-label="Turbo 采样步数">
+                  <option value="8" selected>8 步</option>
+                  <option value="4">4 步</option>
+                </select>
+              </div>
+            </div>
+            <p id="videoTurboHint" class="video-turbo-hint">仅支持官方 MiniMax H3 模型</p>
             <label>
               <div class="label">动作描述</div>
               <textarea id="videoAction" placeholder="请输入视频动作描述。"></textarea>
@@ -1570,6 +1617,11 @@
     const viewerIncomingImage = document.querySelector("#viewerIncomingImage");
     const viewerVideo = document.querySelector("#viewerVideo");
     const videoModelSelect = document.querySelector("#videoModel");
+    const videoTurboInput = document.querySelector("#videoTurbo");
+    const videoTurboStepsSelect = document.querySelector("#videoTurboSteps");
+    const videoTurboStepsRow = document.querySelector("#videoTurboStepsRow");
+    const videoTurboHint = document.querySelector("#videoTurboHint");
+    const videoTurboModel = "minimax_h3_fl2va_pruned_int8_convrot.safetensors";
     const viewerLoop = document.querySelector("#viewerLoop");
     const viewerCount = document.querySelector("#viewerCount");
     const viewerResolution = document.querySelector("#viewerResolution");
@@ -1745,6 +1797,8 @@
           scale: scaleSelect.value,
           videoInputMode: videoInputModeSelect.value,
           videoModel: videoModelSelect.value,
+          videoTurbo: videoTurboInput.checked,
+          videoTurboSteps: Number(videoTurboStepsSelect.value),
           era: eraSelect.value,
           shot: shotSelect.value,
           orientation: orientationSelect.value,
@@ -1791,6 +1845,11 @@
           krea2ModelSelect.dataset.pendingValue = settings.krea2Model;
         }
         if (settings.videoModel) videoModelSelect.dataset.pendingValue = settings.videoModel;
+        videoTurboInput.checked = settings.videoTurbo === true;
+        if (settings.videoTurboSteps === 8 || settings.videoTurboSteps === 4) {
+          setSelectValue(videoTurboStepsSelect, String(settings.videoTurboSteps));
+        }
+        updateVideoTurboAvailability();
         if (Array.isArray(settings.loras)) {
           pendingLoras = settings.loras.slice(0, 4);
         }
@@ -2067,6 +2126,16 @@
       return text.length > 180 ? `${text.slice(0, 177)}...` : text;
     }
 
+    function updateVideoTurboAvailability() {
+      const modelName = videoModelSelect.value.replace(/\\/g, "/").split("/").pop();
+      const supported = modelName === videoTurboModel;
+      videoTurboInput.disabled = !supported;
+      videoTurboHint.hidden = supported;
+      const enabled = supported && videoTurboInput.checked;
+      videoTurboStepsSelect.disabled = !enabled;
+      videoTurboStepsRow.hidden = !enabled;
+    }
+
     async function checkStatus() {
       try {
         const statusWorkflow = state.mode === "video" ? "minimax_h3" : workflowSelect.value;
@@ -2084,6 +2153,7 @@
         if (videoModels.includes(selectedVideoModel)) videoModelSelect.value = selectedVideoModel;
         delete videoModelSelect.dataset.pendingValue;
         renderCustomSelect(videoModelSelect);
+        updateVideoTurboAvailability();
         updateLoraOptions(data.loras || []);
         updateWorkflowModelVisibility();
         const ready = state.mode === "video" ? data.video_workflow?.template_ready : data.template_ready;
@@ -3017,7 +3087,11 @@
           viewerVideo.play().catch(() => {});
         }
       }, 1000);
-      viewerPrompt.textContent = record.prompt ? `视频提示词：\n${record.prompt}` : "未记录视频提示词";
+      const runInfo = record.video.run_info || {};
+      const runLine = runInfo.elapsed_seconds != null
+        ? `耗时：${runInfo.elapsed_seconds} 秒（含排队与加载）· ${runInfo.turbo ? `Turbo ${runInfo.turbo_steps ?? 8} 步` : "标准采样"}\n`
+        : "";
+      viewerPrompt.textContent = record.prompt ? `${runLine}视频提示词：\n${record.prompt}` : `${runLine}未记录视频提示词`;
       viewerCount.textContent = `${state.viewerIndex + 1} / ${videos.length}`;
       updateViewerResolution(resolutionText(record.video));
       viewerDelete.dataset.filename = videoKey(record.video);
@@ -3500,7 +3574,7 @@
       renderWaterfall();
     });
 
-    [orientationSelect, scaleSelect, videoInputModeSelect, eraSelect, shotSelect, workflowSelect, zitModelSelect, zibModelSelect, krea2ModelSelect, videoFpsSelect, videoSecondsSelect, customPromptResolution].forEach(enhanceSelect);
+    [orientationSelect, scaleSelect, videoInputModeSelect, eraSelect, shotSelect, workflowSelect, zitModelSelect, zibModelSelect, krea2ModelSelect, videoFpsSelect, videoSecondsSelect, videoTurboStepsSelect, customPromptResolution].forEach(enhanceSelect);
     document.addEventListener("click", () => closeAllCustomSelects());
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") closeAllCustomSelects();
@@ -3517,8 +3591,13 @@
     [scaleSelect, eraSelect, shotSelect, orientationSelect, videoModelSelect].forEach(select => {
       select.addEventListener("change", () => {
         renderCustomSelect(select);
+        if (select === videoModelSelect) updateVideoTurboAvailability();
         saveSettings();
       });
+    });
+    videoTurboInput.addEventListener("change", () => {
+      updateVideoTurboAvailability();
+      saveSettings();
     });
     customPromptButton.addEventListener("click", openPromptDialog);
     copyCustomPrompt.addEventListener("click", () => copyPromptText(state.customPrompt));
@@ -3575,7 +3654,7 @@
       updateCustomPromptButton();
       saveSettings();
     });
-    [videoFpsSelect, videoSecondsSelect].forEach(select => {
+    [videoFpsSelect, videoSecondsSelect, videoTurboStepsSelect].forEach(select => {
       select.addEventListener("change", () => {
         renderCustomSelect(select);
         saveSettings();
@@ -4118,6 +4197,8 @@
             client_id: state.clientId,
             video_mode: videoInputModeSelect.value,
             video_model: videoModelSelect.value,
+            turbo: videoTurboInput.checked && !videoTurboInput.disabled,
+            turbo_steps: Number(videoTurboStepsSelect.value),
             source_filename: imageKey(state.sourceImage),
             action_text: videoActionInput.value.trim(),
             fps: videoFpsSelect.value,

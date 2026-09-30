@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from run_mac_local_comfyui_daemon import ROOT, service_environment
+from run_mac_local_comfyui_daemon import ERR_FILE, LOG_FILE, PID_FILE, ROOT, service_environment
 
 
 def main():
@@ -18,6 +18,10 @@ def main():
     parser.add_argument("--listen", default=os.environ.get("RPP_MAC_LOCAL_LISTEN", "0.0.0.0"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("RPP_MAC_LOCAL_PORT", "8188")))
     args = parser.parse_args()
+    if os.environ.get("RPP_MAC_MANAGED_SERVICE") == "1":
+        for descriptor, path in ((1, LOG_FILE), (2, ERR_FILE)):
+            with path.open("ab", buffering=0) as stream:
+                os.dup2(stream.fileno(), descriptor)
     os.environ.update(service_environment())
     os.environ["RPP_MAC_LOCAL_PORT"] = str(args.port)
     # 沿用原启动器的 macOS SO_KEEPALIVE 容错，仅影响当前 Python socket。
@@ -37,6 +41,8 @@ def main():
     forbidden = sorted(name for name in sys.modules if name.split(".")[0] in {"torch", "comfy", "server", "execution"})
     if forbidden:
         raise RuntimeError(f"轻量服务误加载推理模块：{forbidden}")
+    if os.environ.get("RPP_MAC_MANAGED_SERVICE") == "1":
+        PID_FILE.write_text(str(os.getpid()))
     print(json.dumps({"service": "rpp-aiohttp", "pid": os.getpid(), "forbidden_modules": forbidden}), flush=True)
     web.run_app(app, host=args.listen, port=args.port)
 

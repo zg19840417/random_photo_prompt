@@ -67,6 +67,9 @@ from rpp_workflow import (
     _patch_mobile_video_workflow,
     _patch_mobile_workflow,
     _resolve_mobile_loras,
+    _resolve_mobile_video_turbo_lora,
+    _validate_mobile_video_turbo_model,
+    _validate_mobile_video_turbo_steps,
     _unpatched_remote_save_node_classes,
     _workflow_status_item,
 )
@@ -656,6 +659,12 @@ async def generate_mobile_image(request):
 async def generate_mobile_video(request):
     try:
         data = await request.json()
+        turbo = data.get("turbo", False)
+        if not isinstance(turbo, bool):
+            raise ValueError("turbo 参数必须是布尔值（true 或 false）。")
+        turbo_steps = data.get("turbo_steps", 8) if turbo else None
+        if turbo:
+            _validate_mobile_video_turbo_steps(turbo_steps)
         workflow_key, workflow_config = _mobile_workflow_config(MOBILE_VIDEO_WORKFLOW_KEY)
         template = _load_mobile_workflow(workflow_key)
         scale = data.get("scale", "bold")
@@ -663,6 +672,11 @@ async def generate_mobile_video(request):
         video_model = str(data.get("video_model") or "")
         if video_model not in video_models:
             raise ValueError("请选择远端可用的视频模型。")
+        available_loras = None
+        if turbo:
+            _validate_mobile_video_turbo_model(video_model)
+            available_loras = await _available_mobile_loras()
+            _resolve_mobile_video_turbo_lora(video_model, available_loras, turbo_steps)
         client_id = str(data.get("client_id") or "").strip()
         shot_config = _mobile_shot_config(data.get("shot", "full_body"))
         batch_id = data.get("_batch_id")
@@ -718,6 +732,9 @@ async def generate_mobile_video(request):
                 remote_video_upload_url,
                 video_mode,
                 video_model=video_model,
+                turbo=turbo,
+                available_loras=available_loras,
+                turbo_steps=turbo_steps,
             )
             queued, error = await _queue_mobile_workflow(workflow, client_id)
             if error:
@@ -730,6 +747,8 @@ async def generate_mobile_video(request):
                 "generation_prompt": video_prompt,
                 "motion_prompt": video_prompt,
                 "video_model": video_model,
+                "turbo": turbo,
+                "turbo_steps": turbo_steps,
                 "workflow": workflow_key,
                 "workflow_label": workflow_config["label"],
                 "scale": prompt_item.get("scale", scale),

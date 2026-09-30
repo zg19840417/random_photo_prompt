@@ -199,6 +199,8 @@ def _load_mobile_prompt_index():
             except (TypeError, ValueError):
                 seed = None
             result[filename] = {"prompt": prompt, "seed": seed}
+            if isinstance(value, dict) and isinstance(value.get("run_info"), dict):
+                result[filename]["run_info"] = value["run_info"]
     return result
 
 
@@ -218,6 +220,8 @@ def _save_mobile_prompt_index(index):
                 item["seed"] = int(seed)
         except (TypeError, ValueError):
             pass
+        if isinstance(metadata.get("run_info"), dict):
+            item["run_info"] = metadata["run_info"]
         serializable[filename] = item
     payload = {
         "version": 2,
@@ -229,7 +233,7 @@ def _save_mobile_prompt_index(index):
     tmp_path.replace(path)
 
 
-def _remember_mobile_prompt_file(filename, prompt, subfolder="", seed=None):
+def _remember_mobile_prompt_file(filename, prompt, subfolder="", seed=None, run_info=None):
     safe_name = _mobile_output_file_key(filename, subfolder)
     prompt = str(prompt or "").strip()
     if not safe_name or not prompt:
@@ -239,8 +243,13 @@ def _remember_mobile_prompt_file(filename, prompt, subfolder="", seed=None):
     except (TypeError, ValueError):
         seed = None
     metadata = {"prompt": prompt, "seed": seed}
-    MOBILE_PROMPT_BY_FILENAME[safe_name] = metadata
     index = _load_mobile_prompt_index()
+    if run_info is None:
+        # 未带耗时的重复登记不得抹掉已记录的耗时。
+        run_info = (index.get(safe_name) or {}).get("run_info")
+    if run_info:
+        metadata["run_info"] = run_info
+    MOBILE_PROMPT_BY_FILENAME[safe_name] = metadata
     if index.get(safe_name) == metadata:
         return
     index[safe_name] = metadata
@@ -691,6 +700,12 @@ def _mobile_favorite_backup_images():
     return items
 
 
+def _mobile_video_run_info(filename):
+    key = _mobile_output_file_key(filename, MOBILE_VIDEO_OUTPUT_SUBFOLDER)
+    info = (_load_mobile_prompt_index().get(key) or {}).get("run_info")
+    return info if isinstance(info, dict) else {}
+
+
 def _mobile_gallery_videos():
     items = []
     for path in _mobile_video_output_dir().iterdir():
@@ -708,6 +723,7 @@ def _mobile_gallery_videos():
                 "width": dimensions.get("width", 0),
                 "height": dimensions.get("height", 0),
                 "video_prompt": _mobile_prompt_for_video_file(path.name),
+                "run_info": _mobile_video_run_info(path.name),
                 "url": _mobile_video_view_url(path.name),
             }
         )

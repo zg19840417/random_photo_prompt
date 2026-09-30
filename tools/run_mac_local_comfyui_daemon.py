@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import plistlib
 import re
 import signal
 import socket
@@ -18,8 +19,9 @@ LOG_FILE = ROOT / "comfyui-codex.log"
 ERR_FILE = ROOT / "comfyui-codex.err.log"
 TRANSFER_TOKEN_FILE = Path(__file__).resolve().parents[1] / ".rpp_remote_transfer_token"
 REMOTE_COMPUTE_IP = "192.168.123.111"
-STARTUP_ATTEMPTS = int(os.environ.get("RPP_MAC_LOCAL_STARTUP_ATTEMPTS", "3"))
 STARTUP_WAIT_SECONDS = int(os.environ.get("RPP_MAC_LOCAL_STARTUP_WAIT_SECONDS", "45"))
+AGENT_LABEL = "com.random-photo-prompt.mac-server"
+AGENT_PATH = Path.home() / "Library/LaunchAgents" / f"{AGENT_LABEL}.plist"
 
 
 def running(pid):
@@ -127,37 +129,51 @@ def service_environment():
 
 
 def main():
-    env = service_environment()
+    service_environment()  # Validate the token before stopping a working service.
+    domain = f"gui/{os.getuid()}"
+    target = f"{domain}/{AGENT_LABEL}"
+    registered = subprocess.run(["launchctl", "print", target], capture_output=True).returncode == 0
+    if registered:
+        subprocess.run(["launchctl", "bootout", target], check=True)
     stop_existing_service()
-    args = [str(PYTHON), str(SERVER), "--listen", "0.0.0.0", "--port", "8188"]
-    for attempt in range(1, max(1, STARTUP_ATTEMPTS) + 1):
-        with LOG_FILE.open("ab", buffering=0) as stdout, ERR_FILE.open("ab", buffering=0) as stderr:
-            process = subprocess.Popen(
-                args,
-                cwd=str(ROOT),
-                stdin=subprocess.DEVNULL,
-                stdout=stdout,
-                stderr=stderr,
-                env=env,
-                start_new_session=True,
-            )
-        PID_FILE.write_text(str(process.pid))
-        print(process.pid)
-        for _ in range(max(1, STARTUP_WAIT_SECONDS * 2)):
-            if process.poll() is not None:
-                PID_FILE.unlink(missing_ok=True)
-                break
-            if port_listening():
-                return 0
-            time.sleep(0.5)
-        if port_listening() and running(process.pid):
+    # Do not inherit desktop-app session variables or persist the transfer token.
+    environment = {"RPP_COMFYUI_ROOT": str(ROOT), "RPP_MAC_MANAGED_SERVICE": "1", "PYTHONUNBUFFERED": "1"}
+    for name in ("RPP_REMOTE_COMFYUI_URL", "RPP_REMOTE_LORA_DIR", "RPP_REMOTE_WEBSOCKET_OUTPUT", "RPP_REMOTE_TRANSFER_ALLOWED_IP"):
+        if name in os.environ:
+            environment[name] = os.environ[name]
+    agent = {
+        "Label": AGENT_LABEL,
+        "ProgramArguments": [str(PYTHON), str(SERVER), "--listen", "0.0.0.0", "--port", "8188"],
+        "WorkingDirectory": str(SERVER.parent.parent),
+        "EnvironmentVariables": environment,
+        "RunAtLoad": True,
+        "KeepAlive": True,
+        "ThrottleInterval": 10,
+        "StandardOutPath": "/tmp/random-photo-prompt-launchd.out.log",
+        "StandardErrorPath": "/tmp/random-photo-prompt-launchd.err.log",
+    }
+    AGENT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    temporary = AGENT_PATH.with_suffix(".plist.tmp")
+    try:
+        with temporary.open("wb") as stream:
+            plistlib.dump(agent, stream)
+        temporary.chmod(0o600)
+        temporary.replace(AGENT_PATH)
+    finally:
+        temporary.unlink(missing_ok=True)
+    subprocess.run(["launchctl", "enable", target], check=True)
+    subprocess.run(["launchctl", "bootstrap", domain, str(AGENT_PATH)], check=True)
+    for _ in range(max(1, STARTUP_WAIT_SECONDS * 2)):
+        if port_listening():
+            listeners = subprocess.check_output(
+                ["lsof", "-nP", "-t", "-iTCP:8188", "-sTCP:LISTEN"], text=True
+            ).split()
+            if len(listeners) != 1 or not process_matches(int(listeners[0])):
+                raise RuntimeError("8188 监听者不是预期的独立服务。")
+            print(listeners[0])
             return 0
-        if process.poll() is None:
-            process.terminate()
-            process.wait(timeout=15)
-        PID_FILE.unlink(missing_ok=True)
-        print(f"local aiohttp startup retry {attempt}/{STARTUP_ATTEMPTS}", file=sys.stderr)
-    return 2
+        time.sleep(0.5)
+    raise RuntimeError(f"LaunchAgent 未在 {STARTUP_WAIT_SECONDS} 秒内启动，请检查 {ERR_FILE}。")
 
 
 if __name__ == "__main__":

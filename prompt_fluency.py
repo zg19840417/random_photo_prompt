@@ -24,7 +24,7 @@ _PATTERN_RULES = (
     ("non_visual_scene", "scene", r"声音|嗡嗡|滴答|鸟叫|交响|气息|香气|香味|散发着|充满[^，。]*(感|氛围)|营造出|格调"),
     ("garment_edge_grammar", "outfit", r"穿着[^，。]*(进入画面|出现在画面|的翻领)"),
     ("abstract_verdict", "*", r"危险感|侵略感|迷离感|克制高级|高级感|奢华感|烟火气|有镜头感|支配感"),
-    ("makeup_overreach", "makeup", r"眼神|表情|气质|神情"),
+    ("makeup_overreach", "character", r"眼神|表情|气质|神情"),
     ("broken_comma", "*", r"(?<![柔温饱平])[的与和把被]，"),
     ("duplicate_gaze", "pose", r"(看向镜头|直视镜头|看镜头|回看镜头|回望镜头|盯住镜头|锁住镜头)[^。]*，(眼神|视线|目光)[^，]*(看向镜头|直视镜头|看镜头|盯住镜头|锁住镜头|转回镜头)"),
     ("duplicate_smile", "pose", r"(嘴角|唇角)[^，]*(笑|扬|挑)[^。]*，(嘴角|唇角)[^，]*(笑|扬|挑)"),
@@ -43,7 +43,7 @@ _QUALITY_SINGLE_CONCEPTS = ("颗粒", "不过曝", "肤质", "层次")
 
 
 def fluency_defects(lines: dict[str, str], scale: str, shot: str) -> list[FluencyDefect]:
-    """lines: {pose, scene, quality, camera, character, outfit, makeup} -> 缺陷列表。"""
+    """lines: {camera, character, outfit, pose, scene, quality} -> 缺陷列表。"""
     if scale == "nsfw":
         return []
     defects: list[FluencyDefect] = []
@@ -63,8 +63,9 @@ def fluency_defects(lines: dict[str, str], scale: str, shot: str) -> list[Fluenc
             defects.append(FluencyDefect("repeated_quality_concept", "quality", concept))
             break
     conflict = _LENS_SCOPE_CONFLICTS.get(shot)
-    if conflict and re.search(conflict, quality):
-        defects.append(FluencyDefect("lens_scope_mismatch", "quality", re.search(conflict, quality).group(0)))
+    camera = lines.get("camera", "")
+    if conflict and re.search(conflict, camera):
+        defects.append(FluencyDefect("lens_scope_mismatch", "camera", re.search(conflict, camera).group(0)))
     for name, text in lines.items():
         for clause in re.split(r"[，。；、]", text or ""):
             if len(clause) > 40:

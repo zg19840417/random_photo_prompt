@@ -147,6 +147,17 @@ def _camera_line(group: str, shot: str, aspect: str, direction: dict, wild: dict
     return f"{angle}，{scope}，{composition}"
 
 
+# 固定容貌里“脸部”与“身材”的分界；妆容插在两者之间，原文一个字不改。
+_IDENTITY_BODY_MARKER = "，性感锁骨"
+
+
+def _split_identity(text: str) -> tuple[str, str]:
+    index = text.find(_IDENTITY_BODY_MARKER)
+    if index < 0:
+        return text, ""
+    return text[:index], text[index + 1:]
+
+
 def _outfit_fits_place(option, place: dict) -> bool:
     requires = option.get("requires") if isinstance(option, dict) else None
     if requires == "water":
@@ -217,15 +228,18 @@ def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Rand
     camera = _camera_line(group, shot, aspect, direction, wild, rng)
     texture = "肤质细腻并保留真实纹理" if group == "bold" else "肤质保留真实纹理"
     outfit, outfit_style = ("", "") if scale == "bold_no_outfit" else _outfit_line(group, era, shot, place, palette, bool(pose.get("barefoot")), rng)
+    face, body = _split_identity(_pick(rng, character_identity_options_by_aspect(shot, aspect)))
     return {
         "camera": camera,
         "camera_line": camera,
-        "character": _pick(rng, character_identity_options_by_aspect(shot, aspect)),
+        "lens": lens,
+        "character": face,
+        "body": body,
         "makeup": _makeup(group, direction, place, aspect, rng),
         "outfit": outfit,
         "pose_expression": f"{_name_hands(pose['body'])}。{expression}",
         "scene_light": _scene_line(group, shot, direction, place, rng),
-        "quality": f"{lens}，{direction['grade']}，画面以{main}和{support}为主色，点缀一点{accent}，{texture}，高光不过曝",
+        "quality": f"{direction['grade']}，画面以{main}和{support}为主色，点缀一点{accent}，{texture}，高光不过曝",
         "director": direction["name"],
         "art_direction": direction["name"],
         "art_place": place_name,

@@ -401,7 +401,14 @@ async def receive_remote_video(request):
             if prompt:
                 MOBILE_VIDEO_PROMPT_BY_FILENAME[filename] = prompt
                 from rpp_mobile import _remember_mobile_prompt_file
-                _remember_mobile_prompt_file(filename, prompt, MOBILE_VIDEO_OUTPUT_SUBFOLDER, job.get("seed"))
+                created_at = int(job.get("created_at") or 0)
+                run_info = {
+                    "turbo": bool(job.get("turbo")),
+                    "turbo_steps": job.get("turbo_steps", 8) if job.get("turbo") else None,
+                }
+                if created_at:
+                    run_info["elapsed_seconds"] = max(0, round(time.time() - created_at / 1000))
+                _remember_mobile_prompt_file(filename, prompt, MOBILE_VIDEO_OUTPUT_SUBFOLDER, job.get("seed"), run_info)
             _save_mobile_session_jobs()
             break
         return web.json_response(receipt)
@@ -541,10 +548,11 @@ async def _queue_remote_mobile_workflow(workflow, client_id="", output_mode="mac
     node_total = max(1, len(workflow))
     watcher = None
     prompt_ref = {"value": ""}
-    # 视频经远端内存编码后直接 HTTP 回传 Mac；它没有图片帧，不能因可选的
-    # WebSocket 进度监听失败而拒绝提交。只有图片工作流必须建立该连接。
-    watch_remote_progress = bool(ws_patch.get("websocket_node_ids"))
+    # 视频经远端内存编码后直接 HTTP 回传 Mac；它没有图片帧，但同样监听节点进度，
+    # 使“步骤 x/y”与图片一致。视频的进度监听只是展示，失败不得拒绝提交；
+    # 只有图片工作流必须建立该连接。
     expect_image_frames = bool(ws_patch.get("websocket_node_ids"))
+    watch_remote_progress = True
     if watch_remote_progress:
         ready_event = asyncio.Event()
         watcher = asyncio.create_task(
@@ -582,7 +590,11 @@ async def _queue_remote_mobile_workflow(workflow, client_id="", output_mode="mac
                 except Exception as watcher_exc:
                     detail = str(watcher_exc).strip() or detail
             watcher.cancel()
-            return None, {"error": f"远端 WebSocket 回传连接失败：{detail}"}
+            if expect_image_frames:
+                return None, {"error": f"远端 WebSocket 回传连接失败：{detail}"}
+            print(f"[random_photo_prompt] video progress websocket unavailable, continue without steps: {detail}", flush=True)
+            watcher = None
+            watch_remote_progress = False
         finally:
             if not ready_waiter.done():
                 ready_waiter.cancel()

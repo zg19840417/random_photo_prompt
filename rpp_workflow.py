@@ -12,6 +12,9 @@ from rpp_globals import (
     MOBILE_DEFAULT_WORKFLOW_KEY,
     MOBILE_MAX_LORAS,
     MOBILE_VIDEO_OUTPUT_SUBFOLDER,
+    MOBILE_VIDEO_TURBO_4STEP_LORA,
+    MOBILE_VIDEO_TURBO_LORA,
+    MOBILE_VIDEO_TURBO_MODEL,
     MOBILE_WORKFLOWS,
     MOBILE_WORKFLOW_TEMPLATES,
     MOBILE_WORKFLOW_TEMPLATE_ERRORS,
@@ -797,7 +800,57 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
     return workflow, patched
 
 
-def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_image_path, seed, seconds=8, fps=24, output_prefix=None, positive_prompt=None, remote_source_url="", remote_video_upload_url="", video_mode="image", video_model=""):
+def _validate_mobile_video_turbo_model(video_model):
+    model_name = Path(str(video_model or "").replace("\\", "/")).name
+    if model_name != MOBILE_VIDEO_TURBO_MODEL:
+        raise ValueError(f"Turbo 加速仅支持官方模型 {MOBILE_VIDEO_TURBO_MODEL}，请切换视频模型或关闭 Turbo。")
+
+
+def _validate_mobile_video_turbo_steps(turbo_steps):
+    if type(turbo_steps) is not int or turbo_steps not in (8, 4):
+        raise ValueError("turbo_steps 参数必须是整数 8 或 4。")
+
+
+def _resolve_mobile_video_turbo_lora(video_model, available_loras, turbo_steps=8):
+    _validate_mobile_video_turbo_model(video_model)
+    _validate_mobile_video_turbo_steps(turbo_steps)
+    lora_file = MOBILE_VIDEO_TURBO_4STEP_LORA if turbo_steps == 4 else MOBILE_VIDEO_TURBO_LORA
+    available = list(available_loras or [])
+    if not any(Path(str(name).replace("\\", "/")).name == lora_file for name in available):
+        raise ValueError(f"远端缺少 {lora_file} 文件，请先将文件放入远端 LoRA 目录。")
+    return _resolve_lora_name(lora_file, available)
+
+
+def _patch_mobile_video_turbo(workflow, video_model, available_loras, turbo_steps=8):
+    lora_name = _resolve_mobile_video_turbo_lora(video_model, available_loras, turbo_steps)
+    loaders = [str(node_id) for node_id, node in workflow.items()
+               if node.get("class_type") == "DiffusionModelLoaderKJ"]
+    guiders = [node for node in workflow.values() if node.get("class_type") == "BasicGuider"]
+    schedulers = [node for node in workflow.values() if node.get("class_type") == "BasicScheduler"]
+    samplers = [node for node in workflow.values() if node.get("class_type") == "KSamplerSelect"]
+    if len(loaders) != 1 or not guiders or not schedulers or not samplers:
+        raise ValueError("视频工作流缺少 Turbo 所需的模型加载、引导、调度或采样器节点。")
+    source_node_id = loaders[0]
+    if any(node["inputs"].get("model") != [source_node_id, 0] for node in guiders + schedulers):
+        raise ValueError("视频工作流的模型链路不支持 Turbo 加速。")
+    lora_node_id = _next_workflow_node_id(workflow)
+    workflow[lora_node_id] = {
+        "class_type": "LoraLoaderModelOnly",
+        "inputs": {"model": [source_node_id, 0], "lora_name": lora_name, "strength_model": 1.0},
+    }
+    sigma_node_id = _next_workflow_node_id(workflow)
+    workflow[sigma_node_id] = {
+        "class_type": "MiniMaxH3SigmaShift",
+        "inputs": {"model": [lora_node_id, 0], "shift_video": 12.0, "shift_audio": 3.0},
+    }
+    _reroute_lora_model_consumers(workflow, source_node_id, sigma_node_id, (lora_node_id, sigma_node_id))
+    for node in schedulers:
+        node["inputs"].update(scheduler="simple", steps=turbo_steps, denoise=1.0)
+    for node in samplers:
+        node["inputs"]["sampler_name"] = "euler"
+
+
+def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_image_path, seed, seconds=8, fps=24, output_prefix=None, positive_prompt=None, remote_source_url="", remote_video_upload_url="", video_mode="image", video_model="", turbo=False, available_loras=None, turbo_steps=8):
     workflow = copy.deepcopy(template)
     model_cleanup_nodes = ensure_model_cleanup(workflow)
     positive_prompt = positive_prompt or _prompt_text(prompt_item)
@@ -909,6 +962,8 @@ def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_
         raise ValueError("视频工作流模板里没有找到 MiniMaxH3ImageToVideo 节点。")
     if patched["filename_prefix"] < 1:
         raise ValueError("视频工作流模板里没有找到 SaveVideo 文件名前缀。")
+    if turbo:
+        _patch_mobile_video_turbo(workflow, video_model, available_loras, turbo_steps)
     return workflow, patched, {"width": video_width, "height": video_height, "seconds": seconds, "fps": fps}
 
 

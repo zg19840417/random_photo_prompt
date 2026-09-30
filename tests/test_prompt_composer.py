@@ -117,11 +117,12 @@ class PromptComposerTests(unittest.TestCase):
         self.assertTrue(any(not POOLS["PLACES"][name].get("private") for name in bold_places))
 
     def test_bold_outfits_are_lingerie_or_swimwear_and_swimwear_stays_at_water(self):
-        # 二档衣着锚点：内衣和比基尼；其余类型（运动内衣、舞衣、内衣外穿、情趣制服等）都从这两个锚点延伸，不再有普通衣装。
+        # 二档衣着锚点：内衣和比基尼；只允许遮住关键部位的款式及变种（深V连体衣、链条内衣、情趣制服等），
+        # 不再有运动、居家、网眼、外套外披等大面积覆盖的衣装。
         for shot, options in POOLS["OUTFITS"]["bold"].items():
             for option in options:
                 with self.subTest(shot=shot, text=option["text"]):
-                    self.assertIn(option["kind"], ("lingerie", "swim", "sport", "leotard", "layered", "costume", "loungewear", "harness", "mesh"))
+                    self.assertIn(option["kind"], ("lingerie", "swim", "leotard", "costume", "harness"))
                     self.assertEqual(option["kind"] == "swim", option.get("requires") == "water")
                     if re.search("比基尼|泳衣", option["text"]):
                         self.assertEqual(option.get("requires"), "water")
@@ -131,6 +132,14 @@ class PromptComposerTests(unittest.TestCase):
                 with self.subTest(shot=shot, index=index):
                     if re.search("比基尼|泳衣", parts["outfit"]):
                         self.assertTrue(POOLS["PLACES"][parts["art_place"]].get("water"))
+
+    def test_bold_outfits_only_cover_key_areas_without_outer_layers_or_leg_coverage(self):
+        covering = re.compile("外披|外搭|外罩|睡袍|衬衫|外套|罩衫|牛仔|短裤|围裙|娃娃裙|睡裙|长筒袜|连裤袜|丝袜|网眼|披风|大袖衫|披帛")
+        for key in ("OUTFITS", "OUTFITS_ANCIENT"):
+            for shot, options in POOLS[key]["bold"].items():
+                for option in options:
+                    with self.subTest(key=key, shot=shot, text=option["text"]):
+                        self.assertIsNone(covering.search(option["text"]))
 
     def test_pose_props_exist_in_place_and_barefoot_skips_shoes(self):
         poses = {

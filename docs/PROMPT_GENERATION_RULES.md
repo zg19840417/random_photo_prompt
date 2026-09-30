@@ -44,7 +44,7 @@ Once the art direction and place are selected, they are the authority for concre
 9. 各行用固定句式渲染：场景行 = 地点 + 母题光线 + 一句空气感（半身/全身可再加一句前景）；质量行 = 焦段 + 母题调色 + 配色 + 肤质 + `高光不过曝`；镜头行 = 机位 + 景别方向 + 构图位置。
 10. 渲染后用 `prompt_fluency.fluency_defects` 检查（含“姿势行必须同时写到视线和表情”），有缺陷就重抽（最多 8 次），不做字符串修补。
 11. 非常规镜头与动态姿势（仅二档、三档）：`WILD_CAMERA` 按镜头存放整套镜头方案（焦段与畸变、机位、构图三者一起给出），每次有 50% 概率整套替换常规焦段、机位和光型构图，内容包括超广角桶形畸变、鱼眼、低机位仰拍、荷兰角、垂直俯拍、慢快门动态残影、前景遮挡取景；焦段文字不得含半身/全身/特写等范围词，并用 `aspects` 标明适用画幅。姿势中带 `wild: true` 的条目（跃起、旋转、后仰、深蹲、撑地前探、劈腿、倒挂、跨越画面等）在可选时有 55% 概率优先被选中。它们同样只写身体动作、不写服装，不越过非露骨边界。一档不使用这两项。构图句（`COMPOSITION`、光型 `compositions`、`WILD_CAMERA.composition`）不得隐含站、坐、躺、走、侧身、前倾等姿势，以免与抽到的姿势冲突，由测试检查。方图使用 `POSES.bold.square` 的斜向姿势。人物身体轴向必须与画幅一致：竖构图的姿势和镜头方案不写横躺、趴卧，横构图的半身和全身姿势必须是横向展开的动作，镜头方案按 `aspects` 分画幅，需要区分轴向的（俯拍、荷兰角）拆成竖、横两套，由 `tests/test_prompt_composer.py` 检查。Krea2 竖屏的正立保护会对荷兰角和倒挂类画面做“不旋转”约束，这类方案在 Krea2 竖屏下效果会被削弱。
-12. 色彩取向（一档尤其重要）：用户偏好颜色鲜艳、对比度高的成片。母题调色一律写“饱和、鲜亮、对比清晰”一类正向措辞，不写“低饱和、低对比、粉彩、褪色、灰蓝、暗部温润”；配色三元组用一个饱和主色加一个互补或对比色，再配一个白、黑或金银的中性色，不用雾灰、燕麦、浅粉一类偏淡的色名。多数工作流 `cfg` 为 1，负面词基本不生效，所以只能靠正向文字控制。改动或新增母题时按此检查；相关配色、调色与空气感文字都在 `data/art_direction_pools.json` 的对应母题里。
+12. 色彩取向（一档尤其重要，二、三档同样适用）：用户偏好颜色鲜艳、对比度高的成片。母题调色一律写“饱和、鲜亮、对比清晰”一类正向措辞，不写“低饱和、低对比、粉彩、褪色、灰蓝、暗部温润”；配色三元组用一个饱和主色加一个互补或对比色，再配一个白、黑或金银的中性色，不用雾灰、燕麦、浅粉一类偏淡的色名。多数工作流 `cfg` 为 1，负面词基本不生效，所以只能靠正向文字控制。改动或新增母题时按此检查；二、三档的夜景、暖光母题保留氛围，但调色写“暗部深、高光亮、明暗反差强”，配色同样用饱和主色加对比色，不写“暗部柔和、柔雾”。相关配色、调色与空气感文字都在 `data/art_direction_pools.json` 的对应母题里。
 
 新增母题、地点、动作、神情或服装时直接编辑 `data/art_direction_pools.json`；母题引用不存在的地点或缺少本档配色会在加载时报错。
 
@@ -52,11 +52,11 @@ Once the art direction and place are selected, they are the authority for concre
 
 ## Project-Default Fixed Character
 
-项目默认规则固定人物为“22岁瓷白冷白皮K-pop韩国美女”。每种镜头的 character 容貌文本都必须紧跟身份词包含“黑色渐变的手指甲又细又长”，不得因镜头范围清理删除。其他固定容貌包括瓷白肤质、细长瓜子脸、非常尖的下巴、高挺精致鼻梁、鼻尖尖翘、黑色直发和魅惑狐狸眼；身材描述按镜头可见范围追加。妆效由独立 makeup 维度生成。
+项目默认规则固定人物为“22岁瓷白冷白皮K-pop韩国美女”。每种镜头的 character 容貌文本都必须紧跟身份词包含“黑色渐变的手指甲”，不得因镜头范围清理删除。其他固定容貌包括瓷白肤质、细长瓜子脸、非常尖的下巴、高挺精致鼻梁、鼻尖尖翘、黑色直发和魅惑狐狸眼；身材描述按镜头可见范围追加。妆效由独立 makeup 维度生成。
 
 妆容池不得指定与固定人物“纯蓝色美瞳”相冲突的瞳孔或美瞳颜色；妆容只描述眼影、眼线、睫毛及瞳孔反光。
 
-固定指甲句不受手部是否明确入镜影响，所有 character 容貌文本都必须保留“黑色渐变的手指甲又细又长”。身体其他描述仍按镜头可见范围裁剪，不可向较小镜头补写不可见部位。
+固定指甲句不受手部是否明确入镜影响，所有 character 容貌文本都必须保留“黑色渐变的手指甲”。身体其他描述仍按镜头可见范围裁剪，不可向较小镜头补写不可见部位。
 
 Prompt option text is edited directly in `data/art_direction_pools.json` (composer: directions, places, light types, poses, expressions, outfits), `data/prompt_pools.json` (fixed character, makeup, quality suffix, base negative prompt) or `data/nsfw_pose_expression_options.json` (NSFW poses). The old camera/outfit/pose/scene pools were deleted. `prompt_data.py` loads `data/prompt_pools.json` at runtime via `_load_generated_prompt_data`; edits take effect on the next ComfyUI restart without a build step.
 
@@ -78,26 +78,23 @@ The project-default positive prompt has no total or per-dimension character budg
 
 Final sentence order:
 
-1. Pose and expression sentence.
-2. Scene and lighting sentence.
-3. Scale-specific quality phrase, without length-based omission.
-4. Camera sentence.
-5. Character identity sentence.
-6. Outfit sentence for normal and bold only; omit this sentence completely in bold_no_outfit and NSFW mode.
-7. Hair sentence.
-8. Makeup sentence.
+1. Camera paragraph: lens phrase (focal length, aperture, blur) followed by the camera sentence (angle, scope, composition).
+2. Character paragraph, one sentence: fixed identity face part, then `化着` + the makeup option, then the fixed identity body part (half_body and full_body only; head_shot has no body part). The fixed text is split at `，性感锁骨` and not changed by a single character.
+3. Outfit sentence for normal and bold only; omit this sentence completely in bold_no_outfit and NSFW mode.
+4. Pose and expression sentence.
+5. Scene and lighting sentence, immediately followed by the quality phrase (color grade, palette, texture, `高光不过曝`) in the same paragraph, without length-based omission.
 
 Head-shot scene/light options describe near-field color, bokeh, and facial lighting instead of naming a whole venue. Head-shot outfit detail stays on the visible collar, shoulder seam, and nearby texture; do not move sleeve cuffs into a shoulder-only crop or turn the garment name into an ungrammatical possessive clause. Pose gaze and mouth actions must have their own grammatical subjects. For normal and bold, theme-matched outfits retain material weave, edge/seam, and garment structure visible within the shot. Pose/expression assembly keeps compatible head, hand, gaze, lip, and smile actions rather than choosing one clause per category. Head tilt and gaze must remain physically compatible (a deeply backward-tilted head must not also claim to look down on the camera). Makeup describes visible pigment, lines, and skin finish rather than adding a conflicting gaze or abstract pressure. Background-edge cleanup must not rewrite the makeup term `冷白底妆` as a background. Studio full-body scenes include a concrete backdrop-to-floor transition and identifiable light direction, not only a generic gray blur. Third-tier outfit remains empty.
 
-This front-loads pose, scene/light, and quality because local text-to-image models usually follow earlier prompt blocks more strongly. Camera, identity, outfit, hair, and makeup still remain visible dimensions, but should avoid repeating crop labels or generic quality words already covered earlier.
+This front-loads camera, then who she is (face, makeup, body), what she wears, what she does, and finally where and how the picture looks, because local text-to-image models usually follow earlier prompt blocks more strongly and the whole reads as one description. The color grade sits right after scene/light so the two never contradict. Dimensions should avoid repeating crop labels or generic quality words already covered earlier.
 
 Do not output labels such as `镜头:`, `角色:`, `妆容:`, `穿着:`, `姿势:`, or `场景:`.
 
 ### Fluency Invariants
 
-Final assembly (`_build_human_prompt`) enforces these line-level invariants for normal, bold, and bold_no_outfit; NSFW pose and quality lines are passed through unchanged.
+Final assembly (`prompt_engine.build_prompt`, checked by `prompt_fluency.fluency_defects`) enforces these line-level invariants for normal, bold, and bold_no_outfit; NSFW pose and quality lines are passed through unchanged.
 
-- Quality line: at most one lens phrase (normal only, chosen from the actual shot scope with a per-item derived random source), one color grade, one texture/grain/layering clause each, and a single trailing `高光不过曝`. Lens options carry only focal length, aperture, and blur; color tone belongs to the filter grade and light direction belongs to scene/light, so the quality line cannot contradict the scene (for example `冷调` beside `阳光高饱和调色`, or `伦勃朗式侧光` beside front light).
+- Lens phrase (rendered on the camera line, not the quality line): at most one, chosen from the actual shot scope with a per-item derived random source. Quality line: one color grade, one texture/grain/layering clause each, and a single trailing `高光不过曝`. Lens options carry only focal length, aperture, and blur; color tone belongs to the filter grade and light direction belongs to scene/light, so the quality line cannot contradict the scene (for example `冷调` beside `阳光高饱和调色`, or `伦勃朗式侧光` beside front light).
 - Pose line: describes body relative to ground, props, and camera gaze only. Frame-edge wording (`画面下缘`, `画面一侧`, `镜头前缘`), composition-only clauses (`构图`, `节奏`, `呼吸感`, `画面重点`), and negated anti-deformation wording (`不朝向镜头`, `不过度弯折`) are rewritten to positive body descriptions such as `前脚平稳踩在地面上` or dropped. Gaze and smile are stated once; later layers must not append a second `看向镜头` or `嘴角…笑`. The same hand is never assigned two different jobs.
 - Scene line: visual content only — no sounds, smells, or abstract mood verdicts (`充满…氛围`, `有格调`). Clauses that name where light lands stay even when they list body parts; `脚边`/`脚下` clauses appear only in full-body shots.
 - Outfit line: a garment is named before its visible edge (`她穿着X，领口停在画面下缘`), never `穿着X的翻领进入画面`. Theme outfits receive at most one material and one structure detail, only when the source text lacks that kind of detail; source text with three or more clauses receives at most one.
@@ -164,7 +161,7 @@ Core identity anchors:
 - Narrow fox-shaped eyes.
 - Pure blue contacts (`纯蓝色美瞳`).
 - Straight black hair falling on both sides of the face (`黑色直发散落在脸部两侧`).
-- Black gradient long slender fingernails (`黑色渐变的手指甲又细又长`), always kept right after the identity phrase.
+- Black gradient long slender fingernails (`黑色渐变的手指甲`), always kept right after the identity phrase.
 - Faint beauty marks at the eye corner and cheek.
 
 Body description depends on framing (appended to the same identity text):
@@ -201,7 +198,7 @@ Format:
 
 Normal and Bold outfit options describe actual clothing. Bold_no_outfit and NSFW mode do not load or output the outfit dimension at all.
 
-Bold (二档) outfits are anchored on lingerie and bikinis only: every modern bold option is either lingerie (any place, including public ones) or swimwear (`requires: water`); ordinary dresses, tops, skirts and shirts were removed. Lingerie-style pieces (lace bra sets and triangle bras with tie-side briefs, garter belts with stockings, babydolls, sheer robes over lingerie, strappy or plunging bodysuits, corsets with high-cut briefs, lace-up sets) appear in any place; triangle, halter, crochet and strappy bikinis and cutout one-pieces appear at water places;  key areas stay covered by opaque cups or lining, and the wording names the garment rather than bare skin. Clothing may be revealing, tight, glossy, cutout, or high-slit, but avoid wording that implies almost no clothing, such as 裸露, 极少覆盖, 最低覆盖, 只剩小布片, 布料面积压到最低, 覆盖面积极少, or similar bare-exposure language. Do not let bold outfits collapse into only mini-skirts; keep variety across mini skirts, slip dresses, high-slit long dresses, fitted bodysuits, one-piece swimwear with sheer coverups, corset tops with hot pants or tailored shorts, and stocking-based glamour looks. Do not use latex, latex-like clothing, glossy leather, leather-like clothing, leather skirts, or leather/PVC styling. Prefer saturated but tasteful non-leather materials and details: jewel-blue or magenta satin, deep-wine silk, chiffon or gauze overlays, bright lace edges, corset tops, boning seams, cross straps, halter tops, pearl/silver trim, gold metal buckles, bright chain details, transparent glove edges, sheer accent panels, high-slit or cutout structures, and small but readable bralette/corset/bodysuit/swimwear-like pieces. Accessories should increase sensuality and visual richness while staying sparse and purposeful: usually one or two focus pieces such as a choker, waist chain, belly chain, arm cuff, thigh band, leg ring, ankle chain, delicate metallic charm, transparent glove edge, sheer stocking edge, garter stocking edge, or rhinestone detail. Clothing color and material should contrast with cold fair skin so the skin stays very white without making the prompt feel nude.
+Bold (二档) outfits must cover only the key areas (user rule 2026-09-30): allowed are bikinis, bras/bralettes with tie-side or low-rise briefs, garter straps, corsets with high-cut briefs, strappy or chain harness-style lingerie, plunging bodysuits or one-pieces whose V neckline opens to the navel, cutout and high-cut variants, and bunny/maid-style costume lingerie. Not allowed (enforced by `test_bold_outfits_only_cover_key_areas_without_outer_layers_or_leg_coverage`): outer layers (robes, shirts, jackets, cover-ups, capes, aprons), denim/cycling/sleep shorts, camisole or babydoll dresses, sport tops, mesh tops, stockings or tights, and any full-length skirt or sleeve; ancient bold outfits use only 肚兜, 抹胸, 舞姬装 and low-waist short skirts. This is still not NSFW: opaque cups or lining stay, no nudity or see-through wording. Every modern bold option is either lingerie-style (any place, including public ones) or swimwear (`requires: water`; triangle, halter, crochet and strappy bikinis and cutout one-pieces). Key areas stay covered by opaque cups or lining, and the wording names the garment rather than bare skin. Clothing may be revealing, tight, glossy, cutout, or high-slit, but avoid wording that implies almost no clothing, such as 裸露, 极少覆盖, 最低覆盖, 只剩小布片, 布料面积压到最低, 覆盖面积极少, or similar bare-exposure language. Do not use latex, latex-like clothing, glossy leather, leather-like clothing, leather skirts, or leather/PVC styling. Prefer saturated but tasteful non-leather materials and details: jewel-blue or magenta satin, deep-wine silk, bright lace edges, boning seams, cross straps, halter cuts, pearl/silver trim, gold metal buckles, bright chain details, cutout structures. Accessories stay sparse and purposeful: usually one or two focus pieces such as a choker, waist chain, belly chain, arm cuff, thigh band, ankle chain, delicate metallic charm, or rhinestone detail. Clothing color and material should contrast with cold fair skin so the skin stays very white without making the prompt feel nude.
 
 Skin whiteness should be supported primarily through clothing and environment contrast, not by globally bright lighting. Prefer dark or saturated outfit colors such as deep wine, jewel blue, black-gold, silver-gray, glossy black, magenta satin, and pearl/silver trim to set off fair skin. Avoid repeatedly asking lights to make the whole body bright, glowing, or evenly white.
 
@@ -297,7 +294,7 @@ Color should be bright, warm, saturated, and coordinated, not randomly multicolo
 
 If a requirement mentions "rainbow-like" color, treat it as a request for richer coordinated colors rather than literal rainbows. Use high-saturation positive sunny color design: bright clothing, colorful accessories, saturated scene blocks, warm daylight, and small local color reflections. Do not prompt visible rainbow arcs, rainbow projections, or rainbow reflections unless the user explicitly asks for an actual rainbow.
 
-Fingernails are part of the fixed identity (`黑色渐变的手指甲又细又长`) and are never recolored by other dimensions. Other color accents belong to outfit, accessories, and scene.
+Fingernails are part of the fixed identity (`黑色渐变的手指甲`) and are never recolored by other dimensions. Other color accents belong to outfit, accessories, and scene.
 
 Filter-grade wording must match the selected color and scene logic. Sunny beach, pool, terrace, and water-light scenes should use sunny clear high-saturation grading, clean highlights, and natural bright shadows. Sweet colorful studio or garden scenes may use light-film grading, vivid color blocks, and fine subtle grain. Glass, window, prism, and reflective scenes may use bright contrast grading and clean reflective highlights. Vacation, tropical, deck, and warm outdoor scenes may use warm vivid grading with saturated background colors and natural translucent skin. Do not pair dark low-key film grading with a bright sunny multicolor scene unless the user explicitly asks for contrast.
 

@@ -59,21 +59,39 @@ def _outfit_line(parts: dict[str, str]) -> str:
     return _sentence(text if text.startswith("她穿") else f"她穿着{text}")
 
 
+def _character_line(parts: dict[str, str]) -> str:
+    """脸部固定容貌 → 妆容 → 身材固定容貌，合成一句：妆容紧跟脸，身材接在最后。"""
+    pieces = [str(parts.get("character") or "").strip("，。 \n\t")]
+    makeup = str(parts.get("makeup") or "").strip("，。 \n\t")
+    if makeup:
+        pieces.append(f"化着{makeup}")
+    pieces.append(str(parts.get("body") or "").strip("，。 \n\t"))
+    return _sentence("，".join(piece for piece in pieces if piece))
+
+
+def _camera_line(parts: dict[str, str]) -> str:
+    """焦段光圈与机位构图合成一行，镜头信息集中在提示词最前面。"""
+    pieces = [str(parts.get(key) or "").strip("，。 \n\t") for key in ("lens", "camera_line")]
+    return _sentence("，".join(piece for piece in pieces if piece))
+
+
 def render_prompt_lines(parts: dict[str, str]) -> dict[str, str]:
     """按最终输出顺序渲染各维度行；空行保留为空字符串，便于逐行检查。"""
     return {
+        "camera": _camera_line(parts),
+        "character": _character_line(parts),
+        "outfit": _outfit_line(parts),
         "pose": _sentence(parts.get("pose_expression")),
         "scene": _sentence(parts.get("scene_light")),
         "quality": _sentence(parts.get("quality")),
-        "camera": _sentence(parts.get("camera_line")),
-        "character": _sentence(parts.get("character")),
-        "outfit": _outfit_line(parts),
-        "makeup": _sentence(parts.get("makeup")),
     }
 
 
 def build_prompt(parts: dict[str, str]) -> str:
-    return "\n\n".join(line for line in render_prompt_lines(parts).values() if line)
+    """镜头 → 人物与妆容 → 衣着 → 姿势表情 → 场景光线与调色；场景和调色同属一段。"""
+    lines = render_prompt_lines(parts)
+    paragraphs = [lines["camera"], lines["character"], lines["outfit"], lines["pose"], lines["scene"] + lines["quality"]]
+    return "\n\n".join(paragraph for paragraph in paragraphs if paragraph)
 
 
 def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str = "") -> list[dict]:
