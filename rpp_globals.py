@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import folder_paths
@@ -17,7 +18,23 @@ CHARACTER_BY_SHOT = {'head_shot': '22岁瓷白冷白皮K-pop韩国美女，黑�
 
 
 NODE_DIR = Path(__file__).resolve().parent
-PROJECT_VERSION = "0.1.0"
+PROJECT_VERSION_BASE = "0.1"
+
+
+def _project_version() -> str:
+    """版本号 = 手工维护的主次版本 + git 提交数；工作区有未提交改动时末尾加 “+”。没有 git 的部署副本回落到 0.1.0。"""
+    def git(*args: str) -> str:
+        return subprocess.check_output(["git", "-C", str(NODE_DIR), *args], text=True, timeout=5, stderr=subprocess.DEVNULL).strip()
+
+    try:
+        count = int(git("rev-list", "--count", "HEAD"))
+        dirty = bool(git("status", "--porcelain"))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return f"{PROJECT_VERSION_BASE}.0"
+    return f"{PROJECT_VERSION_BASE}.{count}{'+' if dirty else ''}"
+
+
+PROJECT_VERSION = _project_version()
 
 
 MOBILE_PAGE_PATH = NODE_DIR / "web" / "mobile.html"

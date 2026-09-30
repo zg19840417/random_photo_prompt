@@ -715,6 +715,18 @@ async def _probe_remote_websocket():
     return result
 
 
+def _node_progress(value: int, node_total: int, node: str) -> dict:
+    """节点级进度：分母固定为工作流节点总数。"""
+    value = max(0, min(node_total, int(value)))
+    return {
+        "value": value,
+        "max": node_total,
+        "percent": max(0, min(100, round((value / node_total) * 100))),
+        "node": node,
+        "type": "node",
+    }
+
+
 async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=None, output_nodes=None, output_prefix="", node_total=0, output_mode="mac", expect_image_frames=True, browser_client_id=""):
     if isinstance(prompt_ref, dict):
         prompt_id = str(prompt_ref.get("value") or "").strip()
@@ -799,13 +811,17 @@ async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=Non
                             except (TypeError, ValueError):
                                 continue
                             if prompt_id:
-                                REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id] = {
-                                    "value": min(value, maximum),
-                                    "max": maximum,
-                                    "percent": max(0, min(100, round((value / maximum) * 100))),
-                                    "node": str(data.get("node") or current_node),
-                                    "type": "step",
-                                }
+                                # 采样步数只作为当前节点的子进度记录；步骤 x/y 的分母始终是整个工作流的节点数，不随采样器变化。
+                                entry = REMOTE_PROGRESS_BY_PROMPT_ID.get(prompt_id) or _node_progress(len(seen_nodes), node_total, current_node)
+                                entry["sampler"] = {"value": min(value, maximum), "max": maximum}
+                                REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id] = entry
+                            continue
+                        if message_type == "execution_cached":
+                            if prompt_id and (not message_prompt_id or message_prompt_id == prompt_id):
+                                for cached_node in data.get("nodes") or []:
+                                    if str(cached_node) not in seen_nodes:
+                                        seen_nodes.append(str(cached_node))
+                                REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id] = _node_progress(len(seen_nodes), node_total, "")
                             continue
                         if message_type != "executing":
                             continue
@@ -821,13 +837,7 @@ async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=Non
                         )
                         if not current_node:
                             if prompt_id:
-                                REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id] = {
-                                    "value": node_total,
-                                    "max": node_total,
-                                    "percent": 100,
-                                    "node": "",
-                                    "type": "node",
-                                }
+                                REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id] = _node_progress(node_total, node_total, "")
                             execution_finished_at = time.monotonic()
                             print(
                                 f"[random_photo_prompt] remote execution ended; waiting for result frame prompt_id={prompt_id}",
@@ -840,13 +850,7 @@ async def _watch_remote_websocket_outputs(prompt_ref, client_id, ready_event=Non
                             seen_nodes.append(current_node)
                         if prompt_id:
                             value = max(1, min(node_total, len(seen_nodes)))
-                            REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id] = {
-                                "value": value,
-                                "max": node_total,
-                                "percent": max(0, min(100, round((value / node_total) * 100))),
-                                "node": current_node,
-                                "type": "node",
-                            }
+                            REMOTE_PROGRESS_BY_PROMPT_ID[prompt_id] = _node_progress(value, node_total, current_node)
                             print(
                                 "[random_photo_prompt] remote progress stored "
                                 f"prompt_id={prompt_id} value={value}/{node_total}",
