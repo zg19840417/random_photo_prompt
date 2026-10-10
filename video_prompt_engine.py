@@ -213,6 +213,19 @@ def infer_video_pose_family(prompt: str) -> str:
     return ""
 
 
+def infer_video_cast(prompt: str) -> str:
+    """从源提示词推断单人/双人：双人图的动作主语要用“她们”，不能沿用单人模板的“她”。"""
+    text = str(prompt or "")
+    if any(marker in text for marker in ("两人", "两个女生", "她们")):
+        return "duo"
+    return "solo"
+
+
+def adapt_action_for_duo(action_text: str) -> str:
+    """双人适配：单人动作模板的主语改成“她们”，与生图双人行的代词处理一致。"""
+    return re.sub(r"她(?!们)", "她们", str(action_text or ""))
+
+
 def _action_keys_for(scope: str, pose_family: str) -> tuple[str, ...]:
     keys = ACTION_PRIORITY_BY_SCOPE.get(scope) or ACTION_PRIORITY_BY_SCOPE["half_body"]
     if pose_family == "lying" and scope == "full_body":
@@ -233,11 +246,13 @@ def generate_video_action(
     filename: str = "",
     seed_text: str = "",
     seconds: int | str = 8,
+    cast: str = "",
 ) -> dict[str, str | bool]:
     nsfw = is_nsfw_source_prompt(source_prompt)
     if nsfw and (seconds is None or seconds == 8):
         seconds = 4
-    seconds = normalize_video_seconds(seconds, default=4 if nsfw else 4)
+    seconds = normalize_video_seconds(seconds, default=4)
+    cast = cast or infer_video_cast(source_prompt)
     scope = infer_video_scope(source_prompt) or "half_body"
     if nsfw and scope not in NSFW_ACTION_OPTIONS:
         scope = "half_body"
@@ -259,6 +274,8 @@ def generate_video_action(
         )
         if NSFW_STABILITY_SUFFIX not in action:
             action = f"{action}\n{NSFW_STABILITY_SUFFIX}"
+        if cast == "duo":
+            action = adapt_action_for_duo(action)
         return {
             "action": action,
             "scope": scope,
@@ -266,6 +283,7 @@ def generate_video_action(
             "action_key": action_key,
             "used_source_prompt": bool(source_prompt),
             "nsfw": True,
+            "cast": cast,
         }
 
     action_key = rng.choice(_action_keys_for(scope, pose_family))
@@ -273,6 +291,8 @@ def generate_video_action(
     if not options:
         options = VIDEO_ACTION_OPTIONS["half_body"]["waist_turn"]
     action = stage_video_action(rng.choice(options), seconds, scope)
+    if cast == "duo":
+        action = adapt_action_for_duo(action)
     return {
         "action": action,
         "scope": scope,
@@ -280,6 +300,7 @@ def generate_video_action(
         "action_key": action_key,
         "used_source_prompt": bool(source_prompt),
         "nsfw": False,
+        "cast": cast,
     }
 
 

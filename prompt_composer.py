@@ -184,7 +184,8 @@ def _outfit_fits_place(option, place: dict) -> bool:
     return True
 
 
-def _outfit_line(group: str, era: str, shot: str, place: dict, palette: list[str], barefoot: bool, rng: random.Random) -> tuple[str, str]:
+def _pick_outfit(group: str, era: str, shot: str, place: dict, palette: list[str], barefoot: bool, rng: random.Random) -> tuple[str, str, str]:
+    """选一套服装，返回 (渲染文本, 风格, 服装模板)：模板是填色前的原文，用来判断两套衣服是否同款。"""
     main, support, accent = palette
     if era == "ancient":
         # 古装服装风格（汉服、民国、敦煌）必须与地点一致，避免宫殿里穿旗袍。
@@ -199,13 +200,19 @@ def _outfit_line(group: str, era: str, shot: str, place: dict, palette: list[str
         options = swim_only
     option = _pick(rng, options)
     if isinstance(option, dict):
-        text = option["text"]
+        template = option["text"]
+        text = template
         if not barefoot and option.get("shoes"):
             text = f"{text}，脚上是{option['shoes']}"
     else:
-        text = option
+        template = text = option
     style = option.get("style", "modern") if isinstance(option, dict) else "modern"
-    return text.format(main=main, support=support, accent=accent), style
+    return text.format(main=main, support=support, accent=accent), style, template
+
+
+def _outfit_line(group: str, era: str, shot: str, place: dict, palette: list[str], barefoot: bool, rng: random.Random) -> tuple[str, str]:
+    text, style, _ = _pick_outfit(group, era, shot, place, palette, barefoot, rng)
+    return text, style
 
 
 def _makeup_choices(group: str, direction: dict) -> list[str]:
@@ -233,13 +240,14 @@ def _duo_makeup(group: str, direction: dict, rng: random.Random) -> str:
 
 
 def _duo_outfit_line(group: str, era: str, shot: str, place: dict, palette: list[str], barefoot: bool, rng: random.Random) -> tuple[str, str]:
-    """两人各穿一套：第二套主辅色互换，两套文字不同，分成两句。"""
+    """两人各穿一套：第二套主辅色互换，模板不同才算不同款，分成两句。"""
     main, support, accent = palette
-    left, style = _outfit_line(group, era, shot, place, palette, barefoot, rng)
-    same_garment = left.replace(main, "\0").replace(support, main).replace("\0", support)
+    left, style, left_template = _pick_outfit(group, era, shot, place, palette, barefoot, rng)
+    right = left
     for _ in range(6):
-        right, _style = _outfit_line(group, era, shot, place, [support, main, accent], barefoot, rng)
-        if right != same_garment:
+        candidate, _, candidate_template = _pick_outfit(group, era, shot, place, [support, main, accent], barefoot, rng)
+        right = candidate
+        if candidate_template != left_template:
             break
     return f"左边的女生穿着{left}。右边的女生穿着{right}", style
 

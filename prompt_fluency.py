@@ -42,6 +42,40 @@ _OUT_OF_SCOPE = {
 _QUALITY_SINGLE_CONCEPTS = ("颗粒", "不过曝", "肤质", "层次")
 
 
+# 场景行跨分句重复检测：地点文本与氛围/前景池常写同一意象（如“雾气镜子”“粼粼水光”），
+# 按内容字集合算分句间重叠度，超阈值即判重复，走重抽而不是改字。
+_SCENE_REPEAT_STOPWORDS = frozenset(
+    "的了在和与或是着过地得很都就也被把将对而这那之其她她们我你他它们上下中里外"
+)
+
+
+def _scene_content_chars(clause: str) -> set[str]:
+    return {
+        ch
+        for ch in clause
+        if ("\u4e00" <= ch <= "\u9fff" or ch.isalnum())
+        and ch not in _SCENE_REPEAT_STOPWORDS
+    }
+
+
+def _repeated_scene_clauses(scene: str) -> list[str]:
+    clauses = [
+        (clause.strip(), _scene_content_chars(clause))
+        for clause in re.split(r"[，。；、]", scene or "")
+        if clause.strip()
+    ]
+    clauses = [(clause, chars) for clause, chars in clauses if len(chars) >= 6]
+    repeats: list[str] = []
+    for index, (clause, chars) in enumerate(clauses):
+        for _, other in clauses[index + 1:]:
+            inter = len(chars & other)
+            denom = min(len(chars), len(other))
+            if inter >= 3 and denom and inter / denom >= 0.4:
+                repeats.append(clause[:40])
+                break
+    return repeats
+
+
 def fluency_defects(lines: dict[str, str], scale: str, shot: str) -> list[FluencyDefect]:
     """lines: {camera, character, outfit, pose, scene, quality} -> 缺陷列表。"""
     if scale == "nsfw":
@@ -90,6 +124,8 @@ def fluency_defects(lines: dict[str, str], scale: str, shot: str) -> list[Fluenc
     scene = lines.get("scene", "")
     if scene and len(scene) < 22:
         defects.append(FluencyDefect("thin_scene", "scene", scene))
+    for clause in _repeated_scene_clauses(scene):
+        defects.append(FluencyDefect("repeated_scene_clause", "scene", clause))
     outfit = lines.get("outfit", "")
     # 双人服装是两句，每人一句，按句计细节数。
     pieces = max((len(sentence.split("，")) for sentence in outfit.split("。")), default=0)
