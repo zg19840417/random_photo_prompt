@@ -19,6 +19,61 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class VideoRunInfoTest(unittest.TestCase):
+    def test_image_detail_elapsed_and_legacy_record(self):
+        html = (ROOT / "web/mobile.html").read_text()
+        start = html.index("      const runInfo = record.image.run_info || {};")
+        fragment = html[start:html.index("      viewerCount.textContent", start)]
+        for info, expected in [({"elapsed_seconds": 0}, "耗时：0 秒"),
+                               ({"elapsed_seconds": 78}, "耗时：78 秒"),
+                               ({}, "")]:
+            with self.subTest(info=info):
+                code = "const record=" + json.dumps({"image": {"run_info": info}}) + ";"
+                code += "const prompt='静物'; const viewerPrompt={}; const viewerElapsed={};" + fragment
+                code += "console.log(viewerElapsed.textContent); if(viewerPrompt.textContent !== prompt || viewerElapsed.hidden !== !viewerElapsed.textContent) process.exit(1);"
+                result = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, expected + "\n")
+
+    def test_image_elapsed_persisted_at_receive_and_kept_in_gallery_and_favorites(self):
+        code = textwrap.dedent(f"""
+            import sys, tempfile, io, shutil
+            from pathlib import Path
+            from unittest import mock
+            from PIL import Image
+            sys.path.insert(0, {str(ROOT)!r})
+            from rpp_folder_paths import LocalFolderPaths
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp) / 'output'
+                root.mkdir()
+                sys.modules['folder_paths'] = LocalFolderPaths(tmp)
+                import rpp_mobile as mobile, rpp_remote as remote
+                target = root / 'test.png'
+                favorites = root / 'favorites'
+                data = io.BytesIO()
+                Image.new('RGB', (32, 32), 'yellow').save(data, format='PNG')
+                job = {{'prompt_id': 'test', 'prompt': '静物', 'seed': 42, 'created_at': 100000}}
+                with mock.patch.object(remote, 'MOBILE_SESSION_JOBS', [job]), \\
+                     mock.patch.object(remote, '_remote_websocket_local_path', return_value=target), \\
+                     mock.patch.object(remote.time, 'time', return_value=130), \\
+                     mock.patch.object(mobile, '_mobile_prompt_index_path', return_value=root / 'index.json'), \\
+                     mock.patch.object(mobile, '_mobile_local_output_dir', return_value=root), \\
+                     mock.patch.object(mobile, '_mobile_output_subfolder_for_path', return_value=''), \\
+                     mock.patch.object(mobile, 'MOBILE_FAVORITE_BACKUP_DIR', favorites):
+                    remote._save_remote_websocket_image('test', data.getvalue(), 2)
+                    mobile._remember_mobile_prompt_file('test.png', '静物', seed=42)
+                    mobile.MOBILE_PROMPT_BY_FILENAME.clear()
+                    metadata = mobile._mobile_prompt_metadata_for_gallery_file('test.png')
+                    assert metadata['run_info']['elapsed_seconds'] == 30
+                    gallery = mobile._mobile_gallery_images()
+                    assert next(x for x in gallery if x['filename']=='test.png')['run_info']['elapsed_seconds'] == 30
+                    favorites.mkdir(exist_ok=True)
+                    shutil.copy2(target, favorites / 'test.png')
+                    mobile._save_mobile_favorite_metadata({{'test.png': dict(metadata, source_key='test.png')}})
+                    assert mobile._mobile_favorite_backup_images()[0]['run_info']['elapsed_seconds'] == 30
+        """)
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
+
     def test_run_info_saved_and_survives_reregister(self):
         # 现有测试会向 sys.modules 注入宿主桩，故在干净子进程里验证真实模块。
         code = textwrap.dedent(f"""
@@ -54,10 +109,10 @@ class VideoRunInfoTest(unittest.TestCase):
         for info, label in cases:
             with self.subTest(info=info):
                 code = "const record = " + json.dumps({"video": {"run_info": info}, "prompt": "动作"}) + ";\n"
-                code += "const viewerPrompt = {};\n" + fragment + "\nconsole.log(viewerPrompt.textContent);"
+                code += "const viewerPrompt = {}; const viewerElapsed={};\n" + fragment + "\nconsole.log(viewerElapsed.textContent); if(viewerPrompt.textContent !== '视频提示词：\\n动作') process.exit(1);"
                 result = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=10)
                 self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertEqual(result.stdout, f"耗时：176 秒（含排队与加载）· {label}\n视频提示词：\n动作\n")
+                self.assertEqual(result.stdout, f"耗时：176 秒 · {label}\n")
 
 
 class VideoReturnRunInfoTest(unittest.IsolatedAsyncioTestCase):

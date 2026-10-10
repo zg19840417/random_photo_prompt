@@ -622,21 +622,6 @@ def _block_remote_asset_save_on_prompt(json_data):
 
 
 def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model="", output_prefix=None, loras=None, zib_model="", workflow_key="", krea2_model=""):
-    if workflow_key == "qwen_image21_turbo":
-        if loras or zit_model or zib_model or krea2_model:
-            raise ValueError("Qwen 2.1 Turbo 不接受 ZIT/ZIB/Krea2 模型或 LoRA 参数。")
-        workflow = copy.deepcopy(template)
-        generators = [node for node in workflow.values() if node.get("class_type") == "RandomPhotoPromptQwenImage21Turbo"]
-        if len(generators) != 1:
-            raise ValueError("Qwen 工作流必须包含一个专用生成节点。")
-        generators[0]["inputs"].update(prompt=_prompt_text(prompt_item), width=int(width), height=int(height), seed=int(seed), research_only=True)
-        for node in workflow.values():
-            if node.get("class_type") == "RandomPhotoPromptStreamImage":
-                node.setdefault("_meta", {})["mobile_output_prefix"] = output_prefix or "qwen_research"
-        return workflow, {"positive_text": 1, "negative_text": 0, "width": 1, "height": 1, "seed": 1,
-                          "sampler_steps": 8, "model_cleanup_nodes": ensure_model_cleanup(workflow),
-                          "base_width": int(width), "base_height": int(height), "output_scale": 1,
-                          "exact_output_scale_nodes": 0}
     workflow = copy.deepcopy(template)
     removed_auxiliary_outputs = _remove_mobile_auxiliary_outputs(workflow)
     model_cleanup_nodes = ensure_model_cleanup(workflow)

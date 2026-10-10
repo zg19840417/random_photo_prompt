@@ -1024,6 +1024,15 @@
       font-weight: 700;
     }
 
+    .viewer-elapsed {
+      flex: 0 1 auto;
+      max-width: 100%;
+      color: var(--accent-2);
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
     .viewer-count {
       margin: 0 0 8px;
       color: var(--accent-2);
@@ -1338,7 +1347,6 @@
                   <option value="zitb_double">双采-ZIT+ZIB</option>
                   <option value="redcraft_krea2">单采-Krea2</option>
                   <option value="krea2_double">双采-Krea2</option>
-                  <option value="qwen_image21_turbo">Qwen 2.1 Turbo（研究评估）</option>
                 </select>
               </label>
               <div id="modelSelectGroup" class="model-select-group">
@@ -1486,6 +1494,7 @@
     <div class="viewer-panel">
       <div class="viewer-actions">
         <span id="viewerResolution" class="viewer-resolution"></span>
+        <span id="viewerElapsed" class="viewer-elapsed" title="含排队与模型加载" hidden></span>
         <button id="viewerLoop" class="viewer-action" type="button" aria-pressed="false" hidden>循环播放：关</button>
         <button id="viewerQView" class="viewer-action" type="button" hidden>用 qView 打开</button>
         <button id="viewerFavorite" class="viewer-action" type="button">收藏</button>
@@ -1637,6 +1646,7 @@
     const viewerLoop = document.querySelector("#viewerLoop");
     const viewerCount = document.querySelector("#viewerCount");
     const viewerResolution = document.querySelector("#viewerResolution");
+    const viewerElapsed = document.querySelector("#viewerElapsed");
     const viewerPrompt = document.querySelector("#viewerPrompt");
     const viewerFavorite = document.querySelector("#viewerFavorite");
     const viewerQView = document.querySelector("#viewerQView");
@@ -2175,9 +2185,8 @@
         updateVideoTurboAvailability();
         updateLoraOptions(data.loras || []);
         updateWorkflowModelVisibility();
-        const selectedWorkflow = (data.workflows || []).find(item => item.key === statusWorkflow);
         const ready = state.mode === "video" ? data.video_workflow?.template_ready
-          : data.template_ready && selectedWorkflow?.runtime_ready !== false;
+          : data.template_ready;
         updateEntryInfo(data, ready);
         if (data.connected === false) {
           setConnection(false);
@@ -2301,7 +2310,6 @@
       zitModelField.hidden = !showZit;
       zibModelField.hidden = !showZib;
       krea2ModelField.hidden = !showKrea2;
-      loraList.parentElement.hidden = workflowSelect.value === "qwen_image21_turbo";
       negativePromptField.hidden = !isDoubleWorkflow;
       if (!isDoubleWorkflow) imageNegativePrompt.value = "";
       updateCustomPromptButton();
@@ -3065,6 +3073,11 @@
       viewerVideo.pause();
       viewerVideo.removeAttribute("src");
       viewerImage.src = record.image.url;
+      const runInfo = record.image.run_info || {};
+      viewerElapsed.textContent = runInfo.elapsed_seconds != null
+        ? `耗时：${runInfo.elapsed_seconds} 秒`
+        : "";
+      viewerElapsed.hidden = !viewerElapsed.textContent;
       viewerPrompt.textContent = prompt;
       viewerCount.textContent = `${state.viewerIndex + 1} / ${images.length}`;
       updateViewerResolution(resolutionText(record.image));
@@ -3111,10 +3124,11 @@
         }
       }, 1000);
       const runInfo = record.video.run_info || {};
-      const runLine = runInfo.elapsed_seconds != null
-        ? `耗时：${runInfo.elapsed_seconds} 秒（含排队与加载）· ${runInfo.turbo ? `Turbo ${runInfo.turbo_steps ?? 8} 步` : "标准采样"}\n`
+      viewerElapsed.textContent = runInfo.elapsed_seconds != null
+        ? `耗时：${runInfo.elapsed_seconds} 秒 · ${runInfo.turbo ? `Turbo ${runInfo.turbo_steps ?? 8} 步` : "标准采样"}`
         : "";
-      viewerPrompt.textContent = record.prompt ? `${runLine}视频提示词：\n${record.prompt}` : `${runLine}未记录视频提示词`;
+      viewerElapsed.hidden = !viewerElapsed.textContent;
+      viewerPrompt.textContent = record.prompt ? `视频提示词：\n${record.prompt}` : "未记录视频提示词";
       viewerCount.textContent = `${state.viewerIndex + 1} / ${videos.length}`;
       updateViewerResolution(resolutionText(record.video));
       viewerDelete.dataset.filename = videoKey(record.video);
@@ -4248,7 +4262,7 @@
             zit_model: ["zit_single", "zitb_double"].includes(workflowSelect.value) ? zitModelSelect.value : "",
             zib_model: workflowSelect.value === "zitb_double" ? zibModelSelect.value : "",
             krea2_model: ["redcraft_krea2", "krea2_double"].includes(workflowSelect.value) ? krea2ModelSelect.value : "",
-            loras: workflowSelect.value === "qwen_image21_turbo" ? [] : selectedLoras(),
+            loras: selectedLoras(),
             seed: imageSeedInput.value.trim(),
             negative_prompt: workflowSelect.value === "zitb_double" ? imageNegativePrompt.value.trim() : "",
             custom_prompt_source: state.customPromptSource,

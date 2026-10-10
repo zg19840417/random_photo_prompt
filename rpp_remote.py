@@ -221,21 +221,6 @@ async def _available_mobile_video_models():
                   key=lambda value: ("minimax_h3" not in value.lower(), value))
 
 
-async def _qwen_image21_runtime_status():
-    node_type = "RandomPhotoPromptQwenImage21Turbo"
-    info, error = await _remote_json("GET", f"/object_info/{node_type}")
-    ready = False
-    if not error:
-        try:
-            ready = "Qwen-Image-2.1-Turbo" in info[node_type]["input"]["required"]["model_name"][0]
-        except (KeyError, IndexError, TypeError):
-            pass
-    return {"runtime_ready": ready,
-            "message": "远端 Qwen 研究评估依赖与模型目录已就绪；实际出图尚需验证。" if ready else
-                       "远端 Qwen 2.1 Turbo 未就绪：需要部署专用节点、完整官方模型目录及支持 PR #14950 的 Diffusers、Transformers >=5.17.0。",
-            "guidance": "仅用于非商业研究评估；不自动下载模型或升级远端依赖。"}
-
-
 async def _available_mobile_zimage_models():
     if REMOTE_COMFYUI_URL:
         object_info, error = await _remote_json("GET", "/object_info/UNETLoader")
@@ -704,15 +689,19 @@ def _save_remote_websocket_image(prompt_id, image_bytes, image_type=0):
     # 否则服务重启或用户直接切到瀑布流时，图片会保留而提示词索引丢失。
     prompt = ""
     seed = None
+    run_info = None
     for job in MOBILE_SESSION_JOBS:
         if str(job.get("prompt_id") or "") == str(prompt_id):
             prompt = str(job.get("prompt") or "").strip()
             seed = job.get("seed")
+            created_at = job.get("created_at")
+            if created_at:
+                run_info = {"elapsed_seconds": max(0, round(time.time() - created_at / 1000))}
             break
     if prompt:
         from rpp_mobile import _remember_mobile_prompt_file
 
-        _remember_mobile_prompt_file(local_path.name, prompt, seed=seed)
+        _remember_mobile_prompt_file(local_path.name, prompt, seed=seed, run_info=run_info)
     REMOTE_WS_IMAGE_RECEIVED_BY_PROMPT_ID[str(prompt_id)] = True
     print(f"[random_photo_prompt] remote websocket image saved prompt_id={prompt_id} path={local_path} bytes={len(image_bytes)}", flush=True)
     return local_path

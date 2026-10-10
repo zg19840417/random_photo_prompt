@@ -39,7 +39,7 @@ class Krea2WorkflowTests(unittest.TestCase):
         keys = {key.value for key in registry.keys}
         page = WorkflowOptions()
         page.feed((ROOT / "web/mobile.html").read_text(encoding="utf-8"))
-        expected = {"zit_single", "zitb_double", "redcraft_krea2", "krea2_double", "qwen_image21_turbo"}
+        expected = {"zit_single", "zitb_double", "redcraft_krea2", "krea2_double"}
         self.assertEqual(keys - {"minimax_h3"}, expected)
         self.assertEqual(set(page.values), expected)
 

@@ -77,7 +77,6 @@ from rpp_remote import (
     _mac_proxy_video_upload_url,
     _probe_remote_websocket,
     _queue_mobile_workflow,
-    _qwen_image21_runtime_status,
     _resolve_krea2_model,
     _resolve_zib_model,
     _resolve_zit_model,
@@ -257,8 +256,6 @@ async def _mobile_entry_status():
     }
     loras = results[1] if not isinstance(results[1], Exception) else []
     video_models = results[2] if not isinstance(results[2], Exception) else []
-    if "qwen_image21_turbo" in workflow_statuses:
-        workflow_statuses["qwen_image21_turbo"].update(await _qwen_image21_runtime_status())
     zit_models = zimage_models["zit_models"]
     zib_models = zimage_models["zib_models"]
     krea2_models = zimage_models["krea2_models"]
@@ -414,7 +411,6 @@ async def mobile_generation_status(request):
                     "label": item["label"],
                     "template_name": item["path"].name,
                     "template_ready": workflow_statuses.get(key, {}).get("template_ready", item["path"].exists()),
-                    "runtime_ready": workflow_statuses.get(key, {}).get("runtime_ready", True),
                     "path": str(item["path"]),
                     "message": workflow_statuses.get(key, {}).get("message", ""),
                     "guidance": workflow_statuses.get(key, {}).get("guidance", ""),
@@ -473,14 +469,7 @@ async def generate_mobile_image(request):
         requested_zit_model = str(data.get("zit_model") or "").strip()
         requested_zib_model = str(data.get("zib_model") or "").strip()
         requested_krea2_model = str(data.get("krea2_model") or "").strip()
-        if workflow_key == "qwen_image21_turbo":
-            if requested_zit_model or requested_zib_model or requested_krea2_model or data.get("loras"):
-                raise ValueError("Qwen 2.1 Turbo 不接受 ZIT/ZIB/Krea2 模型或 LoRA 参数。")
-            status = await _qwen_image21_runtime_status()
-            if not status["runtime_ready"]:
-                return web.json_response({"error": status["message"]}, status=503)
-            zit_model = zib_model = krea2_model = ""
-        elif _is_krea2_workflow(workflow_key):
+        if _is_krea2_workflow(workflow_key):
             zit_model = ""
             zib_model = ""
             krea2_model = _resolve_krea2_model(requested_krea2_model, zimage_models["krea2_models"])

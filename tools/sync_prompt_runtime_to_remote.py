@@ -24,7 +24,6 @@ FILES = [
     "rpp_remote.py",
     "rpp_mobile.py",
     "rpp_nodes.py",
-    "rpp_qwen.py",
     "rpp_endpoints.py",
     "prompt_constants.py",
     "prompt_data.py",
@@ -42,7 +41,6 @@ FILES = [
     "mobile_workflow_api_2.json",
     "mobile_workflow_api_krea2.json",
     "mobile_workflow_api_krea2_double.json",
-    "mobile_workflow_api_qwen_image21_turbo.json",
     "minimax_h3_workflow_api.json",
 ]
 SUBDIR_FILES = [

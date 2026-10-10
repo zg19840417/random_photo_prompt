@@ -28,8 +28,6 @@ Mac `8188` 使用独立 aiohttp 服务，不导入 ComfyUI、torch、comfy、exe
 
 ## Current Goal
 
-新增研究评估工作流 `qwen_image21_turbo`，专用节点 `rpp_qwen.py` 调用官方 `QwenImage21Pipeline`，不使用旧 Qwen 节点。模板为 `mobile_workflow_api_qwen_image21_turbo.json`，保持官方 8 步采样表与默认 CFG，顺序 CPU 卸载，图片 WebSocket 直回 Mac；不接受旧模型、LoRA 或负面词。手机状态独立返回 `runtime_ready`，缺依赖/模型时阻止提交，不影响已有工作流。仅完成开发与离线验证不代表实际可出图，安装下载与生图验收须单独进行。依赖、模型目录及许可证详见 `REMOTE_MOBILE_ACCESS.md` 的 Qwen 研究评估章节。
-
 Mac runs a lightweight aiohttp service; Windows retains the ComfyUI custom-node entry. Both hosts share `rpp_routes.register_routes`; only Windows loads `rpp_nodes.py` and `rpp_comfy.py`. Mac `/remote/submit` returns explicit HTTP 503 because that inference endpoint belongs to Windows. The desktop ComfyUI nodes (`RandomPhotoPrompt`, the image interrogator) and the manual page were removed: the phone page is the only generation entry, and the remaining nodes are workflow plumbing (stream/upload image, upload video, load source image from Mac). Mobile generation continues submitting directly to the Windows guarded endpoint.
 
 The generator now uses a simplified six-dimension prompt model with four user-facing scales. 一档 maps to `normal`, 二档 maps to `bold`, 三档 maps to `bold_no_outfit`, and 四档 maps to `nsfw`. 三档 reuses 二档 prompt logic but omits the outfit dimension during final prompt assembly. 四档 is the original NSFW behavior and also omits outfit.

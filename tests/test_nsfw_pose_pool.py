@@ -77,6 +77,20 @@ class NsfwPosePoolTest(unittest.TestCase):
                 for token in scene_bound:
                     self.assertNotIn(token, text, f"{shot} 绑定了具体场地“{token}”，会与随机场景冲突")
 
+    def test_nsfw_pose_text_names_the_male_body_part_in_every_action(self):
+        pool = prompt_data.POSE_EXPRESSION_OPTIONS["nsfw"]
+        # 「深含」「舔过顶端」这类动作必须点明作用对象，否则模型不知道要画什么部位。
+        # 只有跨坐骑乘这类动作本身就是部位交互，可以不写。
+        ambiguous_actions = ("深含", "含住", "含入", "含进", "舔过", "舔舐", "吮吸", "轻吮", "套弄", "撸动")
+        for shot, options in pool.items():
+            for text in options:
+                if any(action in text for action in ambiguous_actions):
+                    self.assertRegex(
+                        text,
+                        r"阴茎|龟头",
+                        f"{shot} 的交互动词没有写明作用部位：{text}",
+                    )
+
     def test_nsfw_pose_text_stays_inside_the_shot_framing(self):
         pool = prompt_data.POSE_EXPRESSION_OPTIONS["nsfw"]
         # 特写只到肩部以上，镜头外的手、腿、跪姿写进去会误导构图；半身只到腰部以上。

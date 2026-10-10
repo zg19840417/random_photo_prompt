@@ -430,6 +430,8 @@ def _mobile_prompt_metadata_for_gallery_file(filename):
         prompt = str(metadata.get("prompt") or "").strip()
         if prompt:
             result = {"prompt": prompt, "seed": metadata.get("seed")}
+            if isinstance(metadata.get("run_info"), dict):
+                result["run_info"] = metadata["run_info"]
             MOBILE_PROMPT_BY_FILENAME[filename] = result
             return result
     for job in MOBILE_SESSION_JOBS:
@@ -561,6 +563,7 @@ def _mobile_gallery_images():
                 "height": dimensions.get("height", 0),
                 "prompt": prompt,
                 "seed": seed,
+                "run_info": metadata.get("run_info", {}),
                 "viewed": file_key in viewed_keys,
                 "url": _mobile_view_url(path.name, subfolder),
             }
@@ -624,6 +627,8 @@ def _load_mobile_favorite_metadata():
             seed = None
         source_key = str(metadata.get("source_key") or "").replace("\\", "/").strip("/")
         result[filename] = {"prompt": prompt, "seed": seed, "source_key": source_key}
+        if isinstance(metadata.get("run_info"), dict):
+            result[filename]["run_info"] = metadata["run_info"]
     return result
 
 
@@ -645,6 +650,8 @@ def _save_mobile_favorite_metadata(records):
         source_key = str(metadata.get("source_key") or "").replace("\\", "/").strip("/")
         if source_key:
             item["source_key"] = source_key
+        if isinstance(metadata.get("run_info"), dict):
+            item["run_info"] = metadata["run_info"]
         serializable[filename] = item
     payload = {
         "version": 1,
@@ -680,6 +687,7 @@ def _mobile_favorite_backup_images():
                 "height": dimensions.get("height", 0),
                 "prompt": str(metadata.get("prompt") or ""),
                 "seed": metadata.get("seed"),
+                "run_info": metadata.get("run_info", {}),
                 "source_key": str(metadata.get("source_key") or ""),
                 "viewed": str(metadata.get("source_key") or f"favorite_backup/{path.name}") in viewed_keys,
                 "url": f"/random_photo_prompt/mobile/favorite/file/{urllib.parse.quote(path.name, safe='')}",
@@ -872,6 +880,9 @@ def _remember_mobile_prompt_images(prompt_id, images):
             _remember_mobile_prompt_file(filename, prompt, image.get("subfolder", ""), seed)
             image["prompt"] = prompt
             image["seed"] = seed
+            image["run_info"] = _mobile_prompt_metadata_for_gallery_file(
+                _mobile_output_file_key(filename, image.get("subfolder", ""))
+            ).get("run_info", {})
 
 
 def _remember_mobile_prompt_videos(prompt_id, videos):

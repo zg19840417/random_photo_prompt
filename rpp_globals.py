@@ -43,7 +43,6 @@ MOBILE_WORKFLOWS = {
     "zitb_double": {"label": "双采-ZIT+ZIB", "path": NODE_DIR / "mobile_workflow_api_2.json", "type": "image"},
     "redcraft_krea2": {"label": "单采-Krea2", "path": NODE_DIR / "mobile_workflow_api_krea2.json", "type": "image"},
     "krea2_double": {"label": "双采-Krea2", "path": NODE_DIR / "mobile_workflow_api_krea2_double.json", "type": "image"},
-    "qwen_image21_turbo": {"label": "Qwen 2.1 Turbo（研究评估）", "path": NODE_DIR / "mobile_workflow_api_qwen_image21_turbo.json", "type": "image"},
     "minimax_h3": {"label": "MiniMax H3 视频", "path": NODE_DIR / "minimax_h3_workflow_api.json", "type": "video"},
 }
 MOBILE_WORKFLOW_TEMPLATES = {}
