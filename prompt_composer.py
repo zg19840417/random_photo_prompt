@@ -6,31 +6,39 @@
 - 姿势只写身体动作并声明所需道具，神情单独成池，两者按动作能量组合；
 - 二档姿势不写服装，三档直接复用；服装按母题配色填色，赤脚姿势不写鞋。
 渲染后用 prompt_fluency 检查，不合格就重抽，不做字符串修补。固定人物容貌行始终取自原人物池，不在这里改写。
+双人（cast="duo"）沿用同一套母题、地点、光线与配色，只把姿势、神情、构图换成 DUO 池，
+两人共用固定容貌，妆容一清透一立体，各穿一套同配色的衣服，场景主语改成“她们”。
 """
 from __future__ import annotations
 
 import json
 import random
+import re
 from pathlib import Path
 from typing import Callable
 
-from prompt_data import character_identity_options_by_aspect, makeup_options_by_aspect
+from prompt_data import character_identity_options, makeup_options
 from prompt_fluency import fluency_defects
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "art_direction_pools.json"
 COMPOSER_SCALES = ("normal", "bold", "bold_no_outfit")
-_NIGHT_MAKEUP_MARKERS = ("夜景", "夜色", "暗夜", "夜拍", "暗调", "月光", "夜")
+CASTS = ("solo", "duo")
+NIGHT_MAKEUP_MARKERS = ("夜景", "夜色", "暗夜", "夜拍", "暗调", "月光", "夜")
 _DAY_MAKEUP_MARKERS = ("晨光", "日系", "晴日", "暖阳", "阳光")
-_STUDIO_MAKEUP_MARKERS = ("摄影棚", "棚拍")
 _ATTEMPTS = 8
 # 二档、三档一半的画面使用非常规镜头（畸变、低机位、荷兰角、俯拍、动态模糊）。
 _WILD_CAMERA_CHANCE = 0.5
 _WILD_POSE_CHANCE = 0.55
+# 地点有可互动道具时，优先让人物和道具发生动作（拿、摘、拨、泼、抛），而不只是站、坐、靠。
+_INTERACTIVE_POSE_CHANCE = 0.75
+# 双人妆容拉开差距：一人取清透自然的妆，一人取轮廓更清楚的妆。
+# 按妆容名（第一个逗号前）分组，不看描述细节。
+_DEFINED_MAKEUP_MARKERS = ("轮廓", "骨相", "高光妆", "港风", "清冷", "清透水光", "唇釉妆", "蜜桃唇", "私房", "冷感")
 
 
 def _load_pools() -> dict:
     pools = json.loads(DATA_PATH.read_text(encoding="utf-8"))
-    for key in ("ART_DIRECTIONS", "PLACES", "EXPRESSIONS", "POSES", "OUTFITS", "OUTFITS_ANCIENT", "COMPOSITION", "LENSES", "WILD_CAMERA"):
+    for key in ("ART_DIRECTIONS", "PLACES", "EXPRESSIONS", "POSES", "OUTFITS", "OUTFITS_ANCIENT", "COMPOSITION", "LENSES", "WILD_CAMERA", "DUO"):
         if key not in pools:
             raise ValueError(f"{DATA_PATH.name} 缺少 {key}")
     for direction in pools["ART_DIRECTIONS"]:
@@ -68,8 +76,16 @@ def _pick(rng: random.Random, values):
     return values[rng.randrange(len(values))]
 
 
-def _pose_table(group: str, shot: str, aspect: str, era: str) -> list[dict]:
-    poses = POOLS["POSES"][group]
+def normalize_cast(cast: str) -> str:
+    return "duo" if str(cast or "").strip() in {"duo", "双人", "2"} else "solo"
+
+
+def _pool(key: str, cast: str):
+    return POOLS["DUO"][key] if cast == "duo" else POOLS[key]
+
+
+def _pose_table(group: str, shot: str, aspect: str, era: str, cast: str = "solo") -> list[dict]:
+    poses = _pool("POSES", cast)[group]
     if shot == "head_shot":
         # 头部动作与画幅无关，横构图额外加入横向头部动作。
         table = poses["portrait"]["head_shot"] + (poses["landscape"]["head_shot"] if aspect == "landscape" else [])
@@ -89,19 +105,18 @@ def _place_allowed(place: dict, scale: str, shot: str) -> bool:
     return True
 
 
-def _fitting_poses(group: str, shot: str, aspect: str, era: str, props: list[str]) -> list[dict]:
-    return [pose for pose in _pose_table(group, shot, aspect, era) if set(pose.get("props", ())) <= set(props)]
+def _fitting_poses(group: str, shot: str, aspect: str, era: str, props: list[str], cast: str = "solo") -> list[dict]:
+    return [pose for pose in _pose_table(group, shot, aspect, era, cast) if set(pose.get("props", ())) <= set(props)]
 
 
 def _choose_pose(rng: random.Random, poses: list[dict]) -> dict:
-    # 二档、三档更偏向大胆动态的姿势：可用时 55% 概率只从 wild 姿势里选。
+    # 先决定是否和道具互动，再在其中偏向大胆动态的 wild 姿势（二档、三档可用时 55%）。
+    interactive = [pose for pose in poses if pose.get("props")]
+    if interactive and rng.random() < _INTERACTIVE_POSE_CHANCE:
+        poses = interactive
     wild = [pose for pose in poses if pose.get("wild")]
     if wild and rng.random() < _WILD_POSE_CHANCE:
         poses = wild
-    # 地点提供了可互动道具时，一半概率优先让人物与场景互动。
-    interactive = [pose for pose in poses if pose.get("props")]
-    if interactive and rng.random() < 0.5:
-        return _pick(rng, interactive)
     return _pick(rng, poses)
 
 
@@ -112,38 +127,42 @@ def _light_type(group: str, direction: dict) -> dict | None:
     return POOLS["LIGHT_TYPES"][direction["light_type"]]
 
 
-def _scene_line(group: str, shot: str, direction: dict, place: dict, rng: random.Random) -> str:
+def _scene_line(group: str, shot: str, direction: dict, place: dict, rng: random.Random, cast: str = "solo") -> str:
     light_type = _light_type(group, direction)
     body_light = [_pick(rng, light_type["body_light"][shot])] if light_type else []
     if shot == "head_shot":
-        return "，".join([place["near"], direction["near_light"], *body_light])
-    clauses = [place["half" if shot == "half_body" else "full"], direction["light"], *body_light, _pick(rng, direction["atmosphere"])]
-    if direction["foreground"] and rng.random() < 0.5:
-        clauses.append(_pick(rng, direction["foreground"]))
-    return "，".join(clauses)
+        text = "，".join([place["near"], direction["near_light"], *body_light])
+    else:
+        clauses = [place["half" if shot == "half_body" else "full"], direction["light"], *body_light, _pick(rng, direction["atmosphere"])]
+        if direction["foreground"] and rng.random() < 0.5:
+            clauses.append(_pick(rng, direction["foreground"]))
+        text = "，".join(clauses)
+    return re.sub("她(?!们)", "她们", text) if cast == "duo" else text
 
 
-def _wild_camera(group: str, shot: str, aspect: str, rng: random.Random) -> dict | None:
+def _wild_camera(group: str, shot: str, aspect: str, rng: random.Random, cast: str = "solo") -> dict | None:
     if group != "bold" or rng.random() >= _WILD_CAMERA_CHANCE:
         return None
-    options = [bundle for bundle in POOLS["WILD_CAMERA"][shot] if aspect in bundle["aspects"]]
+    options = [bundle for bundle in _pool("WILD_CAMERA", cast)[shot] if aspect in bundle["aspects"]]
     return _pick(rng, options) if options else None
 
 
-def _camera_line(group: str, shot: str, aspect: str, direction: dict, wild: dict | None, rng: random.Random) -> str:
-    light_type = _light_type(group, direction)
+def _camera_line(group: str, shot: str, aspect: str, direction: dict, wild: dict | None, rng: random.Random, cast: str = "solo") -> str:
+    # 光型构图按单人写（“人物位于…”），双人改用 DUO 构图池。
+    light_type = _light_type(group, direction) if cast == "solo" else None
     if wild:
         angle, composition = wild["angle"], wild["composition"]
     else:
         angle = _pick(rng, direction["camera"])
-        composition = _pick(rng, light_type["compositions"][shot] if light_type else POOLS["COMPOSITION"][shot])
+        composition = _pick(rng, light_type["compositions"][shot] if light_type else _pool("COMPOSITION", cast)[shot])
     orientation = {"landscape": "横向", "square": "方形"}.get(aspect, "竖向")
+    who = "两人" if cast == "duo" else ""
     if shot == "head_shot":
-        scope = "肩部以上近景"
+        scope = f"{who}肩部以上近景"
     elif shot == "half_body":
-        scope = f"腰部以上的{orientation}半身构图"
+        scope = f"{who}腰部以上的{orientation}半身构图"
     else:
-        scope = f"从头到脚的{orientation}全身构图"
+        scope = f"{who}从头到脚的{orientation}全身构图"
     return f"{angle}，{scope}，{composition}"
 
 
@@ -189,19 +208,43 @@ def _outfit_line(group: str, era: str, shot: str, place: dict, palette: list[str
     return text.format(main=main, support=support, accent=accent), style
 
 
-def _makeup(group: str, direction: dict, place: dict, aspect: str, rng: random.Random) -> str:
-    options = list(makeup_options_by_aspect(group, aspect))
-    if not place.get("studio"):
-        options = [option for option in options if not any(marker in option for marker in _STUDIO_MAKEUP_MARKERS)] or options
+def _makeup_choices(group: str, direction: dict) -> list[str]:
+    options = list(makeup_options(group))
     # 黄昏仍按白天处理：场景没有夜色时不配夜妆。
     if direction["time"] in ("day", "dusk"):
-        options = [option for option in options if not any(marker in option for marker in _NIGHT_MAKEUP_MARKERS)] or options
+        return [option for option in options if not any(marker in option for marker in NIGHT_MAKEUP_MARKERS)] or options
+    return [option for option in options if not any(marker in option for marker in _DAY_MAKEUP_MARKERS)] or options
+
+
+def _makeup(group: str, direction: dict, place: dict, aspect: str, rng: random.Random) -> str:
+    return _pick(rng, _makeup_choices(group, direction))
+
+
+def _duo_makeup(group: str, direction: dict, rng: random.Random) -> str:
+    options = _makeup_choices(group, direction)
+    defined = [option for option in options if any(marker in option.split("，")[0] for marker in _DEFINED_MAKEUP_MARKERS)]
+    soft = [option for option in options if option not in defined]
+    if defined and soft:
+        pair = [_pick(rng, soft), _pick(rng, defined)]
+        rng.shuffle(pair)
     else:
-        options = [option for option in options if not any(marker in option for marker in _DAY_MAKEUP_MARKERS)] or options
-    return _pick(rng, options)
+        pair = rng.sample(options, 2)
+    return f"左边的女生化着{pair[0]}。右边的女生化着{pair[1]}"
 
 
-def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Random) -> dict[str, str]:
+def _duo_outfit_line(group: str, era: str, shot: str, place: dict, palette: list[str], barefoot: bool, rng: random.Random) -> tuple[str, str]:
+    """两人各穿一套：第二套主辅色互换，两套文字不同，分成两句。"""
+    main, support, accent = palette
+    left, style = _outfit_line(group, era, shot, place, palette, barefoot, rng)
+    same_garment = left.replace(main, "\0").replace(support, main).replace("\0", support)
+    for _ in range(6):
+        right, _style = _outfit_line(group, era, shot, place, [support, main, accent], barefoot, rng)
+        if right != same_garment:
+            break
+    return f"左边的女生穿着{left}。右边的女生穿着{right}", style
+
+
+def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Random, cast: str = "solo") -> dict[str, str]:
     group = _group(scale)
     directions = [
         direction for direction in POOLS["ART_DIRECTIONS"]
@@ -214,31 +257,36 @@ def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Rand
             continue
         place_name = _pick(rng, place_names)
         place = POOLS["PLACES"][place_name]
-        poses = _fitting_poses(group, shot, aspect, era, place["props"])
+        poses = _fitting_poses(group, shot, aspect, era, place["props"], cast)
         if poses:
             break
     else:
         raise ValueError(f"没有与 {scale}/{era}/{shot}/{aspect} 相容的母题、地点和姿势组合")
     pose = _choose_pose(rng, poses)
-    expression = _pick(rng, POOLS["EXPRESSIONS"][group][pose["energy"]])
+    expression = _pick(rng, _pool("EXPRESSIONS", cast)[group][pose["energy"]])
     palette = _pick(rng, direction["palettes"][group])
-    wild = _wild_camera(group, shot, aspect, rng)
+    wild = _wild_camera(group, shot, aspect, rng, cast)
     lens = wild["lens"] if wild else _pick(rng, POOLS["LENSES"][shot])
     main, support, accent = palette
-    camera = _camera_line(group, shot, aspect, direction, wild, rng)
+    camera = _camera_line(group, shot, aspect, direction, wild, rng, cast)
     texture = "肤质细腻并保留真实纹理" if group == "bold" else "肤质保留真实纹理"
-    outfit, outfit_style = ("", "") if scale == "bold_no_outfit" else _outfit_line(group, era, shot, place, palette, bool(pose.get("barefoot")), rng)
-    face, body = _split_identity(_pick(rng, character_identity_options_by_aspect(shot, aspect)))
+    dress = _duo_outfit_line if cast == "duo" else _outfit_line
+    outfit, outfit_style = ("", "") if scale == "bold_no_outfit" else dress(group, era, shot, place, palette, bool(pose.get("barefoot")), rng)
+    face, body = _split_identity(_pick(rng, character_identity_options(shot)))
+    if cast == "duo":
+        # 两人共用固定容貌；妆容各写一句，接在容貌后面。
+        face = f"两个女生都是{face}"
     return {
         "camera": camera,
         "camera_line": camera,
         "lens": lens,
         "character": face,
         "body": body,
-        "makeup": _makeup(group, direction, place, aspect, rng),
+        "makeup": _duo_makeup(group, direction, rng) if cast == "duo" else _makeup(group, direction, place, aspect, rng),
         "outfit": outfit,
-        "pose_expression": f"{_name_hands(pose['body'])}。{expression}",
-        "scene_light": _scene_line(group, shot, direction, place, rng),
+        # 双人动作用“左边的女生/右边的女生”区分，不再把“一只手”改写成左手、右手。
+        "pose_expression": f"{pose['body'] if cast == 'duo' else _name_hands(pose['body'])}。{expression}",
+        "scene_light": _scene_line(group, shot, direction, place, rng, cast),
         "quality": f"{direction['grade']}，画面以{main}和{support}为主色，点缀一点{accent}，{texture}，高光不过曝",
         "director": direction["name"],
         "art_direction": direction["name"],
@@ -249,6 +297,7 @@ def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Rand
         "color_palette": "、".join(palette),
         "theme_name": "",
         "era": era,
+        "cast": cast,
         "variant_seed": str(rng.random()),
     }
 
@@ -260,6 +309,7 @@ def compose_parts(
     rng: random.Random,
     render_lines: Callable[[dict[str, str]], dict[str, str]],
     era: str = "modern",
+    cast: str = "solo",
 ) -> dict[str, str]:
     """返回维度文本；render_lines 是最终拼装的逐行渲染函数，用于通顺检查。
     """
@@ -268,7 +318,7 @@ def compose_parts(
     best: dict[str, str] | None = None
     best_count = 10_000
     for _ in range(_ATTEMPTS):
-        parts = _compose_once(scale, shot, aspect, _era(era), rng)
+        parts = _compose_once(scale, shot, aspect, _era(era), rng, normalize_cast(cast))
         lines = render_lines({**parts, "shot_key": shot, "scale": scale, "aspect": aspect})
         count = len(fluency_defects(lines, scale, shot))
         if count < best_count:

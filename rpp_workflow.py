@@ -41,9 +41,9 @@ from prompt_resolution import (
     linked_float_value,
     workflow_output_scale,
 )
-from video_resolution import MAXIMUM_VIDEO_SIDE, image_to_video_resolution
+from video_resolution import TEXT_TO_VIDEO_SIZE, image_to_video_resolution
 
-__all__ = sorted(["__all__", "_append_mobile_lora_nodes", "_available_loras", "_block_remote_asset_save_on_prompt", "_bypass_lora_nodes", "_force_websocket_only_image_outputs", "_insert_exact_output_scale", "_is_krea2_workflow", "_is_mobile_lora_node", "_is_zib_distilled_model_name", "_is_zit_turbo_model_name", "_krea2_unet_value", "_load_mobile_workflow", "_mobile_image_workflows", "_mobile_lora_nodes", "_mobile_workflow_config", "_mobile_workflow_statuses", "_next_workflow_node_id", "_node_depends_on_any", "_patch_existing_lora_nodes", "_patch_mobile_video_workflow", "_patch_mobile_workflow", "_patch_remote_websocket_outputs", "_patch_zitb_double_sampler_settings", "_prune_non_final_image_outputs", "_remove_mobile_auxiliary_outputs", "_remove_unreferenced_mobile_prompt_nodes", "_remove_unreferenced_workflow_nodes", "_reroute_lora_model_consumers", "_resolve_lora_name", "_resolve_lora_strength", "_resolve_mobile_loras", "_set_lora_inputs", "_set_mobile_ultimate_upscale_by", "_ultimate_sd_upscale_node_ids", "_unpatched_remote_save_node_classes", "_workflow_model_consumers", "_workflow_status_item", "_zimage_unet_value"])
+__all__ = sorted(["__all__", "_append_mobile_lora_nodes", "_available_loras", "_block_remote_asset_save_on_prompt", "_bypass_lora_nodes", "_force_websocket_only_image_outputs", "_insert_exact_output_scale", "_is_krea2_workflow", "_is_mobile_lora_node", "_is_zib_distilled_model_name", "_is_zit_turbo_model_name", "_krea2_unet_value", "_load_mobile_workflow", "_mobile_image_workflows", "_mobile_lora_nodes", "_mobile_workflow_config", "_mobile_workflow_statuses", "_next_workflow_node_id", "_node_depends_on_any", "_patch_existing_lora_nodes", "_patch_mobile_video_workflow", "_patch_mobile_workflow", "_patch_remote_websocket_outputs", "_patch_zitb_double_sampler_settings", "_prune_non_final_image_outputs", "_remove_mobile_auxiliary_outputs", "_remove_unreferenced_workflow_nodes", "_reroute_lora_model_consumers", "_resolve_lora_name", "_resolve_lora_strength", "_resolve_mobile_loras", "_set_lora_inputs", "_set_mobile_ultimate_upscale_by", "_ultimate_sd_upscale_node_ids", "_unpatched_remote_save_node_classes", "_workflow_model_consumers", "_workflow_status_item", "_zimage_unet_value"])
 
 def _mobile_workflow_config(value=None):
     key = str(value or MOBILE_DEFAULT_WORKFLOW_KEY).strip()
@@ -304,25 +304,6 @@ def _remove_mobile_auxiliary_outputs(workflow):
     return remove_mobile_auxiliary_outputs(workflow)
 
 
-def _remove_unreferenced_mobile_prompt_nodes(workflow):
-    referenced = set()
-    for node in workflow.values():
-        inputs = node.get("inputs") if isinstance(node, dict) else None
-        if not isinstance(inputs, dict):
-            continue
-        for value in inputs.values():
-            if isinstance(value, list) and value:
-                referenced.add(str(value[0]))
-    removed = 0
-    for node_id, node in list(workflow.items()):
-        if str(node_id) in referenced:
-            continue
-        if isinstance(node, dict) and str(node.get("class_type") or "") == "RandomPhotoPrompt":
-            workflow.pop(str(node_id), None)
-            removed += 1
-    return removed
-
-
 def _remove_unreferenced_workflow_nodes(workflow):
     referenced = set()
     for node in workflow.values():
@@ -502,6 +483,10 @@ def _patch_remote_websocket_outputs(workflow, output_mode="mac"):
         images = inputs.get("images")
         if not isinstance(images, list) or not images:
             continue
+        if class_type == "RandomPhotoPromptStreamImage":
+            websocket_node_ids.append(str(node_id))
+            output_prefix = output_prefix or _node_meta(node).get("mobile_output_prefix", "mobile")
+            continue
         if class_type not in {"SaveImage", "PreviewImage"} and "filename_prefix" not in inputs:
             continue
         if not output_prefix:
@@ -636,7 +621,22 @@ def _block_remote_asset_save_on_prompt(json_data):
     return json_data
 
 
-def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model="", output_prefix=None, loras=None, zib_model="", workflow_key="", krea2_model="", apply_krea2_orientation_guard=True):
+def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model="", output_prefix=None, loras=None, zib_model="", workflow_key="", krea2_model=""):
+    if workflow_key == "qwen_image21_turbo":
+        if loras or zit_model or zib_model or krea2_model:
+            raise ValueError("Qwen 2.1 Turbo 不接受 ZIT/ZIB/Krea2 模型或 LoRA 参数。")
+        workflow = copy.deepcopy(template)
+        generators = [node for node in workflow.values() if node.get("class_type") == "RandomPhotoPromptQwenImage21Turbo"]
+        if len(generators) != 1:
+            raise ValueError("Qwen 工作流必须包含一个专用生成节点。")
+        generators[0]["inputs"].update(prompt=_prompt_text(prompt_item), width=int(width), height=int(height), seed=int(seed), research_only=True)
+        for node in workflow.values():
+            if node.get("class_type") == "RandomPhotoPromptStreamImage":
+                node.setdefault("_meta", {})["mobile_output_prefix"] = output_prefix or "qwen_research"
+        return workflow, {"positive_text": 1, "negative_text": 0, "width": 1, "height": 1, "seed": 1,
+                          "sampler_steps": 8, "model_cleanup_nodes": ensure_model_cleanup(workflow),
+                          "base_width": int(width), "base_height": int(height), "output_scale": 1,
+                          "exact_output_scale_nodes": 0}
     workflow = copy.deepcopy(template)
     removed_auxiliary_outputs = _remove_mobile_auxiliary_outputs(workflow)
     model_cleanup_nodes = ensure_model_cleanup(workflow)
@@ -646,7 +646,7 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
     resolved_zib_model = Path(str(zib_model or "").replace("\\", "/")).name
     resolved_krea2_model = Path(str(krea2_model or "").replace("\\", "/")).name
     is_krea2 = _is_krea2_workflow(workflow_key)
-    if is_krea2 and apply_krea2_orientation_guard:
+    if is_krea2:
         positive_prompt, negative_prompt = _apply_krea2_portrait_orientation_guard(
             positive_prompt,
             negative_prompt,
@@ -700,27 +700,6 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
         if not isinstance(inputs, dict):
             continue
         class_type = str(node.get("class_type") or "")
-        if class_type == "RandomPhotoPrompt":
-            scale_label_map = {
-                "normal": "一档",
-                "bold": "二档",
-                "bold_no_outfit": "三档",
-                "nsfw": "四档",
-            }
-            era_label_map = {"modern": "现代", "ancient": "古装"}
-            shot_label_map = {
-                "head_shot": "头部",
-                "half_body": "半身",
-                "full_body": "全身",
-            }
-            inputs["scale"] = scale_label_map.get(str(prompt_item.get("scale") or ""), prompt_item.get("scale") or "二档")
-            inputs["era"] = era_label_map.get(str(prompt_item.get("era") or ""), prompt_item.get("era") or "现代")
-            inputs["shot"] = prompt_item.get("shot") or shot_label_map.get(str(prompt_item.get("shot_key") or ""), "随机")
-            inputs["use_pregenerated_prompt"] = False
-            inputs["cached_prompt"] = ""
-            inputs["cached_negative_prompt"] = ""
-            inputs["cached_signature"] = ""
-            inputs["cached_prompt_source"] = ""
         if _node_meta(node).get("skip_mobile_prompt_patch") is True:
             continue
         if "text" in inputs and ("CLIPTextEncode" in class_type or "TextEncode" in class_type or "Conditioning" in class_type):
@@ -796,7 +775,6 @@ def _patch_mobile_workflow(template, prompt_item, width, height, seed, zit_model
         raise ValueError("工作流模板里没有找到可替换的 Krea2 模型节点。")
     patched["sampler_steps"] = sampler_steps
     patched["exact_output_scale_nodes"] = _insert_exact_output_scale(workflow, width, height)
-    patched["removed_prompt_nodes"] = _remove_unreferenced_mobile_prompt_nodes(workflow)
     return workflow, patched
 
 
@@ -857,7 +835,7 @@ def _patch_mobile_video_workflow(template, prompt_item, image_load_name, source_
     negative_prompt = prompt_item.get("negative_prompt", "")
     is_image_to_video = str(video_mode or "image").strip().lower() == "image"
     # 图生视频保留首帧比例并对齐网格；文生视频使用接近 9:16 的偶数画布。
-    video_width, video_height = image_to_video_resolution(source_image_path) if is_image_to_video else (400, MAXIMUM_VIDEO_SIDE)
+    video_width, video_height = image_to_video_resolution(source_image_path) if is_image_to_video else TEXT_TO_VIDEO_SIZE
     seconds = max(1, min(30, int(seconds or 6)))
     # MiniMax H3 的原工作流按 24 FPS 计算长度并封装视频，其他帧率会破坏时长映射。
     fps = 24

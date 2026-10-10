@@ -91,6 +91,8 @@ def fluency_defects(lines: dict[str, str], scale: str, shot: str) -> list[Fluenc
     if scene and len(scene) < 22:
         defects.append(FluencyDefect("thin_scene", "scene", scene))
     outfit = lines.get("outfit", "")
-    if outfit and len(outfit.split("，")) >= 7:
-        defects.append(FluencyDefect("stacked_outfit_details", "outfit", str(len(outfit.split("，")))))
+    # 双人服装是两句，每人一句，按句计细节数。
+    pieces = max((len(sentence.split("，")) for sentence in outfit.split("。")), default=0)
+    if outfit and pieces >= 7:
+        defects.append(FluencyDefect("stacked_outfit_details", "outfit", str(pieces)))
     return defects

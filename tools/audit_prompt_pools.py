@@ -25,7 +25,6 @@ ACTIVE_POOLS = (
 )
 
 ALLOWED_PUBLIC_NAMES = set(ACTIVE_POOLS) | {
-    "QUALITY_SUFFIX",
     "NEGATIVE_PROMPT",
     "PROMPT_DATA_SOURCE",
     "SCALES",
@@ -119,7 +118,7 @@ def generated_distribution_report(sample_count: int) -> list[str]:
         for shot in ACTIVE_SHOTS:
             for aspect in ("portrait", "landscape"):
                 items = engine.generate_prompt_items(sample_count, {"scale": scale, "shot": shot, "aspect": aspect}, seed_text=f"audit-{scale}-{shot}-{aspect}")
-                lengths = [len(item["compact_prompt"]) for item in items]
+                lengths = [len(item["positive_prompt"]) for item in items]
                 part_counts = Counter(tuple(item["dimension_parts"].keys()) for item in items)
                 lines.append(f"- `{shot}` / `{aspect}`: {len(items)} samples, min/avg/max chars {min(lengths)}/{sum(lengths)//len(lengths)}/{max(lengths)}, dimension shapes {len(part_counts)}")
         lines.append("")

@@ -24,7 +24,7 @@ External callers should continue importing from `prompt_engine.py` unless they a
 
 ## Consequences
 
-Positive prompt generation, mobile generation, desktop node generation, and audit tools still share the same public prompt engine entry points. Future work can adjust one responsibility without reopening the whole engine file.
+Positive prompt generation, mobile generation and audit tools still share the same public prompt engine entry points. Future work can adjust one responsibility without reopening the whole engine file.
 
 The JSON workflow applies: edit `data/prompt_pools.json` (or `data/nsfw_pose_expression_options.json`), then restart the relevant Mac aiohttp service or Windows ComfyUI service; audits run via `tools/audit_prompt_pools.py` and `tools/audit_generated_prompts.py`.
 
@@ -38,4 +38,4 @@ After the composer took over normal, bold, and bold_no_outfit (modern and ancien
 
 ## Host boundary
 
-The public prompt engine is unchanged. Mac uses `tools/run_mac_local_server.py`, `rpp_server.py` and the lightweight `rpp_folder_paths.py` directory provider. `rpp_routes.py` owns the single route table shared with `__init__.py`. Only the ComfyUI entry imports `rpp_nodes.py` and `rpp_comfy.py` (queue validation/admission and interrogation). Mac mobile jobs use remote queue/history and local asset receipts; no local ComfyUI queue fallback remains.
+The public prompt engine is unchanged. Mac uses `tools/run_mac_local_server.py`, `rpp_server.py` and the lightweight `rpp_folder_paths.py` directory provider. `rpp_routes.py` owns the single route table shared with `__init__.py`. Only the ComfyUI entry imports `rpp_nodes.py` and `rpp_comfy.py` (queue validation/admission). Mac mobile jobs use remote queue/history and local asset receipts; no local ComfyUI queue fallback remains.

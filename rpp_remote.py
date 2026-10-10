@@ -221,6 +221,21 @@ async def _available_mobile_video_models():
                   key=lambda value: ("minimax_h3" not in value.lower(), value))
 
 
+async def _qwen_image21_runtime_status():
+    node_type = "RandomPhotoPromptQwenImage21Turbo"
+    info, error = await _remote_json("GET", f"/object_info/{node_type}")
+    ready = False
+    if not error:
+        try:
+            ready = "Qwen-Image-2.1-Turbo" in info[node_type]["input"]["required"]["model_name"][0]
+        except (KeyError, IndexError, TypeError):
+            pass
+    return {"runtime_ready": ready,
+            "message": "远端 Qwen 研究评估依赖与模型目录已就绪；实际出图尚需验证。" if ready else
+                       "远端 Qwen 2.1 Turbo 未就绪：需要部署专用节点、完整官方模型目录及支持 PR #14950 的 Diffusers、Transformers >=5.17.0。",
+            "guidance": "仅用于非商业研究评估；不自动下载模型或升级远端依赖。"}
+
+
 async def _available_mobile_zimage_models():
     if REMOTE_COMFYUI_URL:
         object_info, error = await _remote_json("GET", "/object_info/UNETLoader")
@@ -980,14 +995,17 @@ def _save_mobile_session_jobs():
     path = _mobile_session_jobs_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     deduped = {}
-    for job in MOBILE_SESSION_JOBS[-MOBILE_MAX_ACTIVE_JOBS:]:
+    for job in MOBILE_SESSION_JOBS:
         prompt_id = str(job.get("prompt_id") or "")
         if prompt_id:
             deduped[prompt_id] = job
+    active = [job for job in deduped.values() if job.get("status") not in {"completed", "failed"}]
+    finished = [job for job in deduped.values() if job.get("status") in {"completed", "failed"}]
+    MOBILE_SESSION_JOBS[:] = active + finished[-MOBILE_MAX_ACTIVE_JOBS:]
     payload = {
         "version": 1,
         "updated_at": int(time.time() * 1000),
-        "jobs": list(deduped.values()),
+        "jobs": list(MOBILE_SESSION_JOBS),
     }
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

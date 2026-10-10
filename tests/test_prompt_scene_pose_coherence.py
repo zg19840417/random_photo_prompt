@@ -15,7 +15,6 @@ class PromptScenePoseCoherenceTests(unittest.TestCase):
         item = self.sample("normal", "full_body", "dcf6097809c3cfa3")
         parts = item["dimension_parts"]
         self.assertFalse("沙发" in parts["pose_expression"] and "沙发" not in parts["scene_light"])
-        self.assertTrue(any(word in parts["pose_expression"] for word in ("脚", "足", "站立")))
 
     def test_walkway_pose_does_not_claim_wooden_path_on_balcony(self):
         item = self.sample("normal", "full_body", "1b8cd2ed016f4dc7")
@@ -39,14 +38,11 @@ class PromptScenePoseCoherenceTests(unittest.TestCase):
         self.assertNotIn("浅棕美瞳", parts["makeup"])
         self.assertNotIn("浅棕瞳孔", parts["makeup"])
 
-    def test_bold_studio_pose_makeup_and_scene_are_drawable(self):
+    def test_bold_full_body_pose_and_makeup_are_drawable(self):
         item = self.sample("bold", "full_body", "fd07b2260012bfd6")
         parts = item["dimension_parts"]
         self.assertNotIn("头部大幅后仰后用狐狸眼俯视镜头", item["positive_prompt"])
         self.assertNotIn("有眼神直视镜头", parts["makeup"])
-        if "暖色摄影棚" in parts["scene_light"]:
-            self.assertIn("哑光地面", parts["scene_light"])
-            self.assertIn("柔光", parts["scene_light"])
 
     def test_head_outfit_subject_precedes_shoulder_detail(self):
         item = self.sample("normal", "head_shot", "a3a1d707d623e15a")

@@ -19,6 +19,7 @@ from rpp_workflow import *  # noqa: F401,F403
 from rpp_remote import *  # noqa: F401,F403
 from rpp_mobile import *  # noqa: F401,F403
 from rpp_nodes import *  # noqa: F401,F403
+from rpp_qwen import RandomPhotoPromptQwenImage21Turbo
 from rpp_endpoints import *  # noqa: F401,F403
 
 
@@ -30,8 +31,7 @@ PromptServer.instance.add_on_prompt_handler(_block_remote_asset_save_on_prompt)
 
 
 NODE_CLASS_MAPPINGS = {
-    "RandomPhotoPrompt": RandomPhotoPrompt,
-    "RandomPhotoImageInterrogator": RandomPhotoImageInterrogator,
+    "RandomPhotoPromptQwenImage21Turbo": RandomPhotoPromptQwenImage21Turbo,
     "RandomPhotoPromptStreamImage": RandomPhotoPromptStreamImage,
     "RandomPhotoPromptRemoteUploadImage": RandomPhotoPromptRemoteUploadImage,
     "RandomPhotoPromptRemoteLoadImageFromMac": RandomPhotoPromptRemoteLoadImageFromMac,
@@ -39,12 +39,9 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "RandomPhotoPrompt": "随机写真提示词",
-    "RandomPhotoImageInterrogator": "图片反推提示词",
+    "RandomPhotoPromptQwenImage21Turbo": "Qwen 2.1 Turbo（研究评估）",
     "RandomPhotoPromptStreamImage": "图片流式回传",
     "RandomPhotoPromptRemoteUploadImage": "远端图片回传到 Mac",
     "RandomPhotoPromptRemoteLoadImageFromMac": "从 Mac 读取视频源图",
     "RandomPhotoPromptRemoteUploadVideo": "远端视频回传到 Mac",
 }
-
-WEB_DIRECTORY = "./web"

@@ -18,59 +18,9 @@ def _append_negative_terms(terms: list[str], additions: tuple[str, ...]) -> None
             existing.add(value.lower())
 
 
-def build_negative_prompt(
-    positive_prompt: str = "",
-    parts: dict[str, str] | None = None,
-    scale: str = "bold",
-    shot: str = "full_body",
-    aspect: str = "portrait",
-    width: int | None = None,
-    height: int | None = None,
-) -> str:
-    parts = parts or {}
-    scale = normalize_scale(scale)
-    shot = normalize_shot(shot)
-    aspect = normalize_aspect(aspect, width, height)
-    source = "，".join(
-        str(value or "")
-        for value in (
-            positive_prompt,
-            parts.get("camera"),
-            parts.get("pose_expression"),
-            parts.get("scene_light"),
-            parts.get("feedback_tags"),
-        )
-    )
-    terms = [item.strip() for item in str(NEGATIVE_PROMPT or "").split(",") if item.strip()]
-    if scale == "nsfw":
-        legal_terms = {item.strip().lower() for item in NEGATIVE_PROMPT_RULES["legal_safety"]}
-        terms = [item for item in terms if item.lower() not in legal_terms]
-    _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["base_quality"])
-    _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["lips_makeup"])
-    _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["canvas_padding"])
-    if scale != "nsfw":
-        _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["legal_safety"])
-    if aspect == "landscape" or _text_has_any(source, ("横向", "宽画幅", "沿画幅展开", "横幅")):
-        _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["landscape_mismatch"])
-    if aspect == "portrait" or _text_has_any(source, ("竖向", "竖构图", "站姿", "站立")):
-        _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["portrait_mismatch"])
-    if shot == "head_shot":
-        _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["shot_scope_head"])
-    elif shot == "half_body":
-        _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["shot_scope_half"])
-    elif shot == "full_body":
-        _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["full_body_integrity"])
-    if _text_has_any(source, ("脚下", "脚掌", "脚尖", "从头到脚", "全身")):
-        _append_negative_terms(terms, ("cropped feet", "missing feet", "feet out of frame"))
-    if _text_has_any(source, ("笑", "微笑", "大笑", "俏皮", "坏笑")):
-        _append_negative_terms(terms, ("flat expression", "blank expression", "emotionless face"))
-    if scale == "normal" and _text_has_any(source, ("泳池", "沙滩", "海边", "阳光", "晴空")):
-        _append_negative_terms(terms, ("dark gloomy lighting", "night scene", "low-key dark room"))
-    if scale == "normal":
-        _append_negative_terms(terms, ("nudity", "lingerie", "transparent underwear"))
-    if scale == "nsfw":
-        _append_negative_terms(terms, NEGATIVE_PROMPT_RULES["nsfw_amateur_tone"])
-    return ", ".join(terms)
+def _drop_negative_terms(terms: list[str], removals: tuple[str, ...]) -> None:
+    targets = {item.strip().lower() for item in removals}
+    terms[:] = [term for term in terms if term.strip().lower() not in targets]
 
 
 CHINESE_NEGATIVE_PROMPT = (
@@ -164,59 +114,76 @@ CHINESE_NEGATIVE_PROMPT_RULES = {
     "full_body_integrity": ("脚部裁切", "缺脚", "头部裁切", "缺头", "腿部截断", "腿短变形", "身体比例压缩", "黑色脚趾甲", "尖长脚趾甲", "长脚趾甲"),
     "legal_safety": ("明确性行为", "暴露生殖器"),
     "nsfw_amateur_tone": ("业余摄影", "家庭录像感", "网络摄像头画质", "医疗光", "平光", "过曝", "发灰"),
+    "nsfw_male_face_out": ("男人脸部进入镜头", "男性脸部", "男人的脸", "男人的头部", "第二张脸", "两张脸"),
+    "nsfw_head_drop": ("缺头", "头部裁切"),
+    "nsfw_head_protect_woman": ("女人缺头", "女人头部裁切"),
 }
 
 
-def build_chinese_negative_prompt(
-    positive_prompt: str = "",
-    parts: dict[str, str] | None = None,
-    scale: str = "bold",
-    shot: str = "full_body",
-    aspect: str = "portrait",
-    width: int | None = None,
-    height: int | None = None,
-) -> str:
+# 英文与中文负面词共用一套拼装逻辑，只是词表不同。
+_ENGLISH_EXTRAS = {
+    "feet": ("cropped feet", "missing feet", "feet out of frame"),
+    "smile": ("flat expression", "blank expression", "emotionless face"),
+    "bright_scene": ("dark gloomy lighting", "night scene", "low-key dark room"),
+    "normal_scale": ("nudity", "lingerie", "transparent underwear"),
+    "duo": ("third person", "extra people", "crowd", "fused bodies", "merged limbs", "extra arms"),
+}
+_CHINESE_EXTRAS = {
+    "feet": ("脚部裁切", "缺脚", "脚在画面外"),
+    "smile": ("表情呆板", "空洞表情", "面无表情"),
+    "bright_scene": ("阴暗光线", "夜景", "低调暗房"),
+    "normal_scale": ("裸体", "内衣", "透明内衣"),
+    "duo": ("第三个人", "多余人物", "人群", "身体粘连", "肢体融合", "多余手臂"),
+}
+
+
+def _compose_negative_prompt(base_text, rules, extras, positive_prompt, parts, scale, shot, aspect, width, height) -> str:
     parts = parts or {}
     scale = normalize_scale(scale)
     shot = normalize_shot(shot)
     aspect = normalize_aspect(aspect, width, height)
-    source = "，".join(
-        str(value or "")
-        for value in (
-            positive_prompt,
-            parts.get("camera"),
-            parts.get("pose_expression"),
-            parts.get("scene_light"),
-            parts.get("feedback_tags"),
-        )
-    )
-    terms = [item.strip() for item in CHINESE_NEGATIVE_PROMPT.split(",") if item.strip()]
+    source = "，".join(str(value or "") for value in (positive_prompt, parts.get("camera"), parts.get("pose_expression"), parts.get("scene_light")))
+    terms = [item.strip() for item in str(base_text or "").split(",") if item.strip()]
     if scale == "nsfw":
-        legal_terms = {item.strip().lower() for item in CHINESE_NEGATIVE_PROMPT_RULES["legal_safety"]}
+        legal_terms = {item.strip().lower() for item in rules["legal_safety"]}
         terms = [item for item in terms if item.lower() not in legal_terms]
-    _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["base_quality"])
-    _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["lips_makeup"])
-    _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["canvas_padding"])
+    for key in ("base_quality", "lips_makeup", "canvas_padding"):
+        _append_negative_terms(terms, rules[key])
     if scale != "nsfw":
-        _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["legal_safety"])
+        _append_negative_terms(terms, rules["legal_safety"])
     if aspect == "landscape" or _text_has_any(source, ("横向", "宽画幅", "沿画幅展开", "横幅")):
-        _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["landscape_mismatch"])
+        _append_negative_terms(terms, rules["landscape_mismatch"])
     if aspect == "portrait" or _text_has_any(source, ("竖向", "竖构图", "站姿", "站立")):
-        _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["portrait_mismatch"])
+        _append_negative_terms(terms, rules["portrait_mismatch"])
     if shot == "head_shot":
-        _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["shot_scope_head"])
+        _append_negative_terms(terms, rules["shot_scope_head"])
     elif shot == "half_body":
-        _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["shot_scope_half"])
+        _append_negative_terms(terms, rules["shot_scope_half"])
     elif shot == "full_body":
-        _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["full_body_integrity"])
+        _append_negative_terms(terms, rules["full_body_integrity"])
     if _text_has_any(source, ("脚下", "脚掌", "脚尖", "从头到脚", "全身")):
-        _append_negative_terms(terms, ("脚部裁切", "缺脚", "脚在画面外"))
+        _append_negative_terms(terms, extras["feet"])
     if _text_has_any(source, ("笑", "微笑", "大笑", "俏皮", "坏笑")):
-        _append_negative_terms(terms, ("表情呆板", "空洞表情", "面无表情"))
+        _append_negative_terms(terms, extras["smile"])
     if scale == "normal" and _text_has_any(source, ("泳池", "沙滩", "海边", "阳光", "晴空")):
-        _append_negative_terms(terms, ("阴暗光线", "夜景", "低调暗房"))
+        _append_negative_terms(terms, extras["bright_scene"])
     if scale == "normal":
-        _append_negative_terms(terms, ("裸体", "内衣", "透明内衣"))
+        _append_negative_terms(terms, extras["normal_scale"])
+    if parts.get("cast") == "duo":
+        _append_negative_terms(terms, extras["duo"])
     if scale == "nsfw":
-        _append_negative_terms(terms, CHINESE_NEGATIVE_PROMPT_RULES["nsfw_amateur_tone"])
+        _append_negative_terms(terms, rules["nsfw_amateur_tone"])
+        _append_negative_terms(terms, rules["nsfw_male_face_out"])
+        # 四档里男人的头部本来就该在画外，通用的“缺头/头部裁切”会反过来压制这一点，
+        # 所以换成只保护女人头部的定向写法，避免两条规则互相抵消。
+        _drop_negative_terms(terms, rules["nsfw_head_drop"])
+        _append_negative_terms(terms, rules["nsfw_head_protect_woman"])
     return ", ".join(terms)
+
+
+def build_negative_prompt(positive_prompt="", parts=None, scale="bold", shot="full_body", aspect="portrait", width=None, height=None) -> str:
+    return _compose_negative_prompt(NEGATIVE_PROMPT, NEGATIVE_PROMPT_RULES, _ENGLISH_EXTRAS, positive_prompt, parts, scale, shot, aspect, width, height)
+
+
+def build_chinese_negative_prompt(positive_prompt="", parts=None, scale="bold", shot="full_body", aspect="portrait", width=None, height=None) -> str:
+    return _compose_negative_prompt(CHINESE_NEGATIVE_PROMPT, CHINESE_NEGATIVE_PROMPT_RULES, _CHINESE_EXTRAS, positive_prompt, parts, scale, shot, aspect, width, height)

@@ -1,7 +1,7 @@
-"""提示词公共数据：固定人物、妆容、质量尾、基础负面词，以及四档专用姿势池的加载。
+"""提示词公共数据：固定人物、妆容、基础负面词，以及四档专用姿势池的加载。
 
 一至四档的母题、地点、光线、镜头、姿势（四档除外）和服装都在 data/art_direction_pools.json，由 prompt_composer 读取。
-此处的内置值只作启动保底，正常内容编辑改 data/prompt_pools.json。
+固定人物、妆容、基础负面词只在 data/prompt_pools.json，这里没有内置副本：文件缺失或损坏时直接报错，不回退到旧数据。
 """
 from __future__ import annotations
 
@@ -9,31 +9,27 @@ import json
 import re
 from pathlib import Path
 
-QUALITY_SUFFIX = '真实写真质感，人物主体清晰，面部锐利，肤质细腻真实，电影感光影high-end editorial portrait, best quality, ultra detailed'
-NEGATIVE_PROMPT = 'low quality, blurry, bad anatomy, extra fingers, missing fingers, distorted face, deformed body, duplicated limbs, text, watermark, logo, explicit sexual act, exposed genitals, red lipstick, bright red lips, dark red lips, burgundy lips, wine-red lips, crimson lips, dark lipstick, black lipstick, over-saturated lip color, lip tint, colored lipstick, obvious lipstick, unnatural lip color, plump lips, full lips, thick lips, overlined lips, overfilled lips, swollen lips, lip filler, latex clothing, PVC clothing, rubber clothing, plastic clothing, vinyl clothing, glossy plastic fabric, shiny latex'
 SCALES = ('normal', 'bold', 'bold_no_outfit', 'nsfw')
 SHOTS = ('head_shot', 'half_body', 'full_body')
 SHOT_LABELS = {'head_shot': '头部', 'half_body': '半身', 'full_body': '全身'}
-CHARACTER_IDENTITY_BY_SHOT = {'head_shot': ['22岁冷白皮K-pop韩国女生，黑色渐变的手指甲，夜店斩男精致妆容，御姐范十足，通透瓷白皮肤，黑色直发，标准瓜子脸，狐狸眼，浅棕色眼影，深棕色美瞳，高鼻梁，尖鼻子，尖下巴'],
- 'half_body': ['22岁冷白皮K-pop韩国女生，黑色渐变的手指甲，夜店斩男精致妆容，御姐范十足，通透瓷白皮肤，黑色直发，标准瓜子脸，狐狸眼，浅棕色眼影，深棕色美瞳，高鼻梁，尖鼻子，尖下巴，性感锁骨，骨架偏瘦但胸部丰满，小蛮腰'],
- 'full_body': ['22岁冷白皮K-pop韩国女生，黑色渐变的手指甲，夜店斩男精致妆容，御姐范十足，通透瓷白皮肤，黑色直发，标准瓜子脸，狐狸眼，浅棕色眼影，深棕色美瞳，高鼻梁，尖鼻子，尖下巴，性感锁骨，骨架偏瘦但胸部和臀部丰满，小蛮腰，腿细且长，脚趾甲短而圆润，涂着自然的裸粉色']}
-MAKEUP_OPTIONS = {'normal': ['韩系清透妆，冷白水润底妆干净透亮，浅棕眼影压低眼尾，细长眼线拉出狐狸眼形，浅棕美瞳自然放大眼神，原生唇色覆透明无色唇彩让五官显得柔和精致',
-            '高级杂志裸妆，底妆薄而通透，鼻梁和颧骨有细腻高光，睫毛根根分明，透明润唇膏让原生唇色更水润，脸部轮廓被修容整理得纤细干净',
-            '复古港风柔雾妆，冷白雾面底妆，黑色眼线微微上挑，眼尾浅棕灰阴影轻轻拉长，原生唇色配透明水光唇彩边缘干净，脸部轮廓更冷艳成熟',
-            '自然生活感淡妆，底妆保留真实皮肤纹理，眼影很浅，卧蚕微亮，嘴唇保持原生自然粉润水光，整体气质干净亲近',
-            '清冷白开水妆，底妆薄透贴肤，眼影只用浅棕压出狐狸眼轮廓，睫毛自然分明，原生唇色覆透明无色水光唇彩，脸部线条干净温柔',
-            '日系杂志清透桃花妆，冷白底妆带轻微粉色气色，眼尾浅棕晕染柔和，浅棕美瞳自然发亮，透明润唇膏让原生唇色更粉润水亮，五官显得亲近明亮',
-            '高级摄影棚裸妆，底妆保留真实皮肤纹理，鼻梁和颧骨有细腻高光，眼线贴近睫毛根部，唇部保持原生唇色和透明滋润光，整体克制耐看',
-            '复古柔雾妆，冷白雾面底妆压住油光，眼尾棕灰阴影轻轻拉长，原生唇色配无色润唇膏质感，脸部轮廓显得成熟安静'],
- 'bold': ['冷艳猫眼妆，冷白底妆像瓷面一样干净，眼尾黑色眼线明显上扬，浓密睫毛压出危险感，浅棕瞳孔带细小水光，玻璃唇微微反光，鼻梁和唇峰高光锋利',
-          '夜色魅惑妆，底妆冷白且带轻微湿光，柔棕轻烟熏在眼尾轻柔晕染，狐狸眼更狭长，睫毛浓密，纤薄原生唇形覆透明无色唇彩只带轻微水光，脸颊泛出淡淡自然红润',
-          '高级私房妆，冷白底妆细腻无瑕，眼下有轻微粉色晕染，眼神显得湿润沉重，唇釉透明发亮，修容让尖下巴和高鼻梁更突出',
-          '舞台感亮片猫眼妆，银白细闪集中在眼头和眼尾，黑色眼线锐利，浅棕瞳孔带反光，原生唇色透明玻璃唇微张时显得诱惑且直接',
-          '冷艳猫眼妆，冷白底妆像瓷面一样细腻，黑色眼线锋利上挑，睫毛浓密压出侵略感，原生唇色透明玻璃唇反光明显，鼻梁和唇峰高光很锐',
-          '湿润夜拍妆，底妆冷白并带轻微潮湿光泽，眼尾轻烟熏向外拉长，浅棕瞳孔直勾勾反光，唇部是原生唇色透明水光，脸颊带淡淡自然红润',
-          '舞台私房亮片妆，银灰细闪集中在眼头和眼尾，黑色眼线强化狐狸眼，睫毛厚而卷翘，唇部是原生唇色透明玻璃质地，脸部精致又危险',
-          '高压御姐妆，底妆冷白无瑕，修容强调高鼻梁和尖下巴，眼尾深棕上扬，纤薄嘴唇保持原生湿亮，表情空间天然带强烈支配感',
-          '暗调胶片妆，冷白底妆被暖光压出柔和阴影，眼下带轻微自然红润，狐狸眼看起来沉重迷离，透明唇釉只让薄唇边界轻微发亮，五官更有成人魅惑感']}
+_DATA_DIR = Path(__file__).resolve().parent / 'data'
+
+
+def _load_json_object(name: str) -> dict:
+    path = _DATA_DIR / name
+    try:
+        data = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f'提示词数据文件无法读取：{path}') from exc
+    if not isinstance(data, dict):
+        raise RuntimeError(f'提示词数据文件必须是 JSON 对象：{path}')
+    return data
+
+
+_POOLS = _load_json_object('prompt_pools.json')
+NEGATIVE_PROMPT = _POOLS['NEGATIVE_PROMPT']
+CHARACTER_IDENTITY_BY_SHOT = _POOLS['CHARACTER_IDENTITY_BY_SHOT']
+MAKEUP_OPTIONS = _POOLS['MAKEUP_OPTIONS']
 POSE_EXPRESSION_OPTIONS: dict[str, dict[str, list[str]]] = {}
 _POSE_NORMALIZE_REPLACEMENTS: list[tuple[str, str]] = [('一腿微屈，一腿伸直', '左腿微屈，右腿伸直'),
  ('一腿承重一腿放松', '左腿承重，右腿放松'),
@@ -97,57 +93,18 @@ _POSE_NORMALIZE_REPLACEMENTS: list[tuple[str, str]] = [('一腿微屈，一腿�
  ('右腿交叉点地另一腿向后拉长', '左腿交叉点地，右腿向后伸直'),
  ('一条腿', '左腿')]
 
-
-def _options_for_aspect(value, aspect: str = 'portrait') -> list[str]:
-    if isinstance(value, list):
-        return value
-    if not isinstance(value, dict):
-        return []
-    aspect_options = value.get(aspect)
-    if isinstance(aspect_options, list):
-        return aspect_options
-    portrait_options = value.get('portrait')
-    if isinstance(portrait_options, list):
-        return portrait_options
-    for item in value.values():
-        if isinstance(item, list):
-            return item
-        if isinstance(item, dict):
-            nested = _options_for_aspect(item, aspect)
-            if nested:
-                return nested
-    return []
+def character_identity_options(shot: str) -> list[str]:
+    return CHARACTER_IDENTITY_BY_SHOT[shot]
 
 
-def character_identity_options_by_aspect(shot: str, aspect: str) -> list[str]:
-    return _options_for_aspect(CHARACTER_IDENTITY_BY_SHOT[shot], aspect)
-
-
-def makeup_options_by_aspect(scale: str, aspect: str) -> list[str]:
-    return _options_for_aspect(MAKEUP_OPTIONS['normal' if scale == 'normal' else 'bold'], aspect)
+def makeup_options(scale: str) -> list[str]:
+    return MAKEUP_OPTIONS['normal' if scale == 'normal' else 'bold']
 
 
 def _normalize_pose_text(pose_text: str) -> str:
-    brow_replacements = (
-        ('从眉眼下方抬眸', '低头，抬眸'),
-        ('从眉眼下方盯住镜头', '低头，盯住镜头'),
-        ('从眉眼下方看向镜头', '低头，看向镜头'),
-        ('从眉眼下方', '低头'),
-        ('眉心', '眼神'),
-        ('眉头', '眼角'),
-        ('眉间', '眼神'),
-        ('额心', '额头'),
-        ('额间', '额头'),
-        ('印堂', '额头'),
-        ('眉眼下方', '眼睛下方'),
-        ('眉峰轻轻上扬', '眼神微微上挑'),
-        ('眉峰上扬', '眼神微微上挑'),
-        ('眉毛自然舒展', '眼神自然放松'),
-        ('眉眼', '眼睛'),
-    )
-    for source, replacement in brow_replacements:
-        pose_text = pose_text.replace(source, replacement)
-    pose_text = re.sub(r"(一手[^，。]{1,20}?)一手", r"\1另一手", pose_text)
+    """姿势池只保留左右手可渲染写法；眉眼等替换已随死数据清除。"""
+    # 只排除句号：跨逗号的「一手…一手」也要能改写成左手/右手，否则两只手会同时变成左手。
+    pose_text = re.sub(r"(一手[^。]{1,20}?)一手", r"\1另一手", pose_text)
     for source, replacement in _POSE_NORMALIZE_REPLACEMENTS:
         pose_text = pose_text.replace(source, replacement)
     return pose_text
@@ -157,26 +114,17 @@ def pose_expression_options_by_aspect(scale: str, shot: str, aspect: str) -> lis
     """只服务四档：其余档位的姿势由 prompt_composer 从 art_direction_pools.json 组合。"""
     if scale != 'nsfw':
         raise ValueError(f'{scale} 的姿势由构图器生成，不读取旧姿势池')
-    return [_normalize_pose_text(text) for text in _options_for_aspect(POSE_EXPRESSION_OPTIONS['nsfw'][shot], aspect)]
+    return [_normalize_pose_text(text) for text in POSE_EXPRESSION_OPTIONS['nsfw'][shot]]
 
 
-def _load_generated_prompt_data() -> None:
-    import os
-    if os.environ.get('RPP_IGNORE_GENERATED_PROMPT_DATA') == '1':
-        return
-    path = Path(__file__).resolve().parent / 'data' / 'prompt_pools.json'
-    if not path.is_file():
-        return
-    try:
-        data = json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, json.JSONDecodeError):
-        return
-    if not isinstance(data, dict):
-        return
-    for name in ('QUALITY_SUFFIX', 'NEGATIVE_PROMPT', 'CHARACTER_IDENTITY_BY_SHOT', 'MAKEUP_OPTIONS'):
-        if name in data:
-            globals()[name] = data[name]
-    globals()['PROMPT_DATA_SOURCE'] = 'data/prompt_pools.json'
+NSFW_POSE_EXPRESSION_SOURCE = 'data/nsfw_pose_expression_options.json'
+
+# 各景别画面里看不见的部位。池里写了这些内容，加载时直接报错：
+# 运行时静默裁剪会让越界分句被悄悄丢掉，改池的人无从发现，所以不做裁剪，只做校验。
+NSFW_POSE_OUT_OF_SCOPE = {
+    'head_shot': ('胸部', '胸前', '乳沟', '腰', '臀', '腿', '脚', '身体曲线'),
+    'half_body': ('臀部', '小腿', '双脚', '床面'),
+}
 
 
 def _load_nsfw_pose_expression_json() -> None:
@@ -189,9 +137,9 @@ def _load_nsfw_pose_expression_json() -> None:
         raise RuntimeError(f'四档姿势规则文件无法读取：{path}') from exc
     if not isinstance(data, dict):
         raise RuntimeError('四档姿势规则必须是 JSON 对象。')
-    required_shots = {'head_shot', 'upper_body', 'half_body', 'large_half_body', 'full_body'}
+    required_shots = {'head_shot', 'half_body', 'full_body'}
     if set(data) != required_shots:
-        raise RuntimeError('四档姿势规则必须包含 5 种镜头：head_shot、upper_body、half_body、large_half_body、full_body。')
+        raise RuntimeError('四档姿势规则必须包含 3 种镜头：head_shot、half_body、full_body。')
     cleaned = {}
     for shot in required_shots:
         options = data.get(shot)
@@ -200,12 +148,16 @@ def _load_nsfw_pose_expression_json() -> None:
         cleaned[shot] = [str(item).strip() for item in options if str(item).strip()]
         if len(cleaned[shot]) != 10:
             raise RuntimeError(f'四档 {shot} 姿势规则必须恰好为 10 条。')
+        for index, text in enumerate(cleaned[shot], 1):
+            for marker in NSFW_POSE_OUT_OF_SCOPE.get(shot, ()):
+                if marker in text:
+                    raise RuntimeError(
+                        f'四档 {shot} 第 {index} 条写了画面外的“{marker}”：'
+                        f'{shot} 拍不到这个部位，请改写该分句，不要依赖运行时裁剪。'
+                    )
     POSE_EXPRESSION_OPTIONS['nsfw'] = cleaned
-    globals()['NSFW_POSE_EXPRESSION_SOURCE'] = 'data/nsfw_pose_expression_options.json'
-    globals()['PROMPT_DATA_SOURCE'] = f"{globals()['PROMPT_DATA_SOURCE']} + data/nsfw_pose_expression_options.json"
 
 
-PROMPT_DATA_SOURCE = 'prompt_data.py'
-NSFW_POSE_EXPRESSION_SOURCE = 'prompt_data.py'
-_load_generated_prompt_data()
+PROMPT_DATA_SOURCE = 'data/prompt_pools.json + data/nsfw_pose_expression_options.json'
+NSFW_POSE_EXPRESSION_SOURCE = 'data/nsfw_pose_expression_options.json'
 _load_nsfw_pose_expression_json()

@@ -133,12 +133,12 @@ async def verify():
         routes = web.RouteTableDef()
         rpp_routes.register_routes(routes)
         rpp_routes.register_routes(routes)
-        assert len(routes) == 35
+        assert len(routes) == 29
         existing = web.RouteTableDef()
         async def old_root(request): pass
         existing.get('/')(old_root)
         rpp_routes.register_routes(existing)
-        assert len(existing) == 35 and list(existing)[0].handler is old_root
+        assert len(existing) == 29 and list(existing)[0].handler is old_root
         async def remote_handler(request): pass
         overrides = web.RouteTableDef()
         rpp_routes.register_routes(overrides, comfy_handlers={'submit_guarded_remote_workflow': remote_handler})
@@ -157,7 +157,7 @@ async def verify():
                         async with client.get(base+path) as response:
                             payload = await response.json()
                             assert response.status == 200 and not payload['connected'] and payload['message']
-                for path in ('/random_photo_prompt/interrogate','/random_photo_prompt/remote/submit'):
+                for path in ('/random_photo_prompt/remote/submit',):
                     async with client.post(base+path,json={}) as response:
                         assert response.status == 503 and (await response.json())['error']
                 async with client.ws_connect(base+'/ws?clientId=test-client') as ws:

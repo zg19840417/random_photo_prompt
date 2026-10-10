@@ -27,7 +27,7 @@ const videoModelSelect = {value: "minimax_h3_fl2va_pruned_int8_convrot.safetenso
 const videoTurboModel = videoModelSelect.value;
 const videoInputModeSelect = {value: "text", options: []};
 const videoActionInput = {value: "动作"}, videoFpsSelect = {value: "24", options: []}, videoSecondsSelect = {value: "4", options: []};
-const scaleSelect = {}, eraSelect = {}, shotSelect = {}, orientationSelect = {}, workflowSelect = {};
+const scaleSelect = {}, eraSelect = {}, castSelect = {}, shotSelect = {}, orientationSelect = {}, workflowSelect = {};
 const zitModelSelect = {dataset: {}}, zibModelSelect = {dataset: {}}, krea2ModelSelect = {dataset: {}};
 const imageSeedInput = {value: ""}, imageNegativePrompt = {value: ""};
 const settingsKey = "randomPhotoPrompt.mobile.settings";
@@ -37,7 +37,7 @@ const selectedLoras = () => [], imageKey = () => "", currentCount = () => 1, cur
 const optionExists = (select, value) => (select.options || []).some(option => option.value === value);
 const setSelectValue = (select, value) => {select.value = value;};
 const switchMode = () => {}, normalizeStoredShot = () => "", setCount = () => {}, setVideoCount = () => {};
-const updateCustomPromptButton = () => {}, updateSourcePicker = () => {}, renderCustomSelect = () => {}, closeCustomSelect = () => {};
+const updateCastAvailability = () => {}, updateCustomPromptButton = () => {}, updateSourcePicker = () => {}, renderCustomSelect = () => {}, closeCustomSelect = () => {};
 '''
         code += "\n".join(functions)
         code += r'''

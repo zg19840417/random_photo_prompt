@@ -52,7 +52,6 @@ from rpp_utils import (
     _queue_contains,
     _queue_waiting_count,
 )
-from rpp_prompts import _mobile_resolution_for_custom_prompt
 from rpp_remote import (
     _ensure_mobile_session_jobs_loaded,
     _remote_history,
@@ -64,16 +63,11 @@ from video_prompt_engine import (
     estimate_video_seconds,
     generate_video_action,
     infer_video_pose_family,
-    infer_video_scope,
     normalize_video_seconds,
     video_prompt_from_action,
 )
 
-__all__ = sorted(["__all__", "_active_mobile_session_jobs", "_copy_mobile_gallery_image_to_input", "_image_dimensions_for_file", "_infer_frame_scope_from_prompt", "_load_mobile_favorite_metadata", "_load_mobile_prompt_index", "_mobile_active_job_count", "_mobile_favorite_backup_file", "_mobile_favorite_backup_images", "_mobile_favorite_metadata_path", "_mobile_gallery_images", "_mobile_gallery_videos", "_mobile_image_urls", "_mobile_job_output_prefix", "_mobile_job_status", "_mobile_local_images_for_prompt", "_mobile_output_file", "_mobile_output_file_from_item", "_mobile_output_file_key", "_mobile_output_relative_path", "_mobile_output_subfolder_for_path", "_mobile_prompt_for_gallery_file", "_mobile_prompt_for_video_file", "_mobile_prompt_index_path", "_mobile_prompt_metadata_for_gallery_file", "_mobile_remote_history_entry", "_mobile_video_input_dir", "_mobile_video_output_file", "_mobile_video_source_path", "_mobile_video_urls", "_mobile_video_view_url", "_mobile_view_subfolder", "_mobile_view_url", "_pregenerate_video_action_for_image", "_prompt_text_from_canvas_workflow_metadata", "_prompt_text_from_png_metadata", "_qview_image_path", "_remember_mobile_prompt_file", "_remember_mobile_prompt_images", "_remember_mobile_prompt_videos", "_remote_history_error_message", "_request_from_local_mac_browser", "_save_mobile_favorite_metadata", "_save_mobile_prompt_index", "_video_dimensions_for_file", "_video_prompt_from_action"])
-
-
-def _infer_frame_scope_from_prompt(prompt):
-    return infer_video_scope(prompt)
+__all__ = sorted(["__all__", "_active_mobile_session_jobs", "_copy_mobile_gallery_image_to_input", "_image_dimensions_for_file", "_load_mobile_favorite_metadata", "_load_mobile_prompt_index", "_mobile_active_job_count", "_mobile_favorite_backup_file", "_mobile_favorite_backup_images", "_mobile_favorite_metadata_path", "_mobile_gallery_images", "_mobile_gallery_videos", "_mobile_image_urls", "_mobile_job_output_prefix", "_mobile_job_status", "_mobile_local_images_for_prompt", "_mobile_output_file", "_mobile_output_file_from_item", "_mobile_output_file_key", "_mobile_output_relative_path", "_mobile_output_subfolder_for_path", "_mobile_prompt_for_gallery_file", "_mobile_prompt_for_video_file", "_mobile_prompt_index_path", "_mobile_prompt_metadata_for_gallery_file", "_mobile_remote_history_entry", "_mobile_video_input_dir", "_mobile_video_output_file", "_mobile_video_source_path", "_mobile_video_urls", "_mobile_video_view_url", "_mobile_view_subfolder", "_mobile_view_url", "_pregenerate_video_action_for_image", "_prompt_text_from_canvas_workflow_metadata", "_prompt_text_from_png_metadata", "_qview_image_path", "_remember_mobile_prompt_file", "_remember_mobile_prompt_images", "_remember_mobile_prompt_videos", "_remote_history_error_message", "_request_from_local_mac_browser", "_save_mobile_favorite_metadata", "_save_mobile_prompt_index", "_video_dimensions_for_file", "_video_prompt_from_action"])
 
 
 def _pregenerate_video_action_for_image(filename, scale="", seed_text="", seconds=8, previous_action=""):
@@ -284,12 +278,7 @@ def _prompt_text_from_canvas_workflow_metadata(path):
         widgets = node.get("widgets_values")
         if not isinstance(widgets, list):
             continue
-        if node_type == "RandomPhotoPrompt":
-            for value in widgets:
-                text = str(value or "").strip()
-                if "\n" in text and not _looks_negative_text({"_meta": {"title": title}, "inputs": {"text": text}}):
-                    candidates.append(text)
-        elif "CLIPTextEncode" in node_type and not _looks_negative_text({"_meta": {"title": title}, "inputs": {"text": widgets[0] if widgets else ""}}):
+        if "CLIPTextEncode" in node_type and not _looks_negative_text({"_meta": {"title": title}, "inputs": {"text": widgets[0] if widgets else ""}}):
             for value in widgets:
                 text = str(value or "").strip()
                 if "\n" in text:
@@ -912,10 +901,6 @@ async def _mobile_job_status(prompt_id):
     )
     running, pending = await _remote_queue() if REMOTE_COMFYUI_URL else ([], [])
     queue_ahead = _queue_waiting_count(prompt_id, running, pending)
-    images = await _mobile_image_urls(prompt_id)
-    videos = await _mobile_video_urls(prompt_id)
-    _remember_mobile_prompt_images(prompt_id, images)
-    _remember_mobile_prompt_videos(prompt_id, videos)
     remote_entry = None
     remote_error = ""
     remote_finished = False
@@ -929,8 +914,29 @@ async def _mobile_job_status(prompt_id):
             remote_history_missing = not remote_entry
         except Exception as exc:
             remote_error = str(exc)
+    # 恢复被旧状态查询删除的关联；只接受本项目视频输出节点的唯一前缀。
+    if not media_type and remote_entry:
+        prompt = remote_entry.get("prompt") or []
+        workflow = prompt[2] if len(prompt) > 2 and isinstance(prompt[2], dict) else {}
+        for node in workflow.values():
+            if node.get("class_type") != "RandomPhotoPromptRemoteUploadVideo":
+                continue
+            prefix = str((node.get("inputs") or {}).get("filename_prefix") or "")
+            if not re.fullmatch(r"mobile_video_[0-9a-f]{12}", prefix):
+                continue
+            MOBILE_SESSION_JOBS.append({"prompt_id": prompt_id, "media_type": "video", "output_prefix": prefix})
+            media_type = "video"
+            break
+    images = await _mobile_image_urls(prompt_id)
+    videos = await _mobile_video_urls(prompt_id)
+    _remember_mobile_prompt_images(prompt_id, images)
+    _remember_mobile_prompt_videos(prompt_id, videos)
+    job = next((job for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id") or "") == prompt_id), {})
     if images or videos:
         status = "completed"
+    elif job.get("status") in {"completed", "failed"}:
+        status = job["status"]
+        remote_error = str(job.get("error") or "")
     elif remote_error:
         status = "failed"
     elif remote_finished:
@@ -965,9 +971,11 @@ async def _mobile_job_status(prompt_id):
     else:
         status = "unknown"
     if status in {"completed", "failed"}:
-        before = len(MOBILE_SESSION_JOBS)
-        MOBILE_SESSION_JOBS[:] = [job for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id")) != prompt_id]
-        if len(MOBILE_SESSION_JOBS) != before:
+        error = ""
+        if status == "failed":
+            error = remote_error or ("远端已完成，但 Mac 未收到视频回传。" if media_type == "video" else "远端已完成，但 Mac 未收到内存回传图片。")
+        if job and (job.get("status") != status or job.get("error", "") != error):
+            job.update(status=status, error=error)
             _save_mobile_session_jobs()
     result = {"prompt_id": prompt_id, "status": status, "images": images, "videos": videos}
     if queue_ahead is not None:
@@ -982,8 +990,10 @@ async def _mobile_job_status(prompt_id):
 
 async def _mobile_active_job_count():
     count = 0
-    for item in MOBILE_SESSION_JOBS:
-        if (await _mobile_job_status(item.get("prompt_id", ""))).get("status") in {"running", "pending"}:
+    for item in list(MOBILE_SESSION_JOBS):
+        if item.get("status") in {"completed", "failed"}:
+            continue
+        if (await _mobile_job_status(item.get("prompt_id", ""))).get("status") in {"running", "pending", "receiving"}:
             count += 1
     return count
 
@@ -992,16 +1002,15 @@ async def _active_mobile_session_jobs():
     _ensure_mobile_session_jobs_loaded()
     items = list(MOBILE_SESSION_JOBS)
     active_jobs = []
-    changed = False
     for item in items:
+        if item.get("status") in {"completed", "failed"}:
+            continue
         prompt_id = str(item.get("prompt_id") or "")
         if not prompt_id:
-            changed = True
             continue
         status = await _mobile_job_status(prompt_id)
         state = status.get("status", "unknown")
         if state not in {"running", "pending", "receiving"}:
-            changed = True
             continue
         active_jobs.append(
             {
@@ -1014,12 +1023,4 @@ async def _active_mobile_session_jobs():
                 "error": status.get("error", ""),
             }
         )
-    if changed:
-        active_ids = {str(job.get("prompt_id") or "") for job in active_jobs}
-        before = len(MOBILE_SESSION_JOBS)
-        MOBILE_SESSION_JOBS[:] = [
-            job for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id") or "") in active_ids
-        ]
-        if len(MOBILE_SESSION_JOBS) != before:
-            _save_mobile_session_jobs()
     return active_jobs

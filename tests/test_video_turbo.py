@@ -34,7 +34,7 @@ def load_workflow_functions():
         "copy": copy, "Path": Path,
         "ensure_model_cleanup": ensure_model_cleanup,
         "image_to_video_resolution": lambda path: (480, 704),
-        "MAXIMUM_VIDEO_SIDE": 720,
+        "TEXT_TO_VIDEO_SIZE": (720, 1280),
         "_node_title": lambda node: node.get("_meta", {}).get("title", "").lower(),
         "_looks_negative_text": lambda node: False,
         "MOBILE_VIDEO_OUTPUT_SUBFOLDER": "videos",
@@ -61,6 +61,17 @@ class VideoTurboWorkflowTests(unittest.TestCase):
             seconds=4, positive_prompt="镜头前移", video_mode=mode, video_model=model, **kwargs,
         )
 
+    def baseline_bytes(self, result, mode):
+        result = copy.deepcopy(result)
+        if mode == "text":
+            workflow, _, params = result
+            self.assertEqual((params["width"], params["height"]), (720, 1280))
+            self.assertEqual((workflow["156"]["inputs"]["width"], workflow["156"]["inputs"]["height"]), (720, 1280))
+            # 仅排除本次批准的尺寸变化，其他内容仍与原 Turbo 快照逐字节比较。
+            params.update(width=400, height=720)
+            workflow["156"]["inputs"].update(width=400, height=720)
+        return json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode()
+
     def test_disabled_and_omitted_turbo_preserve_prechange_bytes(self):
         # 修改前采集的完整返回值摘要，包含工作流节点顺序、清理节点及参数。
         baselines = {
@@ -82,7 +93,7 @@ class VideoTurboWorkflowTests(unittest.TestCase):
                                 {"turbo": False, "turbo_steps": "invalid"}):
                     with self.subTest(mode=mode, model=model, options=options):
                         result = self.patch(mode, model, **options)
-                        serialized = json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode()
+                        serialized = self.baseline_bytes(result, mode)
                         self.assertEqual(hashlib.sha256(serialized).hexdigest(), digest)
 
     def test_eight_step_default_and_explicit_preserve_prechange_bytes(self):
@@ -94,7 +105,7 @@ class VideoTurboWorkflowTests(unittest.TestCase):
             for options in ({}, {"turbo_steps": 8}):
                 with self.subTest(mode=mode, options=options):
                     result = self.patch(mode, turbo=True, available_loras=[TURBO_LORA], **options)
-                    serialized = json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode()
+                    serialized = self.baseline_bytes(result, mode)
                     self.assertEqual(hashlib.sha256(serialized).hexdigest(), digest)
 
     def test_enabled_turbo_topology_and_sampling_match_reference(self):

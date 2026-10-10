@@ -60,15 +60,26 @@ Krea2 单采和双采只各保留一个最终图片输出：单采取第一采�
 
 ## 启动与验证
 
+### Qwen Image 2.1 Turbo 研究评估
+
+- 官方来源：https://modelscope.cn/models/Qwen/Qwen-Image-2.1-Turbo 。许可证为 Qwen Research License，仅限非商业研究/评估；商业投流等用途需另获商业授权。
+- 模板 `mobile_workflow_api_qwen_image21_turbo.json`：`RandomPhotoPromptQwenImage21Turbo` → `RandomPhotoPromptStreamImage`，保留 `LayerUtility: PurgeVRAM V2` 的两项清理开关。专用节点只在远端执行时导入 torch/Diffusers，注册及 Mac 服务不加载推理库。
+- 使用完整 Diffusers 目录（约 32.44 GB 权重），不是将单个 safetensors 放进旧 Qwen UNETLoader。默认从远端注册的 `diffusers/Qwen-Image-2.1-Turbo` 寻找，可由远端环境变量 `RPP_QWEN_IMAGE21_MODEL_DIR` 指定完整模型目录；建议放于 `F:\ComfyUI_models\diffusers\Qwen-Image-2.1-Turbo`。包括官方 processor、text_encoder、transformer 两分片、vae、scheduler、model_index.json 与 LICENSE；加载强制 `local_files_only=True`，不运行时联网补下载。
+- 官方要求最新 Diffusers 源码（模型卡版本 `0.41.0.dev0`，必须包含 PR #14950）及 `transformers>=5.17.0`、accelerate、CUDA PyTorch。当前接入预检版本、文件与采样表，实际调用还检查 KV cache、sigmas 与逐步回调 API；缺少时明确报错，不退回旧架构。尚未安装所需新版依赖及下载权重，不应视为可运行验收完成。
+- 固定读取 checkpoint 的 `[1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568]` 采样表，不传 `num_inference_steps` 或覆盖 `sigmas`，沿用默认 CFG=1，开启 KV cache。采用顺序 CPU 卸载并启用可用的 VAE tiling；成功、失败、中断后释放 pipeline 与 CUDA 缓存。模型常驻内存、峰值显存、耗时尚未实测。
+- 第一版仅文生图；沿用项目最长边 1536、宽高对齐 32 的尺寸规则，不擅自升至官方 2048 档。非官方推荐分辨率下的画质需实测。自定义正向词原样传入，不支持负面词、LoRA 或图像编辑。
+- 手机端独立判断模板与 `runtime_ready`（依赖版本及本地模型目录预检）。未就绪阻止提交；已有 ZIT/Krea2 不因 Qwen 缺依赖而显示断线。手动页仅列运行预检通过的工作流。预检通过不等同于权重完整性、CUDA API 及真实出图验证。
+- 依赖升级、权重下载与首次远端生图分别授权执行；本次代码部署不会安装或自动下载这些依赖与模型。
+
 LaunchAgent 使用项目目录作为工作目录；系统启动阶段的诊断日志写入 `/tmp/random-photo-prompt-launchd.{out,err}.log`，避免 launchd 在执行 Python 前访问受保护的 Documents 路径。Python 启动后将日志重定向至原 ComfyUI 日志文件。启动失败同时检查这两处日志。
 
 Mac 生产启动沿用 `/Users/zouge/Documents/ComfyUI/.venv/bin/python tools/run_mac_local_comfyui_daemon.py`；该命令卸载已有托管实例、识别并停止旧服务，然后安装并加载用户 LaunchAgent `com.random-photo-prompt.mac-server`。配置位于 `~/Library/LaunchAgents/com.random-photo-prompt.mac-server.plist`，由 macOS 独立启动 `tools/run_mac_local_server.py`；登录自启，退出后自动重启（最短启动间隔 10 秒），不加载 ComfyUI/PyTorch。重启前必须确认任务为空。PID 与日志仍在原 ComfyUI 根目录；令牌每次启动从原文件读取，不写入 plist，也不继承桌面应用的会话环境。无法识别的 8188 进程会明确报错，禁止误杀。仅 PPID=1 不能证明服务受 launchd 托管，须用 `launchctl print gui/$(id -u)/com.random-photo-prompt.mac-server` 核对登记与实际 PID。
 
 前台启动：同一 Python 执行 `tools/run_mac_local_server.py --listen 0.0.0.0 --port 8188`；临时验证换端口，也可设 `RPP_MAC_LOCAL_PORT`。根目录沿用 `RPP_COMFYUI_ROOT`，默认仍是 `/Users/zouge/Documents/ComfyUI`；`output`、`input`、`models`、收藏、任务/提示词/已查看索引均不迁移。图库 `/view` 原 URL 保留，支持视频 Range，禁止隐藏文件和目录越界。`/ws` 保留页面握手，按原 clientId 转发远端真实执行通知与已在 Mac 落盘的图片帧；不创建本地推理队列。原 macOS aiohttp SO_KEEPALIVE 容错在新入口中保留。
 
-`rpp_routes.py` 是两端唯一路由表。Mac 无本地队列或 history，只读取远端队列、远端历史与本机落盘收据；`/interrogate` 和 `/remote/submit` 在 Mac 返回明确 503，仅 Windows 注入真实推理处理器。Mac 状态接口在远端断线时仍返回 200，通过 `connected=false`、`message` 和 `health.remote_compute` 报告失败；手机页与手动页据此显示断线并禁用生成，不把 HTTP 200 当成远端可用。
+`rpp_routes.py` 是两端唯一路由表。Mac 无本地队列或 history，只读取远端队列、远端历史与本机落盘收据；`/remote/submit` 在 Mac 返回明确 503，仅 Windows 注入真实推理处理器。Mac 状态接口在远端断线时仍返回 200，通过 `connected=false`、`message` 和 `health.remote_compute` 报告失败；手机页据此显示断线并禁用生成，不把 HTTP 200 当成远端可用。
 
-部署顺序：等待活动任务结束，先运行 `tools/sync_prompt_runtime_to_remote.py`（同步并重启 Windows），再运行上述 Mac daemon；桌面脚本仍按此顺序调用，无需修改。同步检查只读取 Mac `/random_photo_prompt/mobile/jobs` 和远端 `/queue`；本机连接被拒绝视为未启动，但 HTTP 错误/超时不能视为无任务。真实出图与回传仍须部署后验收。
+部署顺序：等待活动任务结束，先运行 `tools/sync_prompt_runtime_to_remote.py`（同步并重启 Windows），再运行上述 Mac daemon；桌面脚本仍按此顺序调用，无需修改。同步检查读取 Mac `/random_photo_prompt/mobile/jobs` 和远端 `/queue`；本机连接被拒绝视为未启动，但 HTTP 错误/超时不能视为无任务。远端连接失败时，仅在 SSH 确认 Windows 没有 8188 监听、Python 或 main.py 进程后，启动已有 `ComfyUI-8188-Interactive` 任务，最多等待 300 秒，再读取真实队列；有进程、SSH 失败或仍不可访问均停止操作，不强杀、不清空队列。真实出图与回传仍须部署后验收。
 
 视频页提供远端模型选择，文生视频和图生视频共用该选择并保存页面偏好。列表从远端 `DiffusionModelLoaderKJ` 注册信息读取，目前允许 `minimax_h3_fl2va_pruned_int8_convrot.safetensors`、`h3ErosMax_beta5_fp8.safetensors` 和 `DasiwaMinimaxH3_dasiwaHybridV2_int8.safetensors`；视频模型及 MiniMax/LTX 专用编码器、VAE 存于 Windows `E:\ComfyUI_models`，图片模型仍存于 `F:\ComfyUI_models`。远端 `extra_model_paths.yaml` 同时注册两处目录，工作流按文件名从对应盘读取。提交必须携带有效 `video_model`，写入工作流模型加载节点并记录在任务中；不读取 Mac 模型库，不自动替换无效选择。文本编码器与视频/音频 VAE 保持原流程配置；采样参数由下述 Turbo 开关决定。
 
@@ -94,6 +105,8 @@ Windows 将视频模型根目录 `E:\ComfyUI_models` 以 SMB 共享名 `ComfyUIV
 
 Mac 本机 8188 负责手机页面、提示词、工作流改写、本地图库、收藏与远端 WebSocket 监听。远端 Windows 8188 负责模型推理。
 
+任务完成或失败后保留关联和终态，持久化所有活动任务及最近 100 项终态任务；活动列表仅展示运行、等待和回传中的任务，三者均计入并发上限。重复查询完成任务不得删除视频类型、输出前缀或回传收据；本机已落盘结果优先于远端状态。旧查询已删除的视频关联可从远端历史中的本项目视频上传节点恢复，不能把其他任务的视频当作本次结果。
+
 图片通过 WebSocket 在 Mac 本地原子落盘后，必须立即以文件名、提示词和 Seed 写入本地提示词索引；不得依赖手机浏览器后续轮询任务状态。这样即使用户直接打开瀑布流或服务重启，图库详情仍能显示对应提示词。
 
 收藏图片是 Mac 本地的独立备份，仅由收藏页读取。瀑布流扫描生成目录时必须排除 `random_photo_prompt_favorites`，不得把同一资产的原图和收藏备份同时展示；但原图仍应保留在普通瀑布流中，收藏状态不得隐藏原图。
@@ -104,7 +117,7 @@ Mac 本机 8188 负责手机页面、提示词、工作流改写、本地图库�
 
 图生视频参考图只允许写入 Mac 本机 ComfyUI 的 `input/random_photo_prompt_mobile_video`；不得复制到 `output` 或任何图片瀑布流扫描目录。图片瀑布流必须排除 `output/random_photo_prompt_mobile_video` 中遗留的参考图，避免将输入误展示为新生成资产。
 
-图生视频的输出宽高必须按首帧长宽比计算并对齐到 32 像素网格，最长边不得超过 720 像素（对齐后最大为 704）、总像素不得超过 620,000；实现直接写入 `MiniMaxH3ImageToVideo` 的宽高，不得使用模板固定的 `9:16` 分辨率选择器。文生视频没有首帧，使用 400x720 画布，亦满足两项限制。
+图生视频的输出宽高必须按首帧长宽比计算并对齐到 32 像素网格，总像素不得超过 921,600（720×1280），不限制最长边、不放大低分辨率首帧，允许网格对齐造成轻微比例偏差；实现直接写入 `MiniMaxH3ImageToVideo` 的宽高，不得使用模板固定的 `9:16` 分辨率选择器。文生视频没有首帧，使用 720x1280 画布，满足同一面积上限。此上限用于实际模型推理，不在输出阶段固定裁切、补边或放大。
 
 手机版任务状态栏显示的视频像素必须取实际写入 `MiniMaxH3ImageToVideo` 的宽高，不能复用文生图提示词的分辨率字段。
 

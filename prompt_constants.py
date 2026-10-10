@@ -10,14 +10,6 @@ RESOLUTIONS = {
 
 
 
-QUALITY_BY_SCALE = {
-    "normal": "商业写真级自然光影，肤色真实不过曝，清晰镜头景深，暗部有层次",
-    "bold": "高级私房写真，肤质细腻并保留真实纹理，光影有层次，高光不过曝",
-    "bold_no_outfit": "高级私房写真，肤质细腻并保留真实纹理，光影有层次，高光不过曝",
-    "nsfw": "高级私房写真调色，肤质细腻保留真实纹理，光影有层次，高光不过曝，sharp focus, detailed skin, natural anatomy",
-}
-QUALITY_SUFFIX = QUALITY_BY_SCALE["bold"]  # fallback
-
 NEGATIVE_PROMPT_RULES = {
     "base_quality": (
         "low quality",
@@ -171,6 +163,20 @@ NEGATIVE_PROMPT_RULES = {
         "overexposed",
         "washed out",
     ),
+    # 四档只有女人的脸入镜：正向提示词写“脸在画外”会被模型反向理解成要画脸，
+    # 排除必须写进负面提示词，且要带 male 限定，避免连女人的脸一起压掉。
+    "nsfw_male_face_out": (
+        "man's face",
+        "male face",
+        "man's head",
+        "man's facial features",
+        "second face",
+        "two faces",
+    ),
+    # 四档男人的头部本就该在画外，通用的“缺头/头部裁切”会反过来压制这一点，
+    # 四档先删掉通用写法，再换成只保护女人头部的定向写法。
+    "nsfw_head_drop": ("missing head", "cropped head"),
+    "nsfw_head_protect_woman": ("missing woman's head", "woman's cropped head"),
 }
 
 SHOT_ALIASES = {

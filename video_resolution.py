@@ -5,18 +5,17 @@ import math
 from PIL import Image
 
 
-MAXIMUM_VIDEO_PIXELS = 620_000
-MAXIMUM_VIDEO_SIDE = 720
+MAXIMUM_VIDEO_PIXELS = 720 * 1280
+TEXT_TO_VIDEO_SIZE = (720, 1280)
 
 
-def image_to_video_resolution(source_image_path, maximum_side=MAXIMUM_VIDEO_SIDE, maximum_pixels=MAXIMUM_VIDEO_PIXELS):
-    """Return a source-bounded MiniMax H3 size on a 32-pixel grid within both limits."""
+def image_to_video_resolution(source_image_path, maximum_pixels=MAXIMUM_VIDEO_PIXELS):
+    """Return a source-bounded MiniMax H3 size on a 32-pixel grid within the area limit."""
     multiple = 32
-    maximum_side = max(multiple, int(maximum_side) // multiple * multiple)
     maximum_pixels = max(multiple * multiple, int(maximum_pixels))
 
     def fallback_size():
-        side = min(maximum_side, int(math.sqrt(maximum_pixels)) // multiple * multiple)
+        side = int(math.sqrt(maximum_pixels)) // multiple * multiple
         return max(multiple, side), max(multiple, side)
 
     try:
@@ -26,21 +25,19 @@ def image_to_video_resolution(source_image_path, maximum_side=MAXIMUM_VIDEO_SIDE
         return fallback_size()
     source_width = max(1, int(source_width))
     source_height = max(1, int(source_height))
-    source_longest_side = max(source_width, source_height)
     scale = min(
         1,
-        maximum_side / source_longest_side,
         math.sqrt(maximum_pixels / (source_width * source_height)),
     )
 
     def aligned(value, source_value):
-        candidate = min(maximum_side, max(multiple, round(value / multiple) * multiple))
+        candidate = max(multiple, round(value / multiple) * multiple)
         if candidate > source_value:
             candidate = max(multiple, source_value // multiple * multiple)
         return candidate
 
     def aligned_down(value, source_value):
-        candidate = min(maximum_side, max(multiple, int(value) // multiple * multiple))
+        candidate = max(multiple, int(value) // multiple * multiple)
         if candidate > source_value:
             candidate = max(multiple, source_value // multiple * multiple)
         return candidate

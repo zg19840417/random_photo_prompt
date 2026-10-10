@@ -1,6 +1,4 @@
 """仅由 ComfyUI 节点入口加载的推理端点与队列操作。"""
-import asyncio
-import sys
 import time
 import traceback
 import uuid
@@ -9,7 +7,7 @@ import execution
 from aiohttp import web
 from server import PromptServer
 
-from rpp_globals import GENERATION_SUBMISSION_LOCK, NODE_DIR
+from rpp_globals import GENERATION_SUBMISSION_LOCK
 from rpp_utils import _mobile_validation_error_message
 from rpp_workflow import _force_websocket_only_image_outputs, _unpatched_remote_save_node_classes
 
@@ -46,38 +44,6 @@ async def _queue_local_guarded_workflow(workflow, client_id="", source="random_p
         }, None
 
 
-def _load_image_interrogator():
-    if str(NODE_DIR) not in sys.path:
-        sys.path.insert(0, str(NODE_DIR))
-    from image_interrogator import ImageInterrogationError, interrogate_image_bytes
-
-    return ImageInterrogationError, interrogate_image_bytes
-
-
-async def interrogate_random_photo_prompt(request):
-    try:
-        reader = await request.multipart()
-        image_bytes = b""
-        async for part in reader:
-            if part.name != "image":
-                continue
-            image_bytes = await part.read(decode=False)
-            break
-        if not image_bytes:
-            return web.json_response({"error": "未收到图片文件。"}, status=400)
-        ImageInterrogationError, interrogate_image_bytes = _load_image_interrogator()
-        try:
-            result = await asyncio.to_thread(interrogate_image_bytes, image_bytes)
-        except ImageInterrogationError as exc:
-            return web.json_response({"error": str(exc)}, status=400)
-        return web.json_response(result)
-    except Exception:
-        return web.json_response(
-            {"error": traceback.format_exc()},
-            status=500,
-        )
-
-
 async def submit_guarded_remote_workflow(request):
     try:
         data = await request.json()
@@ -106,6 +72,5 @@ async def submit_guarded_remote_workflow(request):
 
 
 COMFY_HANDLERS = {
-    "interrogate_random_photo_prompt": interrogate_random_photo_prompt,
     "submit_guarded_remote_workflow": submit_guarded_remote_workflow,
 }

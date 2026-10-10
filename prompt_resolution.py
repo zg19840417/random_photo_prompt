@@ -3,15 +3,10 @@ import re
 
 MOBILE_MAX_IMAGE_EDGE = 1536
 MOBILE_RESOLUTION_MULTIPLE = 64
-MOBILE_RESOLUTION_DOWNSHIFT = 1.0
-MOBILE_STANDING_FULL_BODY_RESOLUTION = {
-    "aspect": "portrait",
-    "width": 768,
-    "height": 1536,
-    "framing": "窄长站姿全身构图",
-}
+MOBILE_OUTPUT_RESOLUTION_MULTIPLE = 32
+MOBILE_PORTRAIT_RESOLUTION = {"aspect": "portrait", "width": 864, "height": 1536, "framing": ""}
 MOBILE_CUSTOM_RESOLUTION_PRESETS = {
-    "768x1536": {"aspect": "portrait", "width": 768, "height": 1536, "framing": ""},
+    "864x1536": {"aspect": "portrait", "width": 864, "height": 1536, "framing": ""},
     "1024x1536": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""},
     "1536x1536": {"aspect": "square", "width": 1536, "height": 1536, "framing": ""},
     "1536x1024": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": ""},
@@ -32,14 +27,14 @@ def clamp_mobile_resolution(resolution):
     width = int(clamped.get("width") or 0)
     height = int(clamped.get("height") or 0)
     if width > 0:
-        width = round_to_multiple(width * MOBILE_RESOLUTION_DOWNSHIFT)
+        width = round_to_multiple(width, MOBILE_OUTPUT_RESOLUTION_MULTIPLE)
     if height > 0:
-        height = round_to_multiple(height * MOBILE_RESOLUTION_DOWNSHIFT)
+        height = round_to_multiple(height, MOBILE_OUTPUT_RESOLUTION_MULTIPLE)
     max_edge = max(width, height)
     if max_edge > MOBILE_MAX_IMAGE_EDGE:
         scale = MOBILE_MAX_IMAGE_EDGE / max_edge
-        width = round_to_multiple(width * scale) if width > 0 else 0
-        height = round_to_multiple(height * scale) if height > 0 else 0
+        width = round_to_multiple(width * scale, MOBILE_OUTPUT_RESOLUTION_MULTIPLE) if width > 0 else 0
+        height = round_to_multiple(height * scale, MOBILE_OUTPUT_RESOLUTION_MULTIPLE) if height > 0 else 0
     if width > 0:
         clamped["width"] = width
     if height > 0:
@@ -48,22 +43,11 @@ def clamp_mobile_resolution(resolution):
 
 
 def mobile_resolution_for_custom_prompt(prompt_text):
+    """自定义提示词只区分横图和竖图：写了横向、平躺这类词出 1536x1024，其余一律 864x1536。"""
     text = str(prompt_text or "")
     if any(marker in text for marker in ("横向", "横屏", "宽画幅", "横躺", "平躺", "大字型", "四肢展开")):
         return clamp_mobile_resolution({"aspect": "landscape", "width": 1536, "height": 1024, "framing": ""})
-    if any(marker in text for marker in ("站立", "站姿", "直立", "站在", "迈步", "行走", "走姿", "倚靠", "靠墙")):
-        return clamp_mobile_resolution(MOBILE_STANDING_FULL_BODY_RESOLUTION)
-    if any(marker in text for marker in ("全身", "从头到脚", "脚部", "脚掌", "脚尖", "站立", "长腿完整")):
-        return clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""})
-    if any(marker in text for marker in ("半身", "大腿以上", "大腿以上", "小腿", "膝盖")):
-        return clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""})
-    if any(marker in text for marker in ("半身", "大腿以上", "腰部", "腰线")):
-        return clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""})
-    if any(marker in text for marker in ("头部", "肩膀及以上", "肩部以上", "脸部特写", "面部特写")):
-        return clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""})
-    if any(marker in text for marker in ("半身", "肩部以上", "肩部以上", "胸部")):
-        return clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""})
-    return clamp_mobile_resolution({"aspect": "portrait", "width": 1024, "height": 1536, "framing": ""})
+    return clamp_mobile_resolution(MOBILE_PORTRAIT_RESOLUTION)
 
 
 def mobile_custom_resolution(prompt_text, preset=""):
@@ -121,22 +105,8 @@ def base_resolution_for_workflow(workflow, width, height):
     return round_to_multiple(width / scale), round_to_multiple(height / scale), scale
 
 
-def workflow_latent_scale(workflow):
-    scale = 1.0
-    for node in workflow.values():
-        if not isinstance(node, dict):
-            continue
-        class_type = str(node.get("class_type") or "")
-        inputs = node.get("inputs")
-        if not isinstance(inputs, dict):
-            continue
-        if class_type == "LatentUpscaleBy" and "scale_by" in inputs:
-            scale *= linked_float_value(workflow, inputs.get("scale_by"), 1.0)
-    return scale if scale > 0 else 1.0
-
-
 def base_resolution_for_exact_output(workflow, width, height):
-    latent_scale = workflow_latent_scale(workflow)
+    latent_scale = workflow_output_scale(workflow, include_ultimate=False)
     target_width = max(1, int(width or 1))
     target_height = max(1, int(height or 1))
     ideal_width = max(MOBILE_RESOLUTION_MULTIPLE, target_width / latent_scale)

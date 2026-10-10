@@ -169,7 +169,7 @@
     }
 
     .image-control-row {
-      grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(58px, .85fr);
+      grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(54px, .85fr);
       gap: 6px;
       align-items: end;
     }
@@ -420,6 +420,10 @@
       display: grid;
       gap: 10px;
       margin-top: 10px;
+    }
+
+    .lora-controls[hidden] {
+      display: none;
     }
 
     .lora-list {
@@ -1298,6 +1302,13 @@
                   <option value="ancient">古装</option>
                 </select>
               </label>
+              <label id="castField">
+                <div class="label">人数</div>
+                <select id="cast">
+                  <option value="solo" selected>单人</option>
+                  <option value="duo">双人</option>
+                </select>
+              </label>
               <label id="shotField" class="shot-field">
                 <div class="label">镜头</div>
                 <select id="shot">
@@ -1327,6 +1338,7 @@
                   <option value="zitb_double">双采-ZIT+ZIB</option>
                   <option value="redcraft_krea2">单采-Krea2</option>
                   <option value="krea2_double">双采-Krea2</option>
+                  <option value="qwen_image21_turbo">Qwen 2.1 Turbo（研究评估）</option>
                 </select>
               </label>
               <div id="modelSelectGroup" class="model-select-group">
@@ -1525,8 +1537,8 @@
         <div class="label">分辨率</div>
         <select id="customPromptResolution">
           <option value="" selected>自动判断</option>
-          <option value="768x1536">768 × 1536（竖长）</option>
-          <option value="1024x1536">1024 × 1536（标准竖图）</option>
+          <option value="864x1536">864 × 1536（竖长，9:16）</option>
+          <option value="1024x1536">1024 × 1536（标准竖图，2:3）</option>
           <option value="1536x1536">1536 × 1536（方图）</option>
           <option value="1536x1024">1536 × 1024（横图）</option>
         </select>
@@ -1641,6 +1653,7 @@
     const scaleSelect = document.querySelector("#scale");
     const videoInputModeSelect = document.querySelector("#videoInputMode");
     const eraSelect = document.querySelector("#era");
+    const castSelect = document.querySelector("#cast");
     const shotSelect = document.querySelector("#shot");
     const workflowSelect = document.querySelector("#workflow");
     const modelSelectGroup = document.querySelector("#modelSelectGroup");
@@ -1800,6 +1813,7 @@
           videoTurbo: videoTurboInput.checked,
           videoTurboSteps: Number(videoTurboStepsSelect.value),
           era: eraSelect.value,
+          cast: castSelect.value,
           shot: shotSelect.value,
           orientation: orientationSelect.value,
           workflow: workflowSelect.value,
@@ -1831,6 +1845,8 @@
         if (optionExists(scaleSelect, settings.scale)) setSelectValue(scaleSelect, settings.scale);
         if (optionExists(videoInputModeSelect, settings.videoInputMode)) setSelectValue(videoInputModeSelect, settings.videoInputMode);
         if (optionExists(eraSelect, settings.era)) setSelectValue(eraSelect, settings.era);
+        if (optionExists(castSelect, settings.cast)) setSelectValue(castSelect, settings.cast);
+        updateCastAvailability();
         const shotValue = normalizeStoredShot(settings.shot, settings.preset);
         if (optionExists(shotSelect, shotValue)) setSelectValue(shotSelect, shotValue);
         if (optionExists(orientationSelect, settings.orientation)) setSelectValue(orientationSelect, settings.orientation);
@@ -1910,6 +1926,7 @@
           body: JSON.stringify({
             scale: scaleSelect.value,
             era: eraSelect.value,
+            cast: castSelect.value,
             shot: shotSelect.value,
             orientation: orientationSelect.value,
             seed: `${Date.now()}-${Math.random()}`
@@ -1960,7 +1977,7 @@
     }
 
     function updateGenerateButton() {
-      generateBtn.disabled = remainingActiveJobSlots() <= 0;
+      generateBtn.disabled = state.generationReady !== true || remainingActiveJobSlots() <= 0;
     }
 
     function setCount(value) {
@@ -2137,6 +2154,8 @@
     }
 
     async function checkStatus() {
+      state.generationReady = false;
+      updateGenerateButton();
       try {
         const statusWorkflow = state.mode === "video" ? "minimax_h3" : workflowSelect.value;
         const data = await requestJson(`/random_photo_prompt/mobile/status?workflow=${encodeURIComponent(statusWorkflow)}`);
@@ -2156,7 +2175,9 @@
         updateVideoTurboAvailability();
         updateLoraOptions(data.loras || []);
         updateWorkflowModelVisibility();
-        const ready = state.mode === "video" ? data.video_workflow?.template_ready : data.template_ready;
+        const selectedWorkflow = (data.workflows || []).find(item => item.key === statusWorkflow);
+        const ready = state.mode === "video" ? data.video_workflow?.template_ready
+          : data.template_ready && selectedWorkflow?.runtime_ready !== false;
         updateEntryInfo(data, ready);
         if (data.connected === false) {
           setConnection(false);
@@ -2172,11 +2193,12 @@
           return;
         }
         if (ready) {
+          state.generationReady = true;
           setConnection(true);
           setStatus("");
           updateGenerateButton();
         } else {
-          setConnection(false);
+          setConnection(data.connected !== false);
           setStatus(firstUseMessage(data), true);
           generateBtn.disabled = true;
         }
@@ -2279,6 +2301,7 @@
       zitModelField.hidden = !showZit;
       zibModelField.hidden = !showZib;
       krea2ModelField.hidden = !showKrea2;
+      loraList.parentElement.hidden = workflowSelect.value === "qwen_image21_turbo";
       negativePromptField.hidden = !isDoubleWorkflow;
       if (!isDoubleWorkflow) imageNegativePrompt.value = "";
       updateCustomPromptButton();
@@ -3574,7 +3597,7 @@
       renderWaterfall();
     });
 
-    [orientationSelect, scaleSelect, videoInputModeSelect, eraSelect, shotSelect, workflowSelect, zitModelSelect, zibModelSelect, krea2ModelSelect, videoFpsSelect, videoSecondsSelect, videoTurboStepsSelect, customPromptResolution].forEach(enhanceSelect);
+    [orientationSelect, scaleSelect, videoInputModeSelect, eraSelect, castSelect, shotSelect, workflowSelect, zitModelSelect, zibModelSelect, krea2ModelSelect, videoFpsSelect, videoSecondsSelect, videoTurboStepsSelect, customPromptResolution].forEach(enhanceSelect);
     document.addEventListener("click", () => closeAllCustomSelects());
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") closeAllCustomSelects();
@@ -3588,8 +3611,17 @@
       tab.addEventListener("click", () => switchMode(tab.dataset.mode));
     });
     enhanceSelect(videoModelSelect);
-    [scaleSelect, eraSelect, shotSelect, orientationSelect, videoModelSelect].forEach(select => {
+    // 四档专用姿势池是单人写法，选四档时双人不可选。
+    function updateCastAvailability() {
+      const duo = [...castSelect.options].find(option => option.value === "duo");
+      duo.disabled = scaleSelect.value === "nsfw";
+      if (duo.disabled && castSelect.value === "duo") castSelect.value = "solo";
+      renderCustomSelect(castSelect);
+    }
+
+    [scaleSelect, eraSelect, castSelect, shotSelect, orientationSelect, videoModelSelect].forEach(select => {
       select.addEventListener("change", () => {
+        if (select === scaleSelect) updateCastAvailability();
         renderCustomSelect(select);
         if (select === videoModelSelect) updateVideoTurboAvailability();
         saveSettings();
@@ -4209,13 +4241,14 @@
             client_id: state.clientId,
             scale: scaleSelect.value,
             era: eraSelect.value,
+            cast: castSelect.value,
             shot: shotSelect.value,
             orientation: orientationSelect.value,
             workflow: workflowSelect.value,
             zit_model: ["zit_single", "zitb_double"].includes(workflowSelect.value) ? zitModelSelect.value : "",
             zib_model: workflowSelect.value === "zitb_double" ? zibModelSelect.value : "",
             krea2_model: ["redcraft_krea2", "krea2_double"].includes(workflowSelect.value) ? krea2ModelSelect.value : "",
-            loras: selectedLoras(),
+            loras: workflowSelect.value === "qwen_image21_turbo" ? [] : selectedLoras(),
             seed: imageSeedInput.value.trim(),
             negative_prompt: workflowSelect.value === "zitb_double" ? imageNegativePrompt.value.trim() : "",
             custom_prompt_source: state.customPromptSource,

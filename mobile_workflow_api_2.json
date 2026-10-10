@@ -46,10 +46,7 @@
   },
   "45": {
     "inputs": {
-      "text": [
-        "595",
-        0
-      ],
+      "text": "",
       "clip": [
         "39",
         0
@@ -405,26 +402,6 @@
     "class_type": "easy cleanGpuUsed",
     "_meta": {
       "title": "清理显存占用"
-    }
-  },
-  "595": {
-    "inputs": {
-      "scale": "三档",
-      "shot": "半身像",
-      "use_pregenerated_prompt": false,
-      "auto_resolution": true,
-      "cached_prompt": "",
-      "cached_signature": "",
-      "cached_aspect": "portrait",
-      "预生成提示词": null,
-      "反推提示词": null,
-      "era": "现代",
-      "cached_negative_prompt": "",
-      "cached_prompt_source": ""
-    },
-    "class_type": "RandomPhotoPrompt",
-    "_meta": {
-      "title": "随机写真提示词"
     }
   },
   "596": {

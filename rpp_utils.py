@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import random
 import re
 import sys
@@ -15,7 +14,7 @@ from rpp_globals import (
 )
 from prompt_resolution import MOBILE_RESOLUTION_MULTIPLE
 
-__all__ = sorted(["__all__", "_clean_mobile_prompt_clause_text", "_load_prompt_generator", "_looks_internal_prompt_link", "_looks_negative_text", "_mobile_local_output_dir", "_mobile_output_dir", "_mobile_validation_error_message", "_mobile_video_output_dir", "_node_meta", "_node_title", "_normalize_aspect", "_nsfw_pose_data_hash", "_prompt_clauses", "_prompt_signature", "_queue_contains", "_queue_waiting_count", "_remote_transfer_source_is_allowed", "_remove_mobile_clauses_with_markers"])
+__all__ = sorted(["__all__", "_clean_mobile_prompt_clause_text", "_load_prompt_generator", "_looks_internal_prompt_link", "_looks_negative_text", "_mobile_local_output_dir", "_mobile_output_dir", "_mobile_validation_error_message", "_mobile_video_output_dir", "_node_meta", "_node_title", "_prompt_clauses", "_queue_contains", "_queue_waiting_count", "_remote_transfer_source_is_allowed", "_remove_mobile_clauses_with_markers"])
 
 def _load_prompt_generator():
     if str(NODE_DIR) not in sys.path:
@@ -23,26 +22,6 @@ def _load_prompt_generator():
     from prompt_engine import generate_prompt_items
 
     return generate_prompt_items
-
-
-def _normalize_aspect(value, width=None, height=None):
-    if str(NODE_DIR) not in sys.path:
-        sys.path.insert(0, str(NODE_DIR))
-    from prompt_normalize import normalize_aspect
-
-    return normalize_aspect(value, width, height)
-
-
-def _nsfw_pose_data_hash():
-    path = NODE_DIR / "data" / "nsfw_pose_expression_options.json"
-    try:
-        return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
-    except OSError:
-        return "missing"
-
-
-def _prompt_signature(scale, shot, aspect="portrait", era="modern"):
-    return f"mobile-logic-v15-ancient-barefoot|{_nsfw_pose_data_hash()}|{scale or ''}|{shot or ''}|{era or 'modern'}"
 
 
 def _remote_transfer_source_is_allowed(request, allowed_ips):

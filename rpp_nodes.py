@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import time
-import traceback
 import urllib.request
 from io import BytesIO
 from pathlib import Path
@@ -19,13 +18,8 @@ from rpp_globals import (
     REMOTE_TRANSFER_TOKEN,
     NODE_DIR,
 )
-from rpp_prompts import (
-    _build_desktop_prompt_with_mobile_logic,
-    _prompt_text,
-)
-from rpp_utils import _normalize_aspect, _prompt_signature
 
-__all__ = sorted(["RandomPhotoImageInterrogator", "RandomPhotoPrompt", "RandomPhotoPromptRemoteLoadImageFromMac", "RandomPhotoPromptRemoteUploadImage", "RandomPhotoPromptRemoteUploadVideo", "RandomPhotoPromptStreamImage", "__all__"])
+__all__ = sorted(["RandomPhotoPromptRemoteLoadImageFromMac", "RandomPhotoPromptRemoteUploadImage", "RandomPhotoPromptRemoteUploadVideo", "RandomPhotoPromptStreamImage", "__all__"])
 
 class RandomPhotoPromptStreamImage:
     @classmethod
@@ -184,71 +178,3 @@ class RandomPhotoPromptRemoteUploadVideo:
             "type": payload.get("type", "output"),
         }
         return {"ui": {"videos": [result]}}
-
-
-class RandomPhotoPrompt:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "scale": (["一档", "二档", "三档", "四档"], {"default": "二档"}),
-                "era": (["现代", "古装"], {"default": "现代"}),
-                "shot": (
-                    [
-                        "随机",
-                        "头部",
-                        "半身",
-                        "全身",
-                    ],
-                    {"default": "随机"},
-                ),
-                "use_pregenerated_prompt": ("BOOLEAN", {"default": True}),
-                "auto_resolution": ("BOOLEAN", {"default": True}),
-                "cached_prompt": ("STRING", {"default": "", "multiline": True}),
-                "cached_negative_prompt": ("STRING", {"default": "", "multiline": True}),
-                "cached_signature": ("STRING", {"default": ""}),
-                "cached_aspect": ("STRING", {"default": "portrait"}),
-                "cached_prompt_source": ("STRING", {"default": ""}),
-            }
-        }
-
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("positive_prompt", "negative_prompt")
-    FUNCTION = "generate"
-    CATEGORY = "Random Photo"
-
-    @classmethod
-    def IS_CHANGED(cls):
-        return time.time()
-
-    def generate(self, scale, era, shot, use_pregenerated_prompt=True, auto_resolution=True, cached_prompt="", cached_negative_prompt="", cached_signature="", cached_aspect="portrait", cached_prompt_source=""):
-        try:
-            aspect = _normalize_aspect(cached_aspect)
-            signature = _prompt_signature(scale, shot, aspect, era)
-            if use_pregenerated_prompt and cached_prompt and str(cached_signature or "") == signature:
-                return (str(cached_prompt), cached_negative_prompt)
-            item, _resolution = _build_desktop_prompt_with_mobile_logic(scale, shot, str(time.time()), era)
-            return (_prompt_text(item), item.get("negative_prompt", ""))
-        except Exception:
-            message = f"RandomPhotoPrompt error:\n{traceback.format_exc()}"
-            return (message, "")
-
-
-class RandomPhotoImageInterrogator:
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "cached_prompt": ("STRING", {"default": "", "multiline": True}),
-                "cached_signature": ("STRING", {"default": ""}),
-            }
-        }
-
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("prompt",)
-    FUNCTION = "generate"
-    CATEGORY = "Random Photo"
-
-    def generate(self, cached_prompt="", cached_signature=""):
-        return (str(cached_prompt or "").strip() or "请在节点上选择图片并点击反推提示词。",)
-

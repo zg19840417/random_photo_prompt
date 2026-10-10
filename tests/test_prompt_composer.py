@@ -209,6 +209,36 @@ class PromptComposerTests(unittest.TestCase):
                         lines = render_prompt_lines({**parts, "shot_key": shot, "scale": scale, "aspect": "square"})
                         self.assertEqual(fluency_defects(lines, scale, shot), [])
 
+    def test_normal_square_poses_are_diagonal(self):
+        self.assertEqual(set(POOLS["POSES"]["normal"]["square"]), {"half_body", "full_body"})
+        for options in POOLS["POSES"]["normal"]["square"].values():
+            for pose in options:
+                with self.subTest(pose=pose["body"]):
+                    self.assertIn("斜", pose["body"])
+
+    def test_pools_never_write_cheek_or_face_redness(self):
+        import json
+        from pathlib import Path
+        redness = re.compile(r"红润|红晕|腮红|泛红|潮红|微红|发红|染红|通红|桃花妆|粉色气色|粉色晕")
+        root = Path(__file__).resolve().parents[1] / "data"
+        for name in ("prompt_pools.json", "art_direction_pools.json"):
+            raw = json.dumps(json.loads((root / name).read_text(encoding="utf-8")), ensure_ascii=False)
+            with self.subTest(file=name):
+                negatives = ("大面积红腮红", "脸部泛红过重")
+                for word in negatives:
+                    raw = raw.replace(word, "")
+                self.assertIsNone(redness.search(raw), redness.search(raw) and raw[max(0, redness.search(raw).start() - 15):redness.search(raw).end() + 10])
+
+    def test_scenes_never_use_plain_single_color_backdrops(self):
+        import json
+        from pathlib import Path
+        plain = re.compile(r"纯色|单色背景|背景纸|灰幕|摄影棚|棚拍|大片背景|简洁干净")
+        root = Path(__file__).resolve().parents[1] / "data"
+        for name in ("prompt_pools.json", "art_direction_pools.json"):
+            raw = json.dumps(json.loads((root / name).read_text(encoding="utf-8")), ensure_ascii=False)
+            with self.subTest(file=name):
+                self.assertIsNone(plain.search(raw), plain.search(raw) and raw[max(0, plain.search(raw).start() - 15):plain.search(raw).end() + 10])
+
     def test_camera_compositions_do_not_imply_a_posture(self):
         texts = [t for l in POOLS["COMPOSITION"].values() for t in l]
         texts += [t for lt in POOLS["LIGHT_TYPES"].values() for l in lt["compositions"].values() for t in l]

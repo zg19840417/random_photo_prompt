@@ -73,6 +73,7 @@ class MobilePromptLandscapeDirectionTests(unittest.TestCase):
             with self.subTest(scale=scale):
                 payload = self._prompt(scale, seed, "portrait")
                 self.assertEqual(payload["aspect"], "portrait")
+                self.assertEqual(payload["resolution"], "864x1536")
                 self.assertIn("腰部以上的竖向半身构图", payload["prompt"])
                 self.assertNotIn("大腿以上", payload["display_prompt"])
 

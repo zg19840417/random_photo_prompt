@@ -8,13 +8,11 @@ from pathlib import Path
 
 import folder_paths
 
-from prompt_resolution import MOBILE_CUSTOM_RESOLUTION_PRESETS, MOBILE_STANDING_FULL_BODY_RESOLUTION
+from prompt_resolution import MOBILE_CUSTOM_RESOLUTION_PRESETS
 
-__all__ = sorted(["BLOCK_REMOTE_ASSET_SAVE", "CHARACTER_BY_SHOT", "FIXED_CHARACTER_IDENTITY", "FIXED_CHARACTER_ORIGINAL", "GENERATION_SUBMISSION_LOCK", "KREA2_MODEL_DIR", "KREA2_PORTRAIT_HORIZONTAL_MARKERS", "LORA_MODEL_EXTENSIONS", "MANUAL_PAGE_HTML", "MANUAL_PAGE_PATH", "MOBILE_DEFAULT_RESOLUTIONS", "MOBILE_DEFAULT_WORKFLOW_KEY", "MOBILE_DIRECTOR_RESOLUTION_RULES", "MOBILE_FAVORITE_BACKUP_DIR", "MOBILE_FAVORITE_METADATA_NAME", "MOBILE_GALLERY_EXTENSIONS", "MOBILE_MAX_ACTIVE_JOBS", "MOBILE_MAX_LORAS", "MOBILE_PAGE_HTML", "MOBILE_PAGE_PATH", "MOBILE_PREFERRED_KREA2_MODELS", "MOBILE_PREFERRED_ZIB_MODELS", "MOBILE_PREFERRED_ZIT_MODELS", "MOBILE_PROMPT_BY_FILENAME", "MOBILE_PROMPT_INDEX_NAME", "MOBILE_RESOLUTION_RULES", "MOBILE_RESULT_RECEIVE_GRACE_SECONDS", "MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID", "MOBILE_SCOPE_PRESETS", "MOBILE_SESSION_JOBS", "MOBILE_SESSION_JOBS_LOADED", "MOBILE_SESSION_JOBS_NAME", "MOBILE_VIDEO_DIMENSIONS_BY_FILENAME", "MOBILE_VIDEO_EXTENSIONS", "MOBILE_VIDEO_FAVORITE_BACKUP_DIR", "MOBILE_VIDEO_INPUT_SUBFOLDER", "MOBILE_VIDEO_OUTPUT_SUBFOLDER", "MOBILE_VIDEO_PROMPT_BY_FILENAME", "MOBILE_VIDEO_TURBO_4STEP_LORA", "MOBILE_VIDEO_TURBO_LORA", "MOBILE_VIDEO_TURBO_MODEL", "MOBILE_VIDEO_WORKFLOW_KEY", "MOBILE_WORKFLOWS", "MOBILE_WORKFLOW_PATH", "MOBILE_WORKFLOW_TEMPLATES", "MOBILE_WORKFLOW_TEMPLATE_ERRORS", "NODE_DIR", "QVIEW_APP_PATH", "REMOTE_COMFYUI_URL", "REMOTE_DELETE_OUTPUT", "REMOTE_HISTORY_TIMEOUT", "REMOTE_MAC_IMAGE_UPLOAD_URL", "REMOTE_MAC_SOURCE_IMAGE_URL", "REMOTE_MAC_VIDEO_UPLOAD_URL", "REMOTE_OUTPUT_DIR", "REMOTE_PROGRESS_BY_PROMPT_ID", "REMOTE_TRANSFER_ALLOWED_IP", "REMOTE_TRANSFER_TOKEN", "REMOTE_WEBSOCKET_OUTPUT", "REMOTE_WS_CLIENT_ID_BY_PROMPT_ID", "REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID", "REMOTE_WS_WATCHERS", "ZIB_DISTILLED_CFG", "ZIB_DISTILLED_STEPS", "ZIMAGE_LORA_SUBDIR", "ZIT_MODEL_DIR", "ZIT_MODEL_EXTENSIONS", "ZIT_SINGLE_TEN_STEP_MODEL", "__all__"])
+__all__ = sorted(["BLOCK_REMOTE_ASSET_SAVE", "GENERATION_SUBMISSION_LOCK", "KREA2_MODEL_DIR", "LORA_MODEL_EXTENSIONS", "MOBILE_DEFAULT_WORKFLOW_KEY", "MOBILE_FAVORITE_BACKUP_DIR", "MOBILE_FAVORITE_METADATA_NAME", "MOBILE_GALLERY_EXTENSIONS", "MOBILE_MAX_ACTIVE_JOBS", "MOBILE_MAX_LORAS", "MOBILE_PAGE_HTML", "MOBILE_PAGE_PATH", "MOBILE_PREFERRED_KREA2_MODELS", "MOBILE_PREFERRED_ZIB_MODELS", "MOBILE_PREFERRED_ZIT_MODELS", "MOBILE_PROMPT_BY_FILENAME", "MOBILE_PROMPT_INDEX_NAME", "MOBILE_RESULT_RECEIVE_GRACE_SECONDS", "MOBILE_RUNTIME_IMAGES_BY_PROMPT_ID", "MOBILE_SCOPE_PRESETS", "MOBILE_SESSION_JOBS", "MOBILE_SESSION_JOBS_LOADED", "MOBILE_SESSION_JOBS_NAME", "MOBILE_VIDEO_DIMENSIONS_BY_FILENAME", "MOBILE_VIDEO_EXTENSIONS", "MOBILE_VIDEO_FAVORITE_BACKUP_DIR", "MOBILE_VIDEO_INPUT_SUBFOLDER", "MOBILE_VIDEO_OUTPUT_SUBFOLDER", "MOBILE_VIDEO_PROMPT_BY_FILENAME", "MOBILE_VIDEO_TURBO_4STEP_LORA", "MOBILE_VIDEO_TURBO_LORA", "MOBILE_VIDEO_TURBO_MODEL", "MOBILE_VIDEO_WORKFLOW_KEY", "MOBILE_WORKFLOWS", "MOBILE_WORKFLOW_PATH", "MOBILE_WORKFLOW_TEMPLATES", "MOBILE_WORKFLOW_TEMPLATE_ERRORS", "NODE_DIR", "QVIEW_APP_PATH", "REMOTE_COMFYUI_URL", "REMOTE_DELETE_OUTPUT", "REMOTE_HISTORY_TIMEOUT", "REMOTE_MAC_IMAGE_UPLOAD_URL", "REMOTE_MAC_SOURCE_IMAGE_URL", "REMOTE_MAC_VIDEO_UPLOAD_URL", "REMOTE_OUTPUT_DIR", "REMOTE_PROGRESS_BY_PROMPT_ID", "REMOTE_TRANSFER_ALLOWED_IP", "REMOTE_TRANSFER_TOKEN", "REMOTE_WEBSOCKET_OUTPUT", "REMOTE_WS_CLIENT_ID_BY_PROMPT_ID", "REMOTE_WS_IMAGE_INDEX_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_MODE_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID", "REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID", "REMOTE_WS_WATCHERS", "ZIB_DISTILLED_CFG", "ZIB_DISTILLED_STEPS", "ZIMAGE_LORA_SUBDIR", "ZIT_MODEL_DIR", "ZIT_MODEL_EXTENSIONS", "ZIT_SINGLE_TEN_STEP_MODEL", "__all__"])
 
 
-FIXED_CHARACTER_ORIGINAL = '22岁瓷白冷白皮K-pop韩国美女，黑色渐变的手指甲，瓷器般细腻冷白皮肤，细长瓜子脸，非常尖的下巴，高挺精致鼻梁，鼻尖尖翘。黑色直发散落在脸部两侧，魅惑狐狸眼，精致夜店斩男妆，锋利黑色眼线，冷调眼妆，卷翘的长睫毛，纯蓝色美瞳，棕色眼影，眼角和脸颊点缀闪烁银粉与淡淡美人痣，湿润闪亮的粉红唇彩，性感锁骨，骨架偏瘦但胸部和臀部丰满，小蛮腰，腿细且长'
-CHARACTER_BY_SHOT = {'head_shot': '22岁瓷白冷白皮K-pop韩国美女，黑色渐变的手指甲，瓷器般细腻冷白皮肤，细长瓜子脸，非常尖的下巴，高挺精致鼻梁，鼻尖尖翘。黑色直发散落在脸部两侧，魅惑狐狸眼，精致夜店斩男妆，锋利黑色眼线，冷调眼妆，卷翘的长睫毛，纯蓝色美瞳，棕色眼影，眼角和脸颊点缀闪烁银粉与淡淡美人痣，湿润闪亮的粉红唇彩', 'half_body': '22岁瓷白冷白皮K-pop韩国美女，黑色渐变的手指甲，瓷器般细腻冷白皮肤，细长瓜子脸，非常尖的下巴，高挺精致鼻梁，鼻尖尖翘。黑色直发散落在脸部两侧，魅惑狐狸眼，精致夜店斩男妆，锋利黑色眼线，冷调眼妆，卷翘的长睫毛，纯蓝色美瞳，棕色眼影，眼角和脸颊点缀闪烁银粉与淡淡美人痣，湿润闪亮的粉红唇彩，性感锁骨，骨架偏瘦但胸部丰满，小蛮腰', 'full_body': FIXED_CHARACTER_ORIGINAL + '，脚趾甲短而圆润，涂着自然的裸粉色'}
 
 
 NODE_DIR = Path(__file__).resolve().parent
@@ -38,15 +36,14 @@ PROJECT_VERSION = _project_version()
 
 
 MOBILE_PAGE_PATH = NODE_DIR / "web" / "mobile.html"
-MANUAL_PAGE_PATH = NODE_DIR / "web" / "manual_generate.html"
 MOBILE_PAGE_HTML = MOBILE_PAGE_PATH.read_text(encoding="utf-8").replace("{{PROJECT_VERSION}}", PROJECT_VERSION)
-MANUAL_PAGE_HTML = MANUAL_PAGE_PATH.read_text(encoding="utf-8")
 MOBILE_WORKFLOW_PATH = NODE_DIR / "mobile_workflow_api.json"
 MOBILE_WORKFLOWS = {
     "zit_single": {"label": "单采-ZIT", "path": MOBILE_WORKFLOW_PATH, "type": "image"},
     "zitb_double": {"label": "双采-ZIT+ZIB", "path": NODE_DIR / "mobile_workflow_api_2.json", "type": "image"},
     "redcraft_krea2": {"label": "单采-Krea2", "path": NODE_DIR / "mobile_workflow_api_krea2.json", "type": "image"},
     "krea2_double": {"label": "双采-Krea2", "path": NODE_DIR / "mobile_workflow_api_krea2_double.json", "type": "image"},
+    "qwen_image21_turbo": {"label": "Qwen 2.1 Turbo（研究评估）", "path": NODE_DIR / "mobile_workflow_api_qwen_image21_turbo.json", "type": "image"},
     "minimax_h3": {"label": "MiniMax H3 视频", "path": NODE_DIR / "minimax_h3_workflow_api.json", "type": "video"},
 }
 MOBILE_WORKFLOW_TEMPLATES = {}
@@ -125,9 +122,9 @@ REMOTE_MAC_SOURCE_IMAGE_URL = os.environ.get("RPP_MAC_SOURCE_IMAGE_URL", "").str
 REMOTE_TRANSFER_TOKEN = os.environ.get("RPP_REMOTE_TRANSFER_TOKEN", "").strip()
 REMOTE_TRANSFER_ALLOWED_IP = os.environ.get("RPP_REMOTE_TRANSFER_ALLOWED_IP", "").strip()
 MOBILE_SCOPE_PRESETS = {
-    "head_shot": {"shot": "head_shot", "aspect": "portrait", "width": 1024, "height": 1536},
-    "half_body": {"shot": "half_body", "aspect": "portrait", "width": 1024, "height": 1536},
-    "full_body": {"shot": "full_body", "aspect": "portrait", "width": 1024, "height": 1536},
+    "head_shot": {"shot": "head_shot", "aspect": "portrait", "width": 864, "height": 1536},
+    "half_body": {"shot": "half_body", "aspect": "portrait", "width": 864, "height": 1536},
+    "full_body": {"shot": "full_body", "aspect": "portrait", "width": 864, "height": 1536},
 }
 MOBILE_MAX_ACTIVE_JOBS = 100
 MOBILE_RESULT_RECEIVE_GRACE_SECONDS = float(os.environ.get("RPP_MOBILE_RESULT_RECEIVE_GRACE_SECONDS", "45") or 45)
@@ -154,106 +151,5 @@ MOBILE_SESSION_JOBS_NAME = ".random_photo_prompt_mobile_jobs.json"
 MOBILE_GALLERY_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 MOBILE_VIDEO_EXTENSIONS = {".mp4", ".webm", ".mov", ".mkv"}
 
-MOBILE_RESOLUTION_RULES = {
-    "full_body": (
-        (
-            ("大字", "四肢展开", "双臂自然向两侧展开", "手脚乱舞", "跳", "跃起", "腾空"),
-            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向全身动态构图"},
-        ),
-        (
-            ("俯拍", "顶视角", "正上方", "仰躺", "侧躺", "横躺", "平躺", "趴", "横向展开", "沿宽画幅", "床中央", "睡", "睡着"),
-            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向全身构图，身体沿宽画幅展开，从头到脚完整入镜"},
-        ),
-        (
-            ("低机位", "自然纵深", "前景肢体"),
-            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身低机位构图"},
-        ),
-        (
-            ("站立", "站姿", "直立", "倚靠", "靠墙", "迈步", "行走", "走姿"),
-            MOBILE_STANDING_FULL_BODY_RESOLUTION,
-        ),
-        (
-            ("坐", "坐姿", "坐在", "侧坐", "跪", "跪姿", "跪坐", "膝", "蹲", "半蹲", "蜷", "抱膝"),
-            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身坐跪构图"},
-        ),
-        (
-            ("扭腰", "回望", "转身", "侧身", "交叉点地", "向后拉长", "双手一上一下"),
-            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身动态姿势构图"},
-        ),
-    ),
-    "half_body": (
-        (
-            ("横躺", "侧躺", "仰躺", "平躺", "俯拍", "顶视角", "床", "横向", "横跨", "横向靠", "横向坐", "横向趴", "沿宽画幅", "斜向铺"),
-            {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身镜头，腰部及以上入镜"},
-        ),
-        (
-            ("坐", "坐姿", "跪", "跪坐", "膝", "直立", "站", "站立", "竖向", "纵向"),
-            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身镜头，腰部及以上入镜"},
-        ),
-    ),
-    "head_shot": (
-        (
-            ("横向", "侧脸", "躺", "侧躺"),
-            {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部镜头，肩膀及以上入镜，头顶完整"},
-        ),
-    ),
-}
-MOBILE_DEFAULT_RESOLUTIONS = {
-    "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身构图"},
-    "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身镜头，腰部及以上入镜"},
-    "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部镜头，肩膀及以上入镜，头顶完整"},
-}
-MOBILE_DIRECTOR_RESOLUTION_RULES = {
-    "sunny_multicolor_pool_glamour": {
-        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身阳光水光构图，从头到脚完整入镜，脚下留地面或池边边距"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身多色反光构图，腰部及以上入镜"},
-    },
-    "beach_vivid_glamour": {
-        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身海边构图，从头到脚完整入镜，脚下沙面边距清楚"},
-        "half_body": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身海边构图，腰部及以上入镜，保留海风空间"},
-    },
-    "garden_waterlight_seduction": {
-        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身花园构图，从头到脚完整入镜，脚下草地或地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身花园水光构图，腰部及以上入镜"},
-    },
-    "glass_balcony_colorlight": {
-        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身玻璃反射构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身玻璃彩光构图，腰部及以上入镜"},
-        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部玻璃反光近景，肩膀及以上入镜，头顶完整"},
-    },
-    "bright_studio_color_fashion": {
-        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身彩色棚拍构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身彩色棚拍构图，腰部及以上入镜"},
-        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部彩色棚拍近景，肩膀及以上入镜，头顶完整"},
-    },
-    "tropical_terrace_sensuality": {
-        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身热带露台构图，从头到脚完整入镜，脚下甲板或地面边距清楚"},
-        "half_body": {"aspect": "landscape", "width": 1536, "height": 1024, "framing": "横向半身热带露台构图，腰部及以上入镜"},
-    },
-    "sweet_vivid_tease": {
-        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身甜艳构图，从头到脚完整入镜，脚下边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身甜艳构图，腰部及以上入镜"},
-        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部甜艳近景，肩膀及以上入镜，头顶完整"},
-    },
-    "forced_perspective_focus": {
-        "full_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向全身低机位构图，从头到脚完整入镜，脚下地面边距清楚"},
-        "half_body": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向半身强透视构图，腰部及以上入镜，手部动作清楚"},
-        "head_shot": {"aspect": "portrait", "width": 1024, "height": 1536, "framing": "竖向头部近景，肩膀及以上入镜，头顶完整"},
-    },
-}
 
 
-FIXED_CHARACTER_IDENTITY = "22岁瓷白冷白皮K-pop韩国美女"
-
-
-KREA2_PORTRAIT_HORIZONTAL_MARKERS = (
-    "横躺",
-    "横向展开",
-    "身体横向",
-    "侧躺",
-    "平躺",
-    "沿宽画幅",
-    "宽画幅",
-    "左手枕在头侧",
-    "头发铺散在脸侧和头下",
-)

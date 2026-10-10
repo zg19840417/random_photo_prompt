@@ -3,18 +3,12 @@ from rpp_endpoints import *  # noqa: F401,F403
 from rpp_remote import receive_remote_video
 
 ROUTES = (
-    ('POST', '/random_photo_prompt/generate', generate_random_photo_prompt),
-    ('POST', '/random_photo_prompt/resolve_resolution', resolve_random_photo_prompt_resolution),
-    ('POST', '/random_photo_prompt/interrogate', interrogate_random_photo_prompt),
     ('GET', '/', mobile_root_redirect),
     ('GET', '/random_photo_prompt/mobile', mobile_generation_page),
-    ('GET', '/random_photo_prompt/manual', manual_generation_page),
     ('GET', '/random_photo_prompt/mobile/status', mobile_generation_status),
-    ('GET', '/random_photo_prompt/manual/status', mobile_generation_status),
     ('GET', '/random_photo_prompt/local/status', local_status_page),
     ('POST', '/random_photo_prompt/mobile/prompt', pregenerate_mobile_image_prompt),
     ('POST', '/random_photo_prompt/mobile/generate', generate_mobile_image),
-    ('POST', '/random_photo_prompt/manual/generate', generate_mobile_image),
     ('POST', '/random_photo_prompt/mobile/video/generate', generate_mobile_video),
     ('POST', '/random_photo_prompt/mobile/video/source/upload', upload_mobile_video_source),
     ('GET', '/random_photo_prompt/remote/video/source_image', mobile_remote_video_source_image),

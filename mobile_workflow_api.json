@@ -77,10 +77,7 @@
   },
   "14": {
     "inputs": {
-      "text": [
-        "893",
-        0
-      ],
+      "text": "",
       "clip": [
         "17",
         0
@@ -164,25 +161,6 @@
     "class_type": "ConditioningZeroOut",
     "_meta": {
       "title": "条件零化"
-    }
-  },
-  "893": {
-    "inputs": {
-      "scale": "NSFW",
-      "shot": "全身构图镜头",
-      "use_pregenerated_prompt": false,
-      "cached_prompt": "",
-      "cached_signature": "",
-      "cached_aspect": "portrait",
-      "预生成提示词": null,
-      "反推提示词": null,
-      "era": "现代",
-      "cached_negative_prompt": "",
-      "cached_prompt_source": ""
-    },
-    "class_type": "RandomPhotoPrompt",
-    "_meta": {
-      "title": "随机写真提示词"
     }
   },
   "894": {

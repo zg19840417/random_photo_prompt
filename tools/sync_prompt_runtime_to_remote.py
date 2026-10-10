@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
+import base64
+import json
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -14,7 +17,6 @@ FILES = [
     "__init__.py",
     "rpp_routes.py",
     "rpp_comfy.py",
-    "image_interrogator.py",
     "rpp_globals.py",
     "rpp_utils.py",
     "rpp_prompts.py",
@@ -22,6 +24,7 @@ FILES = [
     "rpp_remote.py",
     "rpp_mobile.py",
     "rpp_nodes.py",
+    "rpp_qwen.py",
     "rpp_endpoints.py",
     "prompt_constants.py",
     "prompt_data.py",
@@ -39,6 +42,7 @@ FILES = [
     "mobile_workflow_api_2.json",
     "mobile_workflow_api_krea2.json",
     "mobile_workflow_api_krea2_double.json",
+    "mobile_workflow_api_qwen_image21_turbo.json",
     "minimax_h3_workflow_api.json",
 ]
 SUBDIR_FILES = [
@@ -46,7 +50,6 @@ SUBDIR_FILES = [
     "data/prompt_pools.json",
     "data/art_direction_pools.json",
     "web/mobile.html",
-    "web/manual_generate.html",
 ]
 
 
@@ -55,8 +58,46 @@ def run(args, cwd=PROJECT):
     return subprocess.check_call(args, cwd=str(cwd))
 
 
+def read_remote_queue():
+    with urllib.request.urlopen("http://192.168.123.111:8188/queue", timeout=5) as response:
+        return json.load(response)
+
+
+def recover_stopped_remote():
+    # HTTP 超时不能证明服务停止；由 Windows 本机检查后才允许启动已有任务。
+    script = r'''
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$listeners = @(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalPort -eq 8188 })
+$processes = @(Get-CimInstance Win32_Process | Where-Object {
+    $_.CommandLine -and ($_.Name -match '^python' -or $_.CommandLine -match 'main\.py')
+})
+if ($listeners.Count -or $processes.Count) {
+    Write-Output 'Remote process/listener exists; refusing automatic recovery.'
+    exit 2
+}
+Start-ScheduledTask -TaskName 'ComfyUI-8188-Interactive'
+Write-Output 'Stopped remote: existing startup task requested.'
+'''
+    encoded = base64.b64encode(script.encode("utf-16le")).decode("ascii")
+    subprocess.run(
+        ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", REMOTE_SSH,
+         "powershell", "-NoProfile", "-EncodedCommand", encoded],
+        check=True, timeout=30,
+    )
+    deadline = time.monotonic() + 300
+    while time.monotonic() < deadline:
+        time.sleep(2)
+        try:
+            return read_remote_queue()
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, TimeoutError):
+            pass
+    raise RuntimeError("远端启动任务已执行，但 300 秒内队列接口未恢复；停止同步重启")
+
+
 def require_idle_queues():
-    import json
 
     try:
         with urllib.request.urlopen("http://127.0.0.1:8188/random_photo_prompt/mobile/jobs", timeout=5) as response:
@@ -70,19 +111,23 @@ def require_idle_queues():
         jobs = []  # Mac 未启动时无活动任务；后续启动步骤负责恢复。
     if jobs:
         raise RuntimeError("手机端仍有活动任务，停止同步重启")
-    with urllib.request.urlopen("http://192.168.123.111:8188/queue", timeout=5) as response:
-        queue = json.load(response)
+    try:
+        queue = read_remote_queue()
+    except urllib.error.HTTPError:
+        raise
+    except (urllib.error.URLError, TimeoutError):
+        queue = recover_stopped_remote()
     if queue["queue_running"] or queue["queue_pending"]:
         raise RuntimeError("192.168.123.111:8188 有运行或待执行任务，停止同步重启")
 
 
 def verify_remote_object_info():
-    url = "http://192.168.123.111:8188/object_info/RandomPhotoPrompt"
+    url = "http://192.168.123.111:8188/object_info/RandomPhotoPromptStreamImage"
     with urllib.request.urlopen(url, timeout=20) as response:
         body = response.read(500)
-    if b"RandomPhotoPrompt" not in body:
+    if b"RandomPhotoPromptStreamImage" not in body:
         # 节点导入失败时接口仍返回 200 和 {}，必须明确报错，不能当作同步成功。
-        raise RuntimeError(f"远端没有注册 RandomPhotoPrompt 节点（custom node 导入失败），返回：{body[:120]!r}")
+        raise RuntimeError(f"远端没有注册 RandomPhotoPromptStreamImage 节点（custom node 导入失败），返回：{body[:120]!r}")
     print(f"remote object_info ok: HTTP {response.status} {body[:120]!r}", flush=True)
 
 
