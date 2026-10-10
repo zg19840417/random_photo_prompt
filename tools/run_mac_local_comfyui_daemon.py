@@ -157,10 +157,12 @@ def main():
     try:
         with temporary.open("wb") as stream:
             plistlib.dump(agent, stream)
+        # launchd 以其他用户身份读取 plist，600 会导致 bootstrap 报I/O error。
         temporary.chmod(0o600)
         temporary.replace(AGENT_PATH)
     finally:
         temporary.unlink(missing_ok=True)
+    AGENT_PATH.chmod(0o644)
     subprocess.run(["launchctl", "enable", target], check=True)
     subprocess.run(["launchctl", "bootstrap", domain, str(AGENT_PATH)], check=True)
     for _ in range(max(1, STARTUP_WAIT_SECONDS * 2)):
