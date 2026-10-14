@@ -38,10 +38,8 @@ from rpp_globals import (
     NODE_DIR,
     QVIEW_APP_PATH,
     REMOTE_COMFYUI_URL,
-    REMOTE_HISTORY_TIMEOUT,
     REMOTE_PROGRESS_BY_PROMPT_ID,
     REMOTE_WS_IMAGE_RECEIVED_BY_PROMPT_ID,
-    REMOTE_FINISHED_AT_BY_PROMPT_ID,
     REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID,
 )
 from rpp_utils import (
@@ -57,6 +55,7 @@ from rpp_remote import (
     _remote_history,
     _remote_queue,
     _save_mobile_session_jobs,
+    _resume_mobile_job_watcher,
 )
 from video_prompt_engine import (
     clean_video_action_text,
@@ -910,21 +909,38 @@ async def _mobile_job_status(prompt_id):
         (str(job.get("media_type") or "") for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id") or "") == prompt_id),
         "",
     )
-    running, pending = await _remote_queue() if REMOTE_COMFYUI_URL else ([], [])
+    job = next((job for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id") or "") == prompt_id), {})
+    try:
+        running, pending = await _remote_queue() if REMOTE_COMFYUI_URL else ([], [])
+    except Exception:
+        # 网络故障不是空队列，也不能用于确认任务已中断。
+        if job.pop("missing_since", None) is not None:
+            _save_mobile_session_jobs()
+        if not await _mobile_image_urls(prompt_id) and not await _mobile_video_urls(prompt_id) and job.get("status") not in {"completed", "failed"}:
+            raise
+        running, pending = [], []
+    queue_item = next((item for item in running + pending if len(item) > 1 and str(item[1]) == prompt_id), None)
+    if queue_item is not None:
+        if job.pop("missing_since", None) is not None:
+            _save_mobile_session_jobs()
+        _resume_mobile_job_watcher(job, queue_item)
     queue_ahead = _queue_waiting_count(prompt_id, running, pending)
     remote_entry = None
     remote_error = ""
     remote_finished = False
     remote_history_missing = False
+    history_error = None
     if REMOTE_COMFYUI_URL:
         try:
-            remote_entry = await _mobile_remote_history_entry(prompt_id)
+            remote_entry = await asyncio.wait_for(_mobile_remote_history_entry(prompt_id), timeout=15)
             remote_error = _remote_history_error_message(remote_entry)
             remote_status = (remote_entry or {}).get("status")
             remote_finished = isinstance(remote_status, dict) and remote_status.get("status_str") == "success"
             remote_history_missing = not remote_entry
         except Exception as exc:
-            remote_error = str(exc)
+            history_error = exc
+            if job.pop("missing_since", None) is not None:
+                _save_mobile_session_jobs()
     # 恢复被旧状态查询删除的关联；只接受本项目视频输出节点的唯一前缀。
     if not media_type and remote_entry:
         prompt = remote_entry.get("prompt") or []
@@ -960,20 +976,26 @@ async def _mobile_job_status(prompt_id):
             # grace 窗口必须从"远端完成时刻"起算，而非任务创建时刻：
             # 重图生成耗时可能远超 MOBILE_RESULT_RECEIVE_GRACE_SECONDS，
             # 若从创建时刻起算，远端一完成 elapsed 就已超窗，会误报"未收到图片"。
-            if prompt_id not in REMOTE_FINISHED_AT_BY_PROMPT_ID:
-                REMOTE_FINISHED_AT_BY_PROMPT_ID[prompt_id] = time.monotonic()
-            elapsed = time.monotonic() - REMOTE_FINISHED_AT_BY_PROMPT_ID[prompt_id]
+            if not job.get("receiving_since"):
+                job["receiving_since"] = time.time()
+                _save_mobile_session_jobs()
+            elapsed = max(0, time.time() - job["receiving_since"])
             grace_seconds = MOBILE_VIDEO_RESULT_RECEIVE_GRACE_SECONDS if media_type == "video" else MOBILE_RESULT_RECEIVE_GRACE_SECONDS
             status = "receiving" if elapsed <= grace_seconds else "failed"
     elif _queue_contains(prompt_id, running):
         status = "running"
     elif _queue_contains(prompt_id, pending):
         status = "pending"
+    elif history_error is not None:
+        raise history_error
     elif remote_history_missing:
-        created_at = int(next((job.get("created_at", 0) for job in MOBILE_SESSION_JOBS if str(job.get("prompt_id")) == prompt_id), 0) or 0)
-        elapsed = max(0, time.time() - (created_at / 1000)) if created_at else REMOTE_HISTORY_TIMEOUT + 1
-        if elapsed > REMOTE_HISTORY_TIMEOUT:
-            remote_error = "远端未保留该任务的历史记录，无法确认生成结果。"
+        if not job:
+            return {"prompt_id": prompt_id, "status": "unknown", "images": images, "videos": videos}
+        if not job.get("missing_since"):
+            job["missing_since"] = time.time()
+            _save_mobile_session_jobs()
+        if time.time() - job["missing_since"] >= 15:
+            remote_error = "任务已中断：远端队列和历史中均无该任务，请重新提交。"
             status = "failed"
         else:
             status = "running"
@@ -1000,6 +1022,7 @@ async def _mobile_job_status(prompt_id):
 
 
 async def _mobile_active_job_count():
+    _ensure_mobile_session_jobs_loaded()
     count = 0
     for item in list(MOBILE_SESSION_JOBS):
         if item.get("status") in {"completed", "failed"}:

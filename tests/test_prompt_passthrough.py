@@ -45,6 +45,30 @@ class PromptPassthroughTests(unittest.TestCase):
                 engine = generate_prompt_items(1, {"scale": scale, "shot": shot, "era": "modern", "aspect": aspect, "width": resolution["width"], "height": resolution["height"]}, "passthrough")[0]
                 self.assertEqual(rpp_prompts._prompt_text(item), engine["positive_prompt"])
 
+    def test_custom_resolution_overrides_orientation_for_random_prompts(self):
+        rpp_prompts = _load_rpp_prompts()
+        for scale in ("normal", "bold", "bold_no_outfit", "nsfw"):
+            for shot in rpp_prompts.MOBILE_SCOPE_PRESETS:
+                for size, aspect, dimensions in (
+                    ("1280x768", "landscape", (1280, 768)),
+                    ("768x1280", "portrait", (768, 1280)),
+                    ("960x960", "square", (960, 960)),
+                    ("3000x2000", "landscape", (1920, 1280)),
+                ):
+                    with self.subTest(scale=scale, shot=shot, size=size):
+                        item, resolution = rpp_prompts._build_mobile_prompt_for_scope(
+                            scale, {"shot": shot}, "custom-size", "modern", "square", "solo", size,
+                        )
+                        self.assertEqual((resolution["width"], resolution["height"]), dimensions)
+                        self.assertEqual(item["aspect"], aspect)
+                        self.assertEqual(item["scale"], scale)
+                        self.assertEqual(item["shot_key"], shot)
+                        self.assertTrue(item["positive_prompt"])
+
+        first, _ = rpp_prompts._build_mobile_prompt_for_scope("normal", rpp_prompts.MOBILE_SCOPE_PRESETS["half_body"], "seed-a", custom_resolution="1280x768")
+        second, _ = rpp_prompts._build_mobile_prompt_for_scope("normal", rpp_prompts.MOBILE_SCOPE_PRESETS["half_body"], "seed-b", custom_resolution="1280x768")
+        self.assertNotEqual(first["positive_prompt"], second["positive_prompt"])
+
 
 if __name__ == "__main__":
     unittest.main()

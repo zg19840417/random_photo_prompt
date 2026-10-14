@@ -129,12 +129,18 @@ def _resolve_mobile_orientation(orientation, seed_text):
     return random.Random(f"{seed_text}|orientation").choice(("landscape", "portrait", "square"))
 
 
-def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern", orientation="portrait", cast="solo"):
-    """先定方向（用户选定或自动抽定），提示词与分辨率都按该方向生成，不再由姿势文本反推。"""
-    aspect = _resolve_mobile_orientation(orientation, seed_text)
-    width, height = {"landscape": (1536, 1024), "square": (1536, 1536)}.get(aspect, (1024, 1536))
+def _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era="modern", orientation="portrait", cast="solo", custom_resolution=""):
+    """手填尺寸优先于画幅；提示词按最终画布方向随机生成。"""
+    if str(custom_resolution or "").strip():
+        resolution = mobile_custom_resolution("", custom_resolution)
+        aspect = resolution["aspect"]
+        width, height = resolution["width"], resolution["height"]
+    else:
+        aspect = _resolve_mobile_orientation(orientation, seed_text)
+        resolution = clamp_mobile_resolution(_ORIENTATION_RESOLUTIONS[aspect])
+        width, height = {"landscape": (1536, 1024), "square": (1536, 1536)}.get(aspect, (1024, 1536))
     item = _build_mobile_prompt_item(scale, {**shot_config, "aspect": aspect, "width": width, "height": height}, seed_text, era, cast)
-    return item, clamp_mobile_resolution(_ORIENTATION_RESOLUTIONS[aspect])
+    return item, resolution
 
 
 def _mobile_shot_config(value):

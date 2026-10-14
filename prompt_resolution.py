@@ -1,7 +1,7 @@
 import re
 
 
-MOBILE_MAX_IMAGE_EDGE = 1536
+MOBILE_MAX_IMAGE_EDGE = 1920
 MOBILE_RESOLUTION_MULTIPLE = 64
 MOBILE_OUTPUT_RESOLUTION_MULTIPLE = 32
 MOBILE_PORTRAIT_RESOLUTION = {"aspect": "portrait", "width": 864, "height": 1536, "framing": ""}
@@ -59,12 +59,14 @@ def mobile_custom_resolution(prompt_text, preset=""):
         width = int(match.group(1))
         height = int(match.group(2))
         if width > 0 and height > 0:
-            return clamp_mobile_resolution({
-                "aspect": "landscape" if width > height else "portrait",
+            resolution = clamp_mobile_resolution({
                 "width": width,
                 "height": height,
                 "framing": "",
             })
+            width, height = resolution["width"], resolution["height"]
+            resolution["aspect"] = "square" if width == height else "landscape" if width > height else "portrait"
+            return resolution
     return mobile_resolution_for_custom_prompt(prompt_text)
 
 

@@ -69,6 +69,25 @@ def create_app(root):
         return web.FileResponse(target)
 
     app = web.Application(client_max_size=100 * 1024 * 1024)
+    async def recover_jobs(app):
+        from rpp_mobile import _active_mobile_session_jobs
+
+        async def reconcile():
+            while True:
+                try:
+                    await _active_mobile_session_jobs()
+                except Exception as exc:
+                    print(f"[random_photo_prompt] task recovery deferred: {exc}", flush=True)
+                await asyncio.sleep(5)
+
+        task = asyncio.create_task(reconcile())
+        try:
+            yield
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    app.cleanup_ctx.append(recover_jobs)
     app.on_shutdown.append(shutdown)
     routes = web.RouteTableDef()
     register_routes(routes)

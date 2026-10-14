@@ -644,9 +644,28 @@ async def _remote_queue():
     if not REMOTE_COMFYUI_URL:
         return [], []
     data, error = await _remote_json("GET", "/queue", timeout=15)
-    if error or not isinstance(data, dict):
-        return [], []
+    if error or not isinstance(data, dict) or not isinstance(data.get("queue_running"), list) or not isinstance(data.get("queue_pending"), list):
+        raise RuntimeError((error or {}).get("error") or "远端队列响应无效，无法确认任务状态。")
     return data.get("queue_running") or [], data.get("queue_pending") or []
+
+
+def _resume_mobile_job_watcher(job, queue_item):
+    prompt_id = str(job.get("prompt_id") or "")
+    client_id = str(job.get("remote_client_id") or "")
+    watcher = REMOTE_WS_WATCHERS.get(prompt_id)
+    if not client_id or (watcher is not None and not watcher.done()):
+        return
+    if watcher is not None and not watcher.cancelled():
+        watcher.exception()
+    workflow = queue_item[2] if len(queue_item) > 2 and isinstance(queue_item[2], dict) else {}
+    nodes = {key for key, node in workflow.items() if node.get("class_type") == "RandomPhotoPromptStreamImage"}
+    REMOTE_WS_OUTPUT_NODES_BY_PROMPT_ID[prompt_id] = nodes
+    REMOTE_WS_OUTPUT_PREFIX_BY_PROMPT_ID[prompt_id] = job.get("output_prefix") or ""
+    REMOTE_WS_WATCHERS[prompt_id] = asyncio.create_task(_watch_remote_websocket_outputs(
+        prompt_id, client_id, output_nodes=nodes, output_prefix=job.get("output_prefix") or "",
+        node_total=job.get("node_total", len(workflow)), output_mode=job.get("output_mode", "phone"),
+        expect_image_frames=job.get("media_type") != "video",
+    ))
 
 
 def _remote_image_extension_from_bytes(image_bytes, image_type=0):

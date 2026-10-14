@@ -59,7 +59,7 @@ class PromptOutputOrderTests(unittest.TestCase):
                 line = render_prompt_lines({**parts, "shot_key": shot, "scale": "normal", "aspect": "portrait"})["character"]
                 self.assertTrue(line.startswith("22岁瓷白冷白皮K-pop韩国美女，黑色渐变的手指甲"))
                 self.assertIn("黑色渐变的手指甲，瓷器般细腻冷白皮肤", line)
-                self.assertLess(line.index("眼角和脸颊点缀淡淡美人痣"), line.index("化着"))
+                self.assertLess(line.index("眼角附近有一颗细小的美人痣"), line.index("化着"))
                 if shot == "head_shot":
                     self.assertEqual(parts["body"], "")
                 else:

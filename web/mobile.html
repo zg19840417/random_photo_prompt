@@ -1902,12 +1902,13 @@
     function updateCustomPromptButton() {
       const hasPositivePrompt = Boolean(state.customPrompt.trim());
       const hasNegativePrompt = workflowSelect.value === "zitb_double" && Boolean(imageNegativePrompt.value.trim());
-      const active = hasPositivePrompt || hasNegativePrompt;
+      const hasResolution = Boolean(state.customResolution);
+      const active = hasPositivePrompt || hasNegativePrompt || hasResolution;
       customPromptButton.classList.toggle("active", active);
       const label = hasPositivePrompt
         ? (state.customPromptSource === "pregenerated" ? "已生成提示词" : "已填入提示词")
-        : "已填入负面提示词";
-      customPromptButton.textContent = active ? `${label}${hasPositivePrompt && state.customResolution ? ` ${state.customResolution}` : ""}` : "填入提示词";
+        : (hasNegativePrompt ? "已填入负面提示词" : "已设定分辨率");
+      customPromptButton.textContent = active ? `${label}${hasResolution ? ` ${state.customResolution}` : ""}` : "填入提示词";
       copyCustomPrompt.disabled = !hasPositivePrompt;
     }
 
@@ -1939,6 +1940,7 @@
             cast: castSelect.value,
             shot: shotSelect.value,
             orientation: orientationSelect.value,
+            custom_resolution: state.customResolution,
             seed: `${Date.now()}-${Math.random()}`
           })
         });
@@ -3671,7 +3673,7 @@
     customPromptOk.addEventListener("click", () => {
       state.customPrompt = customPromptText.value.trim();
       state.customResolution = customPromptResolutionInput.value.trim() || customPromptResolution.value;
-      state.customPromptSource = state.customPrompt ? "manual" : "";
+      state.customPromptSource = state.customPrompt || state.customResolution ? "manual" : "";
       updateCustomPromptButton();
       saveSettings();
       closePromptDialog();
@@ -4267,7 +4269,7 @@
             negative_prompt: workflowSelect.value === "zitb_double" ? imageNegativePrompt.value.trim() : "",
             custom_prompt_source: state.customPromptSource,
             custom_prompt: ["manual", "pregenerated"].includes(state.customPromptSource) ? state.customPrompt.trim() : "",
-            custom_resolution: ["manual", "pregenerated"].includes(state.customPromptSource) ? state.customResolution : "",
+            custom_resolution: state.customResolution,
             count
           };
     }

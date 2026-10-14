@@ -195,7 +195,7 @@ async def pregenerate_mobile_image_prompt(request):
         era = data.get("era", "modern")
         shot_config = _mobile_shot_config(data.get("shot", "full_body_portrait"))
         seed_text = str(data.get("seed") or f"{time.time()}-{uuid.uuid4()}")
-        prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era, data.get("orientation", "auto"), data.get("cast", "solo"))
+        prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era, data.get("orientation", "auto"), data.get("cast", "solo"), data.get("custom_resolution", ""))
         width = int(resolution["width"])
         height = int(resolution["height"])
         return web.json_response(
@@ -491,6 +491,7 @@ async def generate_mobile_image(request):
             if custom_prompt_source in {"manual", "pregenerated"}
             else ""
         )
+        custom_resolution = str(data.get("custom_resolution") or "").strip()
         accepts_negative_prompt = workflow_key == "zitb_double"
         custom_negative_prompt = str(data.get("negative_prompt") or "").strip()
         if not accepts_negative_prompt and custom_negative_prompt:
@@ -510,9 +511,9 @@ async def generate_mobile_image(request):
             seed_text = f"{time.time()}-{uuid.uuid4()}-{index}"
             if custom_prompt:
                 prompt_item = _custom_mobile_prompt_item(custom_prompt, seed_text)
-                resolution = _mobile_custom_resolution(custom_prompt, data.get("custom_resolution"))
+                resolution = _mobile_custom_resolution(custom_prompt, custom_resolution)
             else:
-                prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era, data.get("orientation", "auto"), data.get("cast", "solo"))
+                prompt_item, resolution = _build_mobile_prompt_for_scope(scale, shot_config, seed_text, era, data.get("orientation", "auto"), data.get("cast", "solo"), custom_resolution)
             width = int(resolution["width"])
             height = int(resolution["height"])
             aspect = resolution["aspect"]
@@ -554,7 +555,7 @@ async def generate_mobile_image(request):
                 "scale": prompt_item.get("scale", scale),
                 "shot": prompt_item.get("shot_key", shot_config["shot"]),
                 "custom_prompt": bool(custom_prompt),
-                "custom_resolution": data.get("custom_resolution") if custom_prompt else "",
+                "custom_resolution": custom_resolution,
                 "era": prompt_item.get("era", era),
                 "cast": prompt_item.get("cast", "solo"),
                 "aspect": aspect,
