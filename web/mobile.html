@@ -1573,6 +1573,7 @@
       selectedFavorites: new Set(),
       editMode: false,
       timer: null,
+      polling: false,
       tab: "generate",
       mode: "image",
       galleryTab: "images",
@@ -1856,7 +1857,6 @@
         if (optionExists(videoInputModeSelect, settings.videoInputMode)) setSelectValue(videoInputModeSelect, settings.videoInputMode);
         if (optionExists(eraSelect, settings.era)) setSelectValue(eraSelect, settings.era);
         if (optionExists(castSelect, settings.cast)) setSelectValue(castSelect, settings.cast);
-        updateCastAvailability();
         const shotValue = normalizeStoredShot(settings.shot, settings.preset);
         if (optionExists(shotSelect, shotValue)) setSelectValue(shotSelect, shotValue);
         if (optionExists(orientationSelect, settings.orientation)) setSelectValue(orientationSelect, settings.orientation);
@@ -3627,17 +3627,9 @@
       tab.addEventListener("click", () => switchMode(tab.dataset.mode));
     });
     enhanceSelect(videoModelSelect);
-    // 四档专用姿势池是单人写法，选四档时双人不可选。
-    function updateCastAvailability() {
-      const duo = [...castSelect.options].find(option => option.value === "duo");
-      duo.disabled = scaleSelect.value === "nsfw";
-      if (duo.disabled && castSelect.value === "duo") castSelect.value = "solo";
-      renderCustomSelect(castSelect);
-    }
 
     [scaleSelect, eraSelect, castSelect, shotSelect, orientationSelect, videoModelSelect].forEach(select => {
       select.addEventListener("change", () => {
-        if (select === scaleSelect) updateCastAvailability();
         renderCustomSelect(select);
         if (select === videoModelSelect) updateVideoTurboAvailability();
         saveSettings();
@@ -4142,8 +4134,29 @@
 
     async function syncServerJobs() {
       const data = await requestJson("/random_photo_prompt/mobile/jobs");
-      const serverIds = new Set((data.jobs || []).map(job => String(job.prompt_id || "")));
+      const jobs = data.jobs || [];
+      const serverIds = new Set(jobs.map(job => String(job.prompt_id || "")));
       let changed = false;
+      let discoveredBatchId = null;
+      for (const job of jobs) {
+        const promptId = String(job.prompt_id || "");
+        if (!promptId) continue;
+        const previous = state.jobs.get(promptId);
+        if (!previous && discoveredBatchId === null) discoveredBatchId = state.nextBatchId++;
+        state.jobs.set(promptId, {
+          ...previous,
+          ...job,
+          restored: previous ? Boolean(previous.restored) : true,
+          batchId: previous?.batchId ?? discoveredBatchId,
+          batchIndex: Number(job.batch_index || job.batchIndex || previous?.batchIndex || 1),
+          batchTotal: Number(job.batch_total || job.batchTotal || previous?.batchTotal || jobs.length),
+          statusText: statusText(job.status),
+          progress: job.progress || previous?.progress || null,
+          images: job.images || [],
+          videos: job.videos || []
+        });
+        changed = changed || !previous || previous.status !== job.status;
+      }
       for (const job of state.jobs.values()) {
         if (!job?.prompt_id || !isActiveJob(job) || serverIds.has(String(job.prompt_id))) continue;
         if (job.status !== "receiving") {
@@ -4156,34 +4169,28 @@
     }
 
     async function pollJobs() {
-      const active = [...state.jobs.values()].filter(isActiveJob);
-      if (!active.length) {
-        await submitNextSerialJobIfReady();
-        if ([...state.jobs.values()].some(isActiveJob)) {
-          renderJobs();
-          updateGenerateButton();
-          return;
-        }
-        clearInterval(state.timer);
-        state.timer = null;
-        updateGenerateButton();
-        return;
+      if (state.polling) return;
+      state.polling = true;
+      try {
+        await refreshJobs();
+      } finally {
+        state.polling = false;
       }
+    }
+
+    async function refreshJobs() {
       let shouldRefreshGallery = false;
+      let synced = false;
       try {
         if (await syncServerJobs()) {
           shouldRefreshGallery = true;
         }
+        synced = true;
       } catch (_error) {
         // 单个任务查询仍会继续给出更具体状态。
       }
-      if (!active.some(isActiveJob)) {
-        renderJobs();
-        clearInterval(state.timer);
-        state.timer = null;
-        updateGenerateButton();
-        return;
-      }
+      const active = [...state.jobs.values()].filter(isActiveJob);
+      if (active.length) ensureProgressSocket();
       for (const job of active) {
         if (!isActiveJob(job)) continue;
         try {
@@ -4226,7 +4233,7 @@
         });
         renderJobs();
       }
-      if (![...state.jobs.values()].some(isActiveJob)) {
+      if (synced && ![...state.jobs.values()].some(isActiveJob)) {
         await submitNextSerialJobIfReady();
       }
       updateGenerateButton();
@@ -4336,31 +4343,6 @@
       }
     }
 
-    async function restoreSessionJobs() {
-      try {
-        const data = await requestJson("/random_photo_prompt/mobile/jobs");
-        const jobs = data.jobs || [];
-        const batchId = state.nextBatchId++;
-        jobs.forEach((job, index) => {
-          state.jobs.set(job.prompt_id, {
-            ...job,
-            restored: true,
-            batchId,
-            batchIndex: Number(job.batch_index || job.batchIndex || index + 1),
-            batchTotal: Number(job.batch_total || job.batchTotal || jobs.length),
-            statusText: statusText(job.status),
-            progress: job.progress || null,
-            images: job.images || [],
-            videos: job.videos || []
-          });
-        });
-        renderJobs();
-        if (jobs.length) startPolling();
-      } catch (error) {
-        setStatus(error.message, true);
-      }
-    }
-
     generateBtn.addEventListener("click", async () => {
       const isVideoMode = state.mode === "video";
       const count = isVideoMode ? currentVideoCount() : currentCount();
@@ -4407,7 +4389,11 @@
     });
     updateVideoInputMode();
     checkStatus();
-    restoreSessionJobs();
+    startPolling();
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) pollJobs();
+    });
+    window.addEventListener("online", pollJobs);
     migrateViewedImageKeys().finally(() => loadGallery());
   </script>
 </body>

@@ -115,6 +115,12 @@ CHINESE_NEGATIVE_PROMPT_RULES = {
     "legal_safety": ("明确性行为", "暴露生殖器"),
     "nsfw_amateur_tone": ("业余摄影", "家庭录像感", "网络摄像头画质", "医疗光", "平光", "过曝", "发灰"),
     "nsfw_male_face_out": ("男人脸部进入镜头", "男性脸部", "男人的脸", "男人的头部", "第二张脸", "两张脸"),
+    "nsfw_face_pair_drop": ("第二张脸", "两张脸"),
+    # 正面提示词点名要什么，负面词就不能压什么：双采工作流的 ZIB 阶段（1ST，cfg=4）负面词真正生效，
+    # 冲突词条会直接压掉正面内容，所以在拼装末尾按正面文本剔除。
+    "toothy_smile_drop": ("大笑露齿",),
+    "missing_feet_drop": ("缺脚",),
+    "flat_light_drop": ("平光",),
     "nsfw_head_drop": ("缺头", "头部裁切"),
     "nsfw_head_protect_woman": ("女人缺头", "女人头部裁切"),
 }
@@ -126,14 +132,21 @@ _ENGLISH_EXTRAS = {
     "smile": ("flat expression", "blank expression", "emotionless face"),
     "bright_scene": ("dark gloomy lighting", "night scene", "low-key dark room"),
     "normal_scale": ("nudity", "lingerie", "transparent underwear"),
-    "duo": ("third person", "extra people", "crowd", "fused bodies", "merged limbs", "extra arms"),
+    # 双人姿势按规则必须写两人贴身、交叠、缠绕的互动，所以这里不再压“fused bodies / merged limbs”：
+    # 那两条会把写死的姿势压回两人分开。防畸形由“extra arms / duplicated limbs / bad anatomy”承担。
+    "duo": ("third person", "extra people", "crowd", "extra arms"),
+    # 四档双人是“两个女生 + 男人”：男人是画面里合法的第三个人，只保留人群压制。
+    "duo_nsfw": ("crowd",),
 }
 _CHINESE_EXTRAS = {
     "feet": ("脚部裁切", "缺脚", "脚在画面外"),
     "smile": ("表情呆板", "空洞表情", "面无表情"),
     "bright_scene": ("阴暗光线", "夜景", "低调暗房"),
     "normal_scale": ("裸体", "内衣", "透明内衣"),
-    "duo": ("第三个人", "多余人物", "人群", "身体粘连", "肢体融合", "多余手臂"),
+    # 双人姿势按规则必须写两人贴身、交叠、缠绕的互动，所以这里不再压“身体粘连 / 肢体融合”：
+    # 那两条会把写死的姿势压回两人分开。防畸形由“多余手臂 / 重复肢体 / 解剖错误”承担。
+    "duo": ("第三个人", "多余人物", "人群", "多余手臂"),
+    "duo_nsfw": ("人群",),
 }
 
 
@@ -169,15 +182,31 @@ def _compose_negative_prompt(base_text, rules, extras, positive_prompt, parts, s
         _append_negative_terms(terms, extras["bright_scene"])
     if scale == "normal":
         _append_negative_terms(terms, extras["normal_scale"])
-    if parts.get("cast") == "duo":
-        _append_negative_terms(terms, extras["duo"])
+    duo = parts.get("cast") == "duo"
+    if duo:
+        # 四档双人画面里男人是合法存在的，用不含“第三人/多余人物/多余手臂”的一组负面词。
+        _append_negative_terms(terms, extras["duo_nsfw"] if scale == "nsfw" else extras["duo"])
     if scale == "nsfw":
         _append_negative_terms(terms, rules["nsfw_amateur_tone"])
         _append_negative_terms(terms, rules["nsfw_male_face_out"])
+        if duo:
+            # 四档双人有两个女生，两张脸都该入镜，剔除会连第二个女生一起压掉的写法。
+            _drop_negative_terms(terms, rules["nsfw_face_pair_drop"])
         # 四档里男人的头部本来就该在画外，通用的“缺头/头部裁切”会反过来压制这一点，
         # 所以换成只保护女人头部的定向写法，避免两条规则互相抵消。
         _drop_negative_terms(terms, rules["nsfw_head_drop"])
         _append_negative_terms(terms, rules["nsfw_head_protect_woman"])
+    # 正面与负面不能互相打架：双采工作流的 ZIB 阶段（1ST，cfg=4）负面词真正生效，
+    # 下面几组词条会直接压掉正面明确要求的内容，按正面文本剔除。
+    if _text_has_any(source, ("露齿", "牙齿", "门牙", "笑出声", "大笑")):
+        # 正面要露齿的笑，就不能同时压“大笑露齿/露齿微笑”。
+        _drop_negative_terms(terms, rules["toothy_smile_drop"])
+    if shot != "full_body":
+        # 头部/半身镜头里没有脚，“缺脚”会和同一条负面词里的“脚部/鞋子”自相矛盾。
+        _drop_negative_terms(terms, rules["missing_feet_drop"])
+    if _text_has_any(source, ("柔光", "散射", "柔和的光", "柔和而均匀", "均匀地包住")):
+        # 正面要柔光/散射光，就不能同时压“平光”。
+        _drop_negative_terms(terms, rules["flat_light_drop"])
     return ", ".join(terms)
 
 

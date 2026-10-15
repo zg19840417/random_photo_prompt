@@ -4,13 +4,13 @@ from pathlib import Path
 
 
 class FixedCharacterNailsTests(unittest.TestCase):
-    def test_every_character_scope_contains_required_nails(self):
+    def test_character_scopes_keep_fingernails_except_full_body(self):
         path = Path(__file__).resolve().parents[1] / "data" / "prompt_pools.json"
         characters = json.loads(path.read_text(encoding="utf-8"))["CHARACTER_IDENTITY_BY_SHOT"]
         for scope, options in characters.items():
             with self.subTest(scope=scope):
                 self.assertTrue(options)
-                self.assertTrue(all("黑色渐变的手指甲" in text for text in options))
+                self.assertTrue(all(("黑色渐变的手指甲" in text) == (scope != "full_body") for text in options))
                 self.assertTrue(all("又细又长的黑色手指甲点缀反光银粉" not in text for text in options))
 
     def test_full_body_character_states_short_natural_toenails_and_negative_blocks_black_ones(self):
@@ -22,7 +22,7 @@ class FixedCharacterNailsTests(unittest.TestCase):
 
         characters = json.loads((root / "data" / "prompt_pools.json").read_text(encoding="utf-8"))["CHARACTER_IDENTITY_BY_SHOT"]
         for text in characters["full_body"]:
-            self.assertIn("黑色渐变的手指甲", text)
+            self.assertNotIn("黑色渐变的手指甲", text)
             self.assertIn("脚趾甲短而圆润，涂着自然的裸粉色", text)
         for text in characters["head_shot"] + characters["half_body"]:
             self.assertNotIn("脚趾甲", text)

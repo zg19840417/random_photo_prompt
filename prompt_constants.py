@@ -173,10 +173,18 @@ NEGATIVE_PROMPT_RULES = {
         "second face",
         "two faces",
     ),
+    # 四档双人是“两个女生 + 男人”：两个女生的两张脸都该入镜，
+    # “第二张脸/两张脸”会连第二个女生一起压掉，双人时必须剔除。
+    "nsfw_face_pair_drop": ("second face", "two faces"),
     # 四档男人的头部本就该在画外，通用的“缺头/头部裁切”会反过来压制这一点，
     # 四档先删掉通用写法，再换成只保护女人头部的定向写法。
     "nsfw_head_drop": ("missing head", "cropped head"),
     "nsfw_head_protect_woman": ("missing woman's head", "woman's cropped head"),
+    # 正面提示词点名要什么，负面词就不能压什么：双采工作流的 ZIB 阶段（1ST，cfg=4）负面词真正生效，
+    # 冲突词条会直接压掉正面内容，所以在拼装末尾按正面文本剔除。
+    "toothy_smile_drop": ("wide grin", "big grin", "toothy smile", "open mouth smile", "teeth showing"),
+    "missing_feet_drop": ("missing feet",),
+    "flat_light_drop": ("flat lighting",),
 }
 
 SHOT_ALIASES = {

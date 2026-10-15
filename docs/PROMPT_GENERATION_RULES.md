@@ -28,47 +28,58 @@ Do not keep compatibility layers for removed pools. If an old pool name is remov
 
 Once the art direction and place are selected, they are the authority for concrete location and lighting. A body action may use only props that the selected place declares, so absent sofas, railings, or pool edges never appear in the pose. 三档 scenes use private places (hotel, garden, balcony, old house, bathroom, private pool), not shops, cafes, or public streets; 二档 scenes may be any place, public venues included. Head-shot scene clauses describe near-field light and bokeh, leaving the crop label to the camera sentence; clothing reads as a wearable garment followed by its visible edge (`她穿着X，领口停在画面下缘`).
 
-## Art-Direction Composer (一档 / 二档 / 三档)
+## Art-Direction Composer (一至四档)
 
-一档（normal）、二档（bold）、三档（bold_no_outfit）的现代与古装题材都由 `prompt_composer.py` 读取 `data/art_direction_pools.json` 一次成句；四档（nsfw）除姿势表情外与三档完全一致：按三档规则抽母题、私密地点、光型、构图、镜头、质量、人物和妆容，不加衣着；仅姿势表情行从 `data/nsfw_pose_expression_options.json` 原样抽取替换。旧的主题蓝图、参考姿势、环境锚点、服装模板改写层以及四档旧拼装链路已全部删除。古装使用标注 `eras: ["ancient"]` 的母题、地点和动作，服装取 `OUTFITS_ANCIENT`，并按地点 `styles`（汉服、民国、敦煌）匹配；古装全身服装写明裸足，不写鞋。固定人物容貌行始终取自原人物池，构图器不改写它。
+一至四档的现代与古装题材统一由 `prompt_composer.compose_parts(scale, ...)` 选择维度、渲染和检查，不再先生成三档再替换四档姿势。四档仅姿势表情来源独立：通过 `prompt_data` 读取 `data/nsfw_pose_expression_options.json` 的单人或双人池，在构图器选择姿势时接入完整文本，不拆句、不追加其他神情；其余维度仍使用三档对应的母题、私密地点、光型、构图、镜头、质量、人物和妆容，不加衣着。所有档位共用一次最多 8 轮的整组重抽，检查当前最终组合；达到上限仍取缺陷最少的一组，不另设四档重抽循环。四档池当前没有方向、时代、道具标签，不从正文推断这些标签或改写文案，因此本次统一架构不新增这类内容筛选。负面词仍由原负面词引擎按档位处理。旧的主题蓝图、参考姿势、环境锚点、服装模板改写层以及四档旧拼装链路已全部删除。古装使用标注 `eras: ["ancient"]` 的母题、地点和动作，服装取 `OUTFITS_ANCIENT`，并按地点 `styles`（汉服、民国、敦煌）匹配；古装全身服装写明裸足，不写鞋。固定人物容貌行始终取自原人物池，构图器不改写它。
 
-1. 先抽一个本档可用的艺术母题（`ART_DIRECTIONS`，`scales` 标明适用档位）。母题独占光线方向与质感、空气感、可选前景、按档位区分的配色三元组、唯一调色和机位，保证一张图只有一个氛围。母题只列出与自己光线相容的地点。夜间母题的光线句必须写明夜里或月光，使妆容昼夜判定与画面一致。
-2. 再从母题允许的地点（`PLACES`）中抽一个。地点标注适用档位、是否室内、是否私密，并提供头部近景虚化、半身背景、全身环境与地面三种文本和可互动道具 `props`。一档、二档环境要层次分明、丰富多彩：每条背景至少写出两三层不同颜色或远近的景物（如纱帘 + 窗外绿树 + 窗台花），不使用摄影棚纯色背景纸、灰幕、单面白墙、“大面积纯色”或“天空作为纯色背景”这类单调背景，构图句也不写“周围的地面铺成大片背景”；由 `test_scenes_never_use_plain_single_color_backdrops` 检查。三档全部只使用 `private: true` 的地点；二档不限地点，私密、水边和公共场所（咖啡馆、街头、画廊、屋顶等）都可以出现，但泳装只在水边。
-3. 姿势（`POSES`，按档位、竖/横/方构图、镜头分表）只写身体动作并声明所需 `props`；一档突出多样化、阳光、活泼和年轻的张力（挥手、比耶、跳跃、转圈、奔跑、蹲坐、伸懒腰），一档有自己的方图池 `POSES.normal.square`（半身、全身，每条必须写“斜”）；二档突出身材线条，手和脚多带有强烈的暗示感动作（指尖沿锁骨、腰侧、大腿外侧滑动，手掌或腿脚伸向镜头），并聚焦脸、手、胸、腰、腿、脚等需要展示的部位，用“近大远小”描述强透视（姿势行禁用“强透视”“构图”等词），脚部聚焦的动作标 `barefoot`，动作不写脱衣和任何性行为；道具不在地点里的动作不会被选中。地点有可互动道具时，75% 概率先限定在互动动作里，再按 wild 偏好抽取；互动动作要写人物对道具做了什么（摘花、抱花、捧水泼水、踢水花、抽书、端杯碰杯、浇花、掀纱帘、推窗推门探身、攀树枝、抓栏杆转圈、对镜涂唇膏或戴耳环、抛枕头、撒草叶花瓣），不要只写站、坐、靠。新道具（鲜花、咖啡杯、吧台、书、喷壶、池水、海浪、水面、芦苇、向日葵、花瓣、枕头、首饰、荷花、红梅、雪、泉水、戏服、旧木门、画框）要先加到地点的 `props`，并且是该地点自然会有的东西。二档动作不写任何服装词，三档直接复用。站立/行走全身动作带 `站立`、`迈步` 等推断词，横构图动作带 `横向`、`侧躺`、`仰躺` 等推断词，赤脚动作标 `barefoot`。
-3.5 姿势行由“身体动作。神情。”两句组成：composer 用句号分开，`render_prompt_lines` 原样输出（只补句末标点）。服装（`她穿着…。`）与神情文字必须原样到达最终提示词，旧的字符串改写层不得改动它们，由 `test_outfit_and_expression_text_reach_the_prompt_unchanged` 检查（同时限制子句数不超过 6、单个子句不超过 40 字）；动作里不得写手指触碰嘴唇、下颌、颈侧这类会被旧的“手靠近嘴”改写层替换成“左手停在胸前”的动作。
+1. 先按档位的 `PERSONAS` 选择气质主题与人物状态，再抽艺术母题（`ART_DIRECTIONS`，`scales` 标明适用档位）。母题决定光线、配色三元组、唯一调色和候选地点；常规机位取母题与气质允许机位的交集。夜间母题的光线句必须写明夜里或月光，使妆容昼夜判定与画面一致。第四档同样选择气质，但其完整姿势表情不参与新增状态规划。
+2. 再从母题允许的地点（`PLACES`）中抽一个。地点标注适用档位、是否室内、是否私密，并提供头部近景虚化、半身背景、全身环境与地面三种文本和可互动道具 `props`。一档、二档环境要层次分明、丰富多彩：每条背景至少写出两三层不同颜色或远近的景物（如纱帘 + 窗外绿树 + 窗台花），不使用摄影棚纯色背景纸、灰幕、单面白墙、“大面积纯色”或“天空作为纯色背景”这类单调背景，构图句也不写“周围的地面铺成大片背景”；由 `test_scenes_never_use_plain_single_color_backdrops` 检查。三档全部只使用 `private: true` 的地点；二档不限地点，私密、水边和公共场所（咖啡馆、街头、画廊、屋顶等）都可以出现，比基尼与三点式内衣均不限地点。
+3. 姿势（`POSES`，按档位、竖/横/方构图、镜头分表）只写身体动作并声明所需 `props`；一档按整体状态匹配舒展、收拢、克制或活跃的身体动作，开心、自信等可选挥手、跳跃与奔跑，委屈、失落等只选相容的收拢或安静动作，一档有自己的方图池 `POSES.normal.square`（半身、全身，每条必须写“斜”）；二档突出身材线条，手和脚多带有强烈的暗示感动作（指尖沿锁骨、腰侧、大腿外侧滑动，手掌或腿脚伸向镜头），并聚焦脸、手、胸、腰、腿、脚等需要展示的部位，用“近大远小”描述强透视（姿势行禁用“强透视”“构图”等词），脚部聚焦的动作标 `barefoot`，动作不写脱衣和任何性行为；道具不在地点里的动作不会被选中。地点有可互动道具时，75% 概率先限定在互动动作里，再按 wild 偏好抽取；互动动作要写人物对道具做了什么（摘花、抱花、捧水泼水、踢水花、抽书、端杯碰杯、浇花、掀纱帘、推窗推门探身、攀树枝、抓栏杆转圈、对镜涂唇膏或戴耳环、抛枕头、撒草叶花瓣），不要只写站、坐、靠。新道具（鲜花、咖啡杯、吧台、书、喷壶、池水、海浪、水面、芦苇、向日葵、花瓣、枕头、首饰、荷花、红梅、雪、泉水、戏服、旧木门、画框）要先加到地点的 `props`，并且是该地点自然会有的东西。二档动作不写任何服装词，三档直接复用。站立/行走全身动作带 `站立`、`迈步` 等推断词，横构图动作带 `横向`、`侧躺`、`仰躺` 等推断词，赤脚动作标 `barefoot`。
+3.5 姿势行由“身体动作。神情。”两句组成：composer 用句号分开，`render_prompt_lines` 原样输出（只补句末标点）。四档从专用池抽取的姿势行也必须是同一结构：动作句不超过 6 个子句、神情句不超过 4 个子句、单子句不超过 40 字，神情句必须写到视线（镜头、看向、直视、望）和唇眉，由 `tests/test_nsfw_pose_pool.py` 检查。服装（`她穿着…。`）与神情文字必须原样到达最终提示词，旧的字符串改写层不得改动它们，由 `test_outfit_and_expression_text_reach_the_prompt_unchanged` 检查（同时限制子句数不超过 6、单个子句不超过 40 字）；动作里不得写手指触碰嘴唇、下颌、颈侧这类会被旧的“手靠近嘴”改写层替换成“左手停在胸前”的动作。
 4. 妆容：一档、二档都以自然妆为底（裸妆、素颜妆、透明唇膏、浅棕眼影、保留肤质）；二档的池包含全部自然妆，再多几条突出脸部轮廓和性感的妆（柔和修容、鼻梁颧骨唇峰高光、浅棕上扬眼线、裸色唇釉）。两档都不写烟熏、黑色粗眼线、猫眼、深色唇釉和狂野风格，所用模型识别这类妆会出现异常，妆容不写脸颊泛红、桃花妆、粉色气色、红润，眼下不用粉色晕染，只写眼影、眼线、睫毛、底妆、唇和修容。昼夜由名字里的关键词筛选：含“夜”的妆只在夜里用，含“晨光、日系、阳光”的只在白天用。
-4.5 神情（`EXPRESSIONS`，按档位与动作能量 calm/playful/dynamic）单独成池，一档侧重各种情绪的表达（思念、害羞、傲娇、惊喜、委屈、不服气、大笑、感动含泪、倔强、坚定等），二档分三种能量：calm 冷艳高贵（居高临下、冷淡审视）、playful 诱惑挑逗（勾人、吊着你的眼神）、dynamic 狂野（猎手般锋利、张扬、挑衅），不写失焦上翻、失控喘息、眼神涣散，只写视线、嘴唇和眉，不写舌头，不用“阿黑颜”这类词，全档位（含妆容、表情、灯光）不写脸颊或整张脸的泛红、红晕、潮红、红润、发红、染红，所用模型对此极敏感，会出现不自然的通红，需要时只写“眼神湿润”“唇部水光”，每条表情必须写到视线（镜头、看向、直视、望），不写明确的性行为，只写视线、嘴角和情绪，不写回头、转身等头部动作，避免与身体动作矛盾。姿势行 = 身体动作 + 神情。
-5. 服装（`OUTFITS`，按档位与镜头）用 `{main}`/`{support}`/`{accent}` 按母题配色填色，每条都含一处可见结构细节；全身服装的鞋单独存放，赤脚时省略。二档服装遵循本文件 Outfit 章节：不用皮革、乳胶和裸露感措辞，丝袜只配裙装或连体衣。三档不输出服装。
+4.5 一至三档统一从 `PERSONAS.<档位组>.states` 选择整体人物状态，再按状态与气质的 `pose_profiles` 交集筛选 `POSES` / `DUO.POSES`，不再按 calm/playful/dynamic 独立抽神情。每个状态提供完整的视线、眉眼、嘴部、情绪细节方案，一次选定整组，合成神情句；单双人仅替换明确的主语，不把不同情绪的部位随机拼接。神情不写转身回头等身体动作、不写舌头与脸部泛红。第四档完整姿势表情仍原样使用，不拆句、不补新神情。
+5. 服装（`OUTFITS`，按档位与镜头）用 `{main}`/`{support}`/`{accent}` 按母题配色填色，每条都含一处可见结构细节；一档全身服装的鞋单独存放，赤脚时省略；二档现代与古装全身衣着统一写裸足，允许丝袜止于脚踝的露足款，不写鞋。二档服装遵循本文件 Outfit 章节：只保留最小覆盖的比基尼、三点式内衣、情趣分体套装与细链绑带三点式，不用皮革、乳胶、连体款、束胸束腰款、裙装和裸露感措辞。三档不输出服装。
 6. 妆容取原妆容池：白天与黄昏排除夜妆，夜间排除晨光、日系、阳光妆。
 7. 二档、三档的母题各自绑定一个光型（`LIGHT_TYPES`：逆光轮廓、窗边侧光、斑驳光、正午硬光、柔光、彩色折射、低位暖灯、镜前灯、月光轮廓、水面波光）。光型按镜头提供“光落在身体上”的句子（只写本镜头可见的身体线条，如锁骨、腰线、腿线）和与该光配套的构图（光影交界、门框框景、镜中镜像、贴水面低机位、前景纱或枝叶遮挡），让光照、身体线条和构图指向同一个画面意图。一档不使用光型。
-8. 古装（一、二档）另有 4 个古装母题（荷塘晨雾、秋日亭阁金光、柳荫春日光斑、戏台红灯夜）、更多汉服（唐制、魏晋、汉制、明制）、民国和敦煌服装，以及带古风道具的动作（灯笼、团扇、琴案、窗框、屏风、船舷）；二档古装衣着以肚兜、抹胸、轻纱披帛、民国蕾丝内衣和敦煌舞姬装为锚点。二档服装以内衣和比基尼为锚点，没有普通衣装；每条带 `kind`：`lingerie` 内衣、`swim` 比基尼与泳装，以及从这两个锚点延伸的 `sport` 运动短文胸配骑行短裤、`leotard` 高叉紧身舞衣、`layered` 内衣外穿（男友衬衫只扣一两颗扣、敞开的外套、低腰牛仔短裤）、`costume` 兔女郎和女仆风内衣套装、`loungewear` 缎面睡衣背心配超短睡裤、`harness` 三角文胸配细金属身体链、`mesh` 网眼镂空紧身衣内衬同色文胸。二档不限地点：内衣类（蕾丝文胸套装、吊袜带、娃娃裙、薄纱睡袍、绑带内衣、束身胸衣、古装肚兜）不设地点限制；比基尼和泳衣标 `requires: water`，只在水边地点出现，水边地点有一半概率优先挑泳装。内衣类关键部位写明不透明衬里或完整杯面，保持非露骨。
-9. 各行用固定句式渲染：场景行 = 地点 + 母题光线 + 一句空气感（半身/全身可再加一句前景）；质量行 = 焦段 + 母题调色 + 配色 + 肤质 + `高光不过曝`；镜头行 = 机位 + 景别方向 + 构图位置。
-10. 渲染后用 `prompt_fluency.fluency_defects` 检查（含“姿势行必须同时写到视线和表情”），有缺陷就重抽（最多 8 次），不做字符串修补。
+8. 古装（一、二档）另有 4 个古装母题（荷塘晨雾、秋日亭阁金光、柳荫春日光斑、戏台红灯夜）、更多汉服（唐制、魏晋、汉制、明制）、民国和敦煌服装，以及带古风道具的动作（灯笼、团扇、琴案、窗框、屏风、船舷）；二档古装衣着只保留三点式小肚兜、民国盘扣蕾丝三点式内衣和敦煌舞姬风珠串三点式肚兜配细带低腰底裤，不使用抹胸、襦裙、短纱裙、短裙、短上衣或旗袍连体内衣。现代二档服装只保留最小覆盖的比基尼、三点式情趣内衣、分体式情趣制服与细链绑带三点式，每条带 `kind`：`lingerie` 三点式情趣内衣（可配吊袜带细带）、`swim` 小三角/微三角/系带比基尼、`costume` 分体式兔女郎/女仆三点式情趣内衣、`harness` 三点式三角文胸配细金属身体链或细绳绑带；不设 `requires: water` 地点限制，所有二档场景均可抽中比基尼与三点式。关键部位写明不透明衬里或小三角杯面，保持非露骨。
+9. 所有档位场景行统一为地点 + 主要光线，不叠加空气感、随机前景和额外身体光线。半身/全身使用母题 `compact_light`，头部使用 `near_light`，调色统一使用 `compact_grade`；删除旧 `light/grade/normal_light/normal_grade/atmosphere/foreground` 字段。质量行保留母题调色、配色、肤质与 `高光不过曝`；第一段包含焦段光圈、机位、景别方向、构图位置与气质主题。
+10. 渲染后用 `prompt_fluency.fluency_defects` 检查（含“姿势行必须同时写到视线和表情”），有缺陷就重抽（最多 8 次），不做字符串修补。一至四档同一套规则，四档不豁免。
 11. 非常规镜头与动态姿势（仅二档、三档）：`WILD_CAMERA` 按镜头存放整套镜头方案（焦段与畸变、机位、构图三者一起给出），每次有 50% 概率整套替换常规焦段、机位和光型构图，内容包括超广角桶形畸变、鱼眼、低机位仰拍、荷兰角、垂直俯拍、慢快门动态残影、前景遮挡取景；焦段文字不得含半身/全身/特写等范围词，并用 `aspects` 标明适用画幅。姿势中带 `wild: true` 的条目（跃起、旋转、后仰、深蹲、撑地前探、劈腿、倒挂、跨越画面等）在可选时有 55% 概率优先被选中。它们同样只写身体动作、不写服装，不越过非露骨边界。一档不使用这两项。强透视聚焦身体部位的方案（前景手掌、近处小腿和脚、肩线锁骨被放大，头部、半身、全身各有竖/方、横两套）也放在 `WILD_CAMERA` 里。构图句（`COMPOSITION`、光型 `compositions`、`WILD_CAMERA.composition`）不得隐含站、坐、躺、走、侧身、前倾等姿势，以免与抽到的姿势冲突，由测试检查。方图使用 `POSES.<档位>.square` 的斜向姿势。人物身体轴向必须与画幅一致：竖构图的姿势和镜头方案不写横躺、趴卧，横构图的半身和全身姿势必须是横向展开的动作，镜头方案按 `aspects` 分画幅，需要区分轴向的（俯拍、荷兰角）拆成竖、横两套，由 `tests/test_prompt_composer.py` 检查。Krea2 竖屏的正立保护会对荷兰角和倒挂类画面做“不旋转”约束，这类方案在 Krea2 竖屏下效果会被削弱。
 12. 色彩取向（一档尤其重要，二、三档同样适用）：用户偏好颜色鲜艳、对比度高的成片。母题调色一律写“饱和、鲜亮、对比清晰”一类正向措辞，不写“低饱和、低对比、粉彩、褪色、灰蓝、暗部温润”；配色三元组用一个饱和主色加一个互补或对比色，再配一个白、黑或金银的中性色，不用雾灰、燕麦、浅粉一类偏淡的色名。多数工作流 `cfg` 为 1，负面词基本不生效，所以只能靠正向文字控制。改动或新增母题时按此检查；二、三档的夜景、暖光母题保留氛围，但调色写“暗部深、高光亮、明暗反差强”，配色同样用饱和主色加对比色，不写“暗部柔和、柔雾”。相关配色、调色与空气感文字都在 `data/art_direction_pools.json` 的对应母题里。
 
-13. 双人（`cast="duo"`，手机端“人数”选“双人”，默认单人）：只支持一至三档，四档专用姿势池是单人写法，选四档时页面禁用双人，接口直接报错。母题、地点、光线、光型身体光句、配色、调色、妆容抽法与单人完全相同，只有以下几处换成 `DUO`：
+13. 双人（`cast="duo"`，手机端“人数”选“双人”，默认单人）：一至四档都支持。一至三档的母题、地点、光线、光型身体光句、配色、调色、妆容抽法与单人完全相同，只有以下几处换成 `DUO`；四档双人为“两个女生 + 男人”，除姿势表情取四档专用双人池外，其余维度与四档单人相同：
    - 人物句：两人共用固定容貌，写成“两个女生都是{固定容貌脸部}，{固定容貌身材}。左边的女生化着{妆容A}。右边的女生化着{妆容B}。”，固定容貌原文不改。妆容拉开差距：按妆容名分成清透自然组和轮廓清楚组（名含轮廓、骨相、高光妆、港风、清冷、清透水光、唇釉妆、蜜桃唇、私房、冷感），两人各取一组，左右随机，仍按昼夜筛选。
-   - 衣着：两人各一句“左边的女生穿着…。右边的女生穿着…。”，第二套的主色和辅色互换，尽量不抽到同一件；三档仍不写衣着；赤脚姿势两人都不写鞋。
-   - 姿势与神情：取 `DUO.POSES` 和 `DUO.EXPRESSIONS`（档位、画幅、镜头、能量的分表方式和单人一致）。动作写两人之间的互动，用“两人”“左边的女生/右边的女生”区分，不写“左手/右手”，也不做“一只手→左手”的改写。一档突出阳光活泼的互动（挥手、比耶、手拉手奔跑、贴脸、背靠背、比心）；二档突出身材线条和两人之间的暗示性触碰（指尖滑过锁骨、从身后环住腰、近大远小把手掌或腿伸向镜头），不写服装和任何性行为。画幅、镜头可见范围、子句长度和措辞规则与单人相同，神情每条写到视线和表情，同一句只出现一次“嘴角…笑”。
-   - 镜头：景别前加“两人”，构图句取 `DUO.COMPOSITION`（光型构图按单人写，双人不用），二档 50% 概率换成 `DUO.WILD_CAMERA` 的整套强透视方案。
+   - 衣着：两人各一句“左边的女生穿着…。右边的女生穿着…。”，第二套的主色和辅色互换，尽量不抽到同一件；三、四档仍不写衣着；二档全身两人都写裸足，可配露足丝袜；一档赤脚姿势两人都不写鞋。
+   - 姿势与神情：一至三档取 `DUO.POSES` 和档位组共用的 `PERSONAS` 状态方案（画幅、镜头、状态与气质的筛选方式和单人一致），四档取 `data/nsfw_pose_expression_options.json` 的 `duo` 池（两个女生 + 男人，两人之间同样写贴身互动）。动作写两人之间的紧密身体接触与缠绕互动（贴、靠、抱、环、搂、挽、缠绕、交叠、十指紧扣、依偎），禁止写两人各自摆姿势或分隔两侧（禁用“各自”“一左一右”“隔着”“两侧各”），用“两人”“左边的女生/右边的女生”区分，不写“左手/右手”，也不做“一只手→左手”的改写。一档保留拥抱、贴脸、十指紧扣、手臂与双腿交叠等互动，由人物状态决定活跃、安静或收拢的版本；二档突出全身或上身紧密贴合、肢体互相缠绕、从身后环抱抚触（指尖滑过锁骨与胸口、环住胸侧与细腰、双腿交缠勾住对方腰腿、近大远小把交缠的手或腿伸向镜头），不写服装和任何性行为。画幅、镜头可见范围、子句长度和措辞规则与单人相同，神情每条写到视线和表情，同一句只出现一次“嘴角…笑”。
+   - 镜头：景别前加“两人”，构图句取 `DUO.COMPOSITION`（强调两人紧密相贴或身体交叠，不把两人分隔在两侧；光型构图按单人写，双人不用），二档 50% 概率换成 `DUO.WILD_CAMERA` 的整套强透视方案。
    - 场景：地点和光线文字里的“她”改成“她们”。
-   - 负面词：追加第三人、多余人物、人群、身体粘连、肢体融合、多余手臂。
+   - 负面词：追加第三人、多余人物、人群、身体粘连、肢体融合、多余手臂。四档双人是“两个女生 + 男人”，男人是画面里合法的第三个人、两张脸也都该在，所以四档双人只追加人群、身体粘连、肢体融合，并从男性脸部负面词里剔除“第二张脸/两张脸”。
    由 `tests/test_prompt_duo.py` 检查。
 
 新增母题、地点、动作、神情或服装时直接编辑 `data/art_direction_pools.json`；母题引用不存在的地点或缺少本档配色会在加载时报错。
 
+一至三档的脸部动作与微表情由气质约束下的整体人物状态决定，完整方案协调视线、眉眼、嘴部与情绪细节。嘴部可随状态自然轻合、抿唇、微张或笑露牙。源方案直接输出，不在最终文本追加嘴部修补句；仅当正面描述实际要求露牙时，负面词移除压制露齿的词条。
+
 ## Prompt Data Source
+
+### 人物状态与气质
+
+- 一至四档共用选择、拼装和通顺检查流程，按档位读取选项池。三、四档均省略衣着；第四档的姿势表情作为完整文本原样接入，不参与新状态筛选，不追加神情。
+- 一档读取 `PERSONAS.normal`，二、三档读取 `PERSONAS.bold`；第四档的气质与摄影参数读取 bold 组，完整姿势表情仍来自专用池。气质和状态属于内部规划，不增加最终维度，也不新增页面选择项。
+- 每组有 20 种气质：儒雅知性、高贵端庄、冷艳疏离、成熟性感、诱惑神秘、危险冷艳、平易近人、强势干练、阳光活力、俏皮灵动、温柔亲和、清新自然、浪漫柔和、文艺沉静、英气飒爽、复古摩登、慵懒松弛、倔强独立、鲜明张力、忧郁沉静。气质短句并入第一段，约束候选人物状态、身体动作类型与常规机位。
+- 每组有 24 种状态：开心、平静、惊喜、意外、责备、委屈、落寞、失落、疲惫、释然、期待、好奇、害羞、自信、坚定、倔强、得意、担忧、困惑、专注、感动、怀念、警觉、落魄失意。每种状态有两套完整神情方案，字段为 `gaze/brows/mouth/detail`，依此组成最多四个子句；`{subject}` 按人数填为“她”或“两人”。落魄失意以收拢姿态、眼帘、唇角和倦意表现，不改变固定人物或衣着档位。
+- 姿势用 `persona_profiles` 标注稳健、松弛、活跃、收拢或专注的动作类型，与气质及状态三方求交集；道具、画幅、时代和镜头可见范围继续生效。遮住嘴部或大半张脸的选项标记 `expression_visible: false`，不与需要完整眉眼嘴部的状态方案组合。
+- 旧 `EXPRESSIONS`、`DUO.EXPRESSIONS` 和姿势 `energy` 字段已删除，不保留旧池兼容路径。非常规镜头概率、光型构图开关与肤质文本也由档位组数据提供，组合代码不再为一档单独拼装场景。
 
 ## Project-Default Fixed Character
 
-项目默认规则固定人物为“22岁瓷白冷白皮K-pop韩国美女”。每种镜头的 character 容貌文本都必须紧跟身份词包含“黑色渐变的手指甲”，不得因镜头范围清理删除。其他固定容貌包括瓷白肤质、细长瓜子脸、非常尖的下巴、高挺精致鼻梁、鼻尖尖翘、黑色直发和魅惑狐狸眼；身材描述按镜头可见范围追加。妆效由独立 makeup 维度生成。
+项目默认规则固定人物为“22岁瓷白冷白皮K-pop韩国美女”。头部与半身的 character 容貌文本紧跟身份词保留“黑色渐变的手指甲”，全身固定容貌不包含该描述。其他固定容貌包括瓷白肤质、细长瓜子脸、非常尖的下巴、高挺精致鼻梁、鼻尖尖翘、黑色直发和魅惑狐狸眼；身材描述按镜头可见范围追加。妆效由独立 makeup 维度生成。
 
 妆容池不得指定与固定人物“纯蓝色美瞳”相冲突的瞳孔或美瞳颜色；妆容只描述眼影、眼线、睫毛及瞳孔反光。
 
 固定美人痣描述为“眼角附近有一颗细小的美人痣”，所有镜头使用同一句，不再描述脸颊美人痣或多颗点缀。
 
-固定指甲句不受手部是否明确入镜影响，所有 character 容貌文本都必须保留“黑色渐变的手指甲”。身体其他描述仍按镜头可见范围裁剪，不可向较小镜头补写不可见部位。
+固定指甲句仅在头部与半身保留，不受手部是否明确入镜影响；全身直接使用数据池中不含“黑色渐变的手指甲”的固定容貌，不通过后处理删除或补回。此规则适用于一至四档及单人、双人。全身原有脚趾甲描述不变。身体其他描述仍按镜头可见范围裁剪，不可向较小镜头补写不可见部位。
 
 Prompt option text is edited directly in `data/art_direction_pools.json` (composer: directions, places, light types, poses, expressions, outfits), `data/prompt_pools.json` (fixed character, makeup, base negative prompt) or `data/nsfw_pose_expression_options.json` (NSFW poses). The old camera/outfit/pose/scene pools were deleted. `prompt_data.py` loads `data/prompt_pools.json` strictly at runtime (a missing or corrupt file raises at startup, there is no built-in fallback copy); edits take effect on the next ComfyUI restart without a build step.
 
@@ -80,7 +91,7 @@ For any prompt pool option addition, replacement, deletion, or rewrite, except t
 2. Restart the relevant ComfyUI service (Mac local 8188 for mobile/web entry) so the JSON reloads.
 3. Run the required prompt audits (`tools/audit_prompt_pools.py`, `tools/audit_generated_prompts.py`).
 
-Protected exception: 四档/`nsfw` 的 `POSE_EXPRESSION_OPTIONS` 姿势和表情维度只使用 `data/nsfw_pose_expression_options.json`。它不走 `data/prompt_pools.json` 加载链路，不读取主池的 `POSE_EXPRESSION_OPTIONS/nsfw`，也不读取 `landscape_pose_expression_options/nsfw`。运行时先加载 `data/prompt_pools.json`，再用 `data/nsfw_pose_expression_options.json` 覆盖 `POSE_EXPRESSION_OPTIONS["nsfw"]`；`pose_expression_options_by_aspect("nsfw", ...)` 必须直接从该 JSON 覆盖后的池读取。
+Protected exception: 四档/`nsfw` 的 `POSE_EXPRESSION_OPTIONS` 姿势和表情维度只使用 `data/nsfw_pose_expression_options.json`，单人与双人各一套（`nsfw` / `nsfw_duo`）。它不走 `data/prompt_pools.json` 加载链路，不读取主池的 `POSE_EXPRESSION_OPTIONS/nsfw`，也不读取 `landscape_pose_expression_options/nsfw`。运行时先加载 `data/prompt_pools.json`，再用 `data/nsfw_pose_expression_options.json` 覆盖 `POSE_EXPRESSION_OPTIONS["nsfw"]` 与 `POSE_EXPRESSION_OPTIONS["nsfw_duo"]`；`pose_expression_options_by_aspect("nsfw", shot, aspect, cast)` 必须直接从该 JSON 覆盖后的池读取。隔离的只有内容：结构与措辞规则（动作句 + 神情句、子句长度、视线与唇眉、镜头范围、场景中立、通顺重抽）与一至三档完全相同。
 
 ## Output Shape
 
@@ -104,7 +115,7 @@ Do not output labels such as `镜头:`, `角色:`, `妆容:`, `穿着:`, `姿势
 
 ### Fluency Invariants
 
-Final assembly (`prompt_engine.build_prompt`, checked by `prompt_fluency.fluency_defects`) enforces these line-level invariants for normal, bold, and bold_no_outfit; NSFW pose and quality lines are passed through unchanged.
+Final assembly (`prompt_engine.build_prompt`, checked by `prompt_fluency.fluency_defects`) enforces these line-level invariants for all four scales, 四档 included; only the 四档 pose content is isolated in its own pool, the rules are shared.
 
 - Lens phrase (rendered on the camera line, not the quality line): at most one, chosen from the actual shot scope with a per-item derived random source. Quality line: one color grade, one texture/grain/layering clause each, and a single trailing `高光不过曝`. Lens options carry only focal length, aperture, and blur; color tone belongs to the filter grade and light direction belongs to scene/light, so the quality line cannot contradict the scene (for example `冷调` beside `阳光高饱和调色`, or `伦勃朗式侧光` beside front light).
 - Pose line: describes body relative to ground, props, and camera gaze only. Frame-edge wording (`画面下缘`, `画面一侧`, `镜头前缘`), composition-only clauses (`构图`, `节奏`, `呼吸感`, `画面重点`), and negated anti-deformation wording (`不朝向镜头`, `不过度弯折`) are rewritten to positive body descriptions such as `前脚平稳踩在地面上` or dropped. Gaze and smile are stated once; later layers must not append a second `看向镜头` or `嘴角…笑`. The same hand is never assigned two different jobs.
@@ -173,7 +184,7 @@ Core identity anchors:
 - Narrow fox-shaped eyes.
 - Pure blue contacts (`纯蓝色美瞳`).
 - Straight black hair falling on both sides of the face (`黑色直发散落在脸部两侧`).
-- Black gradient long slender fingernails (`黑色渐变的手指甲`), always kept right after the identity phrase.
+- Black gradient fingernails (`黑色渐变的手指甲`), kept right after the identity phrase for head and half-body shots only; omitted from full-body fixed identity.
 - Faint beauty marks at the eye corner and cheek.
 
 Body description depends on framing (appended to the same identity text):
@@ -202,6 +213,10 @@ This lip-color and thin-lip rule must be enforced at runtime, not only in source
 
 ## Outfit
 
+一档现代全身衣着在款式和覆盖边界之外，补充与该款相符的面料纹理、接缝轮廓、褶皱、垂坠或装饰连接细节；仍保持 50 组，不以增加覆盖量来增加细节。一档单人、双人全身动作补充具体支撑点、重心、膝踝弯曲或手臂弧线，与原动作和道具匹配；姿势表情继续分成动作句与神情句，不在最终文本追加通用修补句。衣着含鞋履最多 6 个子句，动作句最多 6 个子句，单子句不超过 40 字。
+
+一档现代全身衣着池 `OUTFITS.normal.full_body` 共 50 组，单人与双人共用，以吊带、无袖、短袖、露腰短上衣配短裙短裤及短款连衣裙为主，减少厚重外套、长裙长裤和多层叠穿。当前 25 组采用深V领，明确不透肤衣身与自然事业线；50 组裙裤下摆均覆盖至大腿中段，使大腿和小腿可见。覆盖量仍明显高于二档，保持完整日常时装，不使用三点式内衣或比基尼。每组以服装组合、剪裁或材质结构区分，不仅换色；鞋履独立存放，赤脚姿势省略鞋履。头部、半身及古装衣着仍使用各自镜头池。
+
 Outfit is one complete paragraph option. For normal and bold the outfit comes from the composer's `OUTFITS` / `OUTFITS_ANCIENT` templates in `data/art_direction_pools.json`, filled with the art direction's palette; edit those templates directly. Each template names one visible structure detail, and the text is not rewritten afterwards.
 
 Format:
@@ -210,7 +225,9 @@ Format:
 
 Normal and Bold outfit options describe actual clothing. Bold_no_outfit and NSFW mode do not load or output the outfit dimension at all.
 
-Bold (二档) outfits must cover only the key areas (user rule 2026-09-30): allowed are bikinis, bras/bralettes with tie-side or low-rise briefs, garter straps, corsets with high-cut briefs, strappy or chain harness-style lingerie, plunging bodysuits or one-pieces whose V neckline opens to the navel, cutout and high-cut variants, and bunny/maid-style costume lingerie. Not allowed (enforced by `test_bold_outfits_only_cover_key_areas_without_outer_layers_or_leg_coverage`): outer layers (robes, shirts, jackets, cover-ups, capes, aprons), denim/cycling/sleep shorts, camisole or babydoll dresses, sport tops, mesh tops, stockings or tights, and any full-length skirt or sleeve; ancient bold outfits use only 肚兜, 抹胸, 舞姬装 and low-waist short skirts. This is still not NSFW: opaque cups or lining stay, no nudity or see-through wording. Every modern bold option is either lingerie-style (any place, including public ones) or swimwear (`requires: water`; triangle, halter, crochet and strappy bikinis and cutout one-pieces). Key areas stay covered by opaque cups or lining, and the wording names the garment rather than bare skin. Clothing may be revealing, tight, glossy, cutout, or high-slit, but avoid wording that implies almost no clothing, such as 裸露, 极少覆盖, 最低覆盖, 只剩小布片, 布料面积压到最低, 覆盖面积极少, or similar bare-exposure language. Do not use latex, latex-like clothing, glossy leather, leather-like clothing, leather skirts, or leather/PVC styling. Prefer saturated but tasteful non-leather materials and details: jewel-blue or magenta satin, deep-wine silk, bright lace edges, boning seams, cross straps, halter cuts, pearl/silver trim, gold metal buckles, bright chain details, cutout structures. Accessories stay sparse and purposeful: usually one or two focus pieces such as a choker, waist chain, belly chain, arm cuff, thigh band, ankle chain, delicate metallic charm, or rhinestone detail. Clothing color and material should contrast with cold fair skin so the skin stays very white without making the prompt feel nude.
+二档及以上衣着不得出现鞋、靴或其他穿鞋设定；二档现代与古装全身衣着（单人、双人）必须明确写裸足，与姿势是否标记 `barefoot` 无关。允许丝袜，包括长筒丝袜和吊袜款，但选露足款、袜身止于脚踝，使脚部保持裸足。头部、半身遵守镜头范围，不补脚部或腿部丝袜描述。三、四档继续省略衣着段，不因本规则新增丝袜或衣着。
+
+Bold (二档) outfits must cover only the key areas in minimal three-point / bikini / erotic two-piece styling: allowed are small-triangle, micro-triangle, tie-side, halter, crochet, and metal-ring bikinis (`swim`), three-point lace/satin/half-cup/strappy lingerie with tie-side or G-string low-rise briefs and optional garter straps (`lingerie`), strappy or chain harness-style three-point sets (`harness`), and two-piece bunny/maid three-point erotic lingerie sets (`costume`), with no `requires: water` location restriction. Not allowed (enforced by `test_bold_outfits_only_cover_key_areas_without_outer_layers`): outer layers (robes, shirts, jackets, cover-ups, capes, aprons), one-pieces/bodysuits/leotards (`连体`/`舞衣`), corsets/bustiers/bandeaus/waist cinchers (`束身`/`胸衣`/`抹胸`/`腰封`), denim/cycling/sleep shorts, camisole or babydoll dresses, sport tops, mesh tops, and any skirt or sleeve; ancient bold outfits use only minimal 肚兜, 民国盘扣三点式内衣, and 敦煌舞姬风珠串三点式肚兜 with low-rise tie-side briefs (no 抹胸, 襦裙, 短纱裙, 短裙, 短上衣, or 旗袍连体). This is still not NSFW: opaque cups or lining stay, no nudity or see-through wording. Key areas stay covered by opaque cups or lining, and the wording names the garment rather than bare skin. Clothing may be revealing, tight, glossy, cutout, or high-cut, but avoid wording that implies almost no clothing, such as 裸露, 极少覆盖, 最低覆盖, 只剩小布片, 布料面积压到最低, 覆盖面积极少, or similar bare-exposure language. Do not use latex, latex-like clothing, glossy leather, leather-like clothing, leather skirts, or leather/PVC styling. Prefer saturated but tasteful non-leather materials and details: jewel-blue or magenta satin, deep-wine silk, bright lace edges, cross straps, halter cuts, pearl/silver trim, gold metal buckles, bright chain details. Accessories stay sparse and purposeful: usually one or two focus pieces such as a choker, waist chain, belly chain, arm cuff, thigh band, ankle chain, delicate metallic charm, or rhinestone detail. Clothing color and material should contrast with cold fair skin so the skin stays very white without making the prompt feel nude.
 
 Skin whiteness should be supported primarily through clothing and environment contrast, not by globally bright lighting. Prefer dark or saturated outfit colors such as deep wine, jewel blue, black-gold, silver-gray, glossy black, magenta satin, and pearl/silver trim to set off fair skin. Avoid repeatedly asking lights to make the whole body bright, glowing, or evenly white.
 
@@ -222,7 +239,7 @@ Outfit must obey camera scope:
 - Upper body: describe only neckline, shoulder-edge hint, choker/neck accessory, chest styling, or upper-waist edge styling that allows the complete chest to enter frame.
 - Half body: describe clothing and accessories visible from the head down to the waist, including upper garment, waist-edge styling, and visible hand placement.
 - Large half body: describe clothing and accessories visible from the head down to the calves, including upper garment, waist/hip/thigh/knee/calf-edge styling.
-- Full body: describe complete clothing and footwear.
+- Full body: describe complete clothing; normal may include footwear, while bold explicitly uses bare feet and may pair them with footless stockings.
 
 Outfit must not describe expression, pose, scene, or lighting.
 
@@ -306,7 +323,7 @@ Color should be bright, warm, saturated, and coordinated, not randomly multicolo
 
 If a requirement mentions "rainbow-like" color, treat it as a request for richer coordinated colors rather than literal rainbows. Use high-saturation positive sunny color design: bright clothing, colorful accessories, saturated scene blocks, warm daylight, and small local color reflections. Do not prompt visible rainbow arcs, rainbow projections, or rainbow reflections unless the user explicitly asks for an actual rainbow.
 
-Fingernails are part of the fixed identity (`黑色渐变的手指甲`) and are never recolored by other dimensions. Other color accents belong to outfit, accessories, and scene.
+For head and half-body shots, fingernails are part of the fixed identity (`黑色渐变的手指甲`) and are never recolored by other dimensions. Full-body fixed identity omits this fingernail description. Other color accents belong to outfit, accessories, and scene.
 
 Filter-grade wording must match the selected color and scene logic. Sunny beach, pool, terrace, and water-light scenes should use sunny clear high-saturation grading, clean highlights, and natural bright shadows. Sweet colorful street or garden scenes may use light-film grading, vivid color blocks, and fine subtle grain. Glass, window, prism, and reflective scenes may use bright contrast grading and clean reflective highlights. Vacation, tropical, deck, and warm outdoor scenes may use warm vivid grading with saturated background colors and natural translucent skin. Do not pair dark low-key film grading with a bright sunny multicolor scene unless the user explicitly asks for contrast.
 
@@ -353,6 +370,18 @@ NSFW:
 ## Negative Prompt Generation
 
 Negative prompt output starts from the JSON-maintained `NEGATIVE_PROMPT`, then runtime appends dynamic rule-based terms. The dynamic layer should add base quality/anatomy suppression, lip and makeup risk suppression, black/white side padding and border suppression, portrait/landscape composition mismatch suppression, shot-scope leakage suppression, full-body missing-head/missing-feet suppression, flat-expression suppression when the positive prompt asks for smiles, dark-scene suppression when the positive prompt asks for sunny scenes, and normal-scale nudity suppression. This negative prompt is used where the workflow has an active negative text encoder, including `ZITB双采`. Krea2 single and double templates instead use `ConditioningZeroOut`; their generated negative text is not submitted to a negative encoder.
+
+### Negative Text Must Not Contradict The Positive
+
+`ZITB双采` runs ZIB as the 1ST sampler at `cfg=4` (ZIT is the 2ND sampler at `cfg=1` behind `ConditioningZeroOut`), so this negative text is the only negative text that actually steers a sample. Anything the positive prompt explicitly asks for must therefore be removed from the negative text before submission:
+
+- 露齿/牙齿/笑出声/大笑 in the positive → drop `大笑露齿` (EN: `wide grin`, `big grin`, `toothy smile`, `open mouth smile`, `teeth showing`).
+- 柔光/散射/柔和的光/柔和而均匀/均匀地包住 in the positive → drop `平光` (EN: `flat lighting`).
+- head_shot and half_body → drop `缺脚` (EN: `missing feet`); the feet are not in frame, and keeping it contradicts the same list's `脚部/鞋子` terms. full_body keeps it.
+- duo (`cast="duo"`) → never emit `身体粘连` / `肢体融合` (EN: `fused bodies`, `merged limbs`); duo poses are required to describe two people in close contact, so those terms would push the pose back apart. Deformation is still guarded by `多余手臂`, `重复肢体` and `解剖错误`.
+- nsfw duo → never emit `第三个人` / `多余人物` / `多余手臂` (the man is a legitimate third person); nsfw solo keeps `第二张脸` / `两张脸` because only one woman's face belongs in frame.
+
+`tests/test_negative_prompt_coherence.py` checks all of the above against generated prompts, for both the Chinese and English negative builders.
 
 ## Option Completeness
 

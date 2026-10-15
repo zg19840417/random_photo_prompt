@@ -1,7 +1,8 @@
 """最终提示词逐行通顺度检查。
 
 输入是按维度渲染好的最终行（见 prompt_engine.render_prompt_lines），输出缺陷列表。
-审查工具用它做统计回归，生成流程用它做“不合格重抽”。四档（nsfw）的姿势与质量行不在检查范围。
+审查工具用它做统计回归，生成流程用它做“不合格重抽”。
+一至四档走同一套规则：四档只有姿势内容单独隔离在 nsfw_pose_expression_options.json，规则不豁免。
 """
 from __future__ import annotations
 
@@ -77,9 +78,10 @@ def _repeated_scene_clauses(scene: str) -> list[str]:
 
 
 def fluency_defects(lines: dict[str, str], scale: str, shot: str) -> list[FluencyDefect]:
-    """lines: {camera, character, outfit, pose, scene, quality} -> 缺陷列表。"""
-    if scale == "nsfw":
-        return []
+    """lines: {camera, character, outfit, pose, scene, quality} -> 缺陷列表。
+
+    scale 只用于区分档位语义，四档与一至三档检查同一组规则。
+    """
     defects: list[FluencyDefect] = []
     for rule, line_name, pattern in _PATTERN_RULES:
         targets = lines.items() if line_name == "*" else ((line_name, lines.get(line_name, "")),)

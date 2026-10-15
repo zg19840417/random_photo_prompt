@@ -28,21 +28,23 @@ class DuoPromptTests(unittest.TestCase):
         width, height = _SIZES[aspect]
         return generate_prompt_items(1, {"scale": scale, "shot": shot, "aspect": aspect, "width": width, "height": height, "era": era, "cast": "duo"}, seed)[0]
 
-    def test_duo_pools_cover_every_table_and_energy(self):
+    def test_duo_pools_cover_every_table_and_persona_state(self):
         for group in ("normal", "bold"):
             for aspect, shots in (("portrait", ("head_shot", "half_body", "full_body")), ("landscape", ("head_shot", "half_body", "full_body")), ("square", ("half_body", "full_body"))):
                 for shot in shots:
                     with self.subTest(group=group, aspect=aspect, shot=shot):
                         self.assertTrue(DUO["POSES"][group][aspect][shot])
-            for energy in ("calm", "playful", "dynamic"):
-                self.assertTrue(DUO["EXPRESSIONS"][group][energy])
+            self.assertTrue(POOLS["PERSONAS"][group]["states"])
+            self.assertNotIn("EXPRESSIONS", DUO)
 
     def test_duo_poses_follow_frame_scope_and_wording_rules(self):
+        contact = re.compile(r"贴|靠|抱|环|搂|挽|牵|拉|勾|缠|交叠|交错|相抵|搭在|搁在|枕|托|抚|滑|划|按|抵|覆|埋|背住|扑|怀|依偎|紧扣|挨")
         for group, aspect, shot, pose in _duo_poses():
             body = pose["body"]
             with self.subTest(body=body):
                 self.assertIn("两人" if "两人" in body else "女生", body)
-                self.assertNotRegex(body, r"左手|右手|画面下缘|稳定落点|构图|节奏|呼吸感|强透视|避免|不过度")
+                self.assertNotRegex(body, r"左手|右手|画面下缘|稳定落点|构图|节奏|呼吸感|强透视|避免|不过度|各自|一左一右|隔着|两侧各")
+                self.assertRegex(body, contact)
                 if aspect == "portrait":
                     self.assertNotRegex(body, r"横向|躺|趴|侧卧|俯卧")
                 elif aspect == "landscape":
@@ -57,9 +59,10 @@ class DuoPromptTests(unittest.TestCase):
                     self.assertLessEqual(len(clause), 40)
 
     def test_duo_expressions_name_gaze_and_expression(self):
-        for group in DUO["EXPRESSIONS"].values():
-            for options in group.values():
-                for text in options:
+        for group in ("normal", "bold"):
+            for state in POOLS["PERSONAS"][group]["states"].values():
+                for frame in state["expressions"]:
+                    text = "，".join(frame.values()).format(subject="两人")
                     with self.subTest(text=text):
                         self.assertRegex(text, "镜头|看向|直视|望")
                         self.assertRegex(text, "笑|唇|嘴|神情|眉")
@@ -106,9 +109,17 @@ class DuoPromptTests(unittest.TestCase):
         self.assertNotIn("两个女生", item["positive_prompt"])
         self.assertNotIn("third person", item["negative_prompt"])
 
-    def test_nsfw_rejects_duo(self):
-        with self.assertRaisesRegex(ValueError, "四档暂不支持双人"):
-            generate_prompt_items(1, {"scale": "nsfw", "shot": "half_body", "cast": "duo"}, "duo-nsfw")
+    def test_nsfw_supports_duo_with_the_two_women_plus_man_pool(self):
+        # 四档双人＝两个女生 + 男人，姿势表情取四档专用双人池，规则与单人相同。
+        item = generate_prompt_items(1, {"scale": "nsfw", "shot": "half_body", "cast": "duo"}, "duo-nsfw")[0]
+        parts = item["dimension_parts"]
+        lines = render_prompt_lines({**parts, "shot_key": "half_body", "scale": "nsfw", "aspect": item["aspect"]})
+        self.assertEqual(item["cast"], "duo")
+        self.assertTrue(lines["character"].startswith("两个女生都是"))
+        self.assertEqual(fluency_defects(lines, "nsfw", "half_body"), [])
+        self.assertIn("女生", parts["pose_expression"])
+        self.assertIn("man's face", item["negative_prompt"].lower())
+        self.assertNotIn("third person", item["negative_prompt"].lower())
 
 
 if __name__ == "__main__":

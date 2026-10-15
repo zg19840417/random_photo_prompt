@@ -1,6 +1,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -9,6 +10,23 @@ from prompt_engine import build_prompt, render_prompt_lines
 
 
 class PromptOutputOrderTests(unittest.TestCase):
+    def test_fingernail_identity_is_scoped_for_all_scales_and_casts(self):
+        from prompt_engine import generate_prompt_items
+
+        text = "她微微侧过脸。她看向镜头，唇角微微扬起。"
+        with patch("prompt_composer.pose_expression_options_by_aspect", return_value=[text]):
+            for scale in ("normal", "bold", "bold_no_outfit", "nsfw"):
+                for cast in ("solo", "duo"):
+                    for era in ("modern", "ancient"):
+                        for shot in ("head_shot", "half_body", "full_body"):
+                            for aspect in ("portrait", "landscape", "square"):
+                                with self.subTest(scale=scale, cast=cast, era=era, shot=shot, aspect=aspect):
+                                    item = generate_prompt_items(1, dict(scale=scale, cast=cast, era=era, shot=shot, aspect=aspect), "nail-scope")[0]
+                                    line = render_prompt_lines(item["dimension_parts"])["character"]
+                                    self.assertEqual("黑色渐变的手指甲" in line, shot != "full_body")
+                                    if shot == "full_body":
+                                        self.assertIn("脚趾甲短而圆润，涂着自然的裸粉色", line)
+
     PARTS = {
         "scale": "normal",
         "shot_key": "half_body",
@@ -57,8 +75,12 @@ class PromptOutputOrderTests(unittest.TestCase):
             with self.subTest(shot=shot):
                 parts = compose_parts("normal", shot, "portrait", random.Random(f"identity-{shot}"), render_prompt_lines)
                 line = render_prompt_lines({**parts, "shot_key": shot, "scale": "normal", "aspect": "portrait"})["character"]
-                self.assertTrue(line.startswith("22岁瓷白冷白皮K-pop韩国美女，黑色渐变的手指甲"))
-                self.assertIn("黑色渐变的手指甲，瓷器般细腻冷白皮肤", line)
+                if shot == "full_body":
+                    self.assertTrue(line.startswith("22岁瓷白冷白皮K-pop韩国美女，瓷器般细腻冷白皮肤"))
+                    self.assertNotIn("黑色渐变的手指甲", line)
+                else:
+                    self.assertTrue(line.startswith("22岁瓷白冷白皮K-pop韩国美女，黑色渐变的手指甲"))
+                    self.assertIn("黑色渐变的手指甲，瓷器般细腻冷白皮肤", line)
                 self.assertLess(line.index("眼角附近有一颗细小的美人痣"), line.index("化着"))
                 if shot == "head_shot":
                     self.assertEqual(parts["body"], "")

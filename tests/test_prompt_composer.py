@@ -3,11 +3,12 @@ import re
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from prompt_composer import COMPOSER_SCALES, POOLS, _name_hands, compose_parts
+from prompt_composer import COMPOSER_SCALES, POOLS, _name_hands, _scene_line, compose_parts
 from prompt_engine import generate_prompt_items, render_prompt_lines
 from prompt_fluency import fluency_defects
 
@@ -15,6 +16,58 @@ _STRUCTURE_MARKERS = ("压线", "接缝", "收省", "折边", "滚边", "袖窿"
 
 
 class PromptComposerTests(unittest.TestCase):
+    def test_shared_scene_keeps_place_and_light_without_stacking_extra_layers(self):
+        direction = {
+            "near_light": "侧窗光照亮脸部",
+            "compact_light": "清晨阳光穿过薄雾，发丝边缘透亮",
+            "light": "详细的全身逆光和明暗描述",
+            "atmosphere": ["远处景物融进一层金色薄雾"],
+            "foreground": ["前景掠过一片虚化的光斑"],
+        }
+        place = {
+            "near": "她身后是虚化的绿树与窗边白纱帘",
+            "half": "她在窗边，身后是白纱帘与绿树",
+            "full": "她站在公寓窗边，身后是绿树与白纱帘，脚下是木地板",
+        }
+        for shot, key in (("head_shot", "near"), ("half_body", "half"), ("full_body", "full")):
+            for cast in ("solo", "duo"):
+                for seed in range(8):
+                    scene = _scene_line("normal", shot, direction, place, random.Random(seed), cast)
+                    self.assertIn(place[key].replace("她", "她们") if cast == "duo" else place[key], scene)
+                    self.assertIn(direction["near_light" if shot == "head_shot" else "compact_light"], scene)
+                    self.assertNotIn(direction["light"], scene)
+                    self.assertNotIn(direction["atmosphere"][0], scene)
+                    self.assertNotIn(direction["foreground"][0], scene)
+        bold_scene = _scene_line("bold", "full_body", direction, place, random.Random(0))
+        self.assertIn(direction["compact_light"], bold_scene)
+        self.assertNotIn(direction["atmosphere"][0], bold_scene)
+
+    def test_bold_expressions_follow_the_selected_state(self):
+        states = POOLS["PERSONAS"]["bold"]["states"]
+        self.assertTrue(any("轻合" in frame["mouth"] for frame in states["calm"]["expressions"]))
+        self.assertTrue(any("抿" in frame["mouth"] for frame in states["hurt"]["expressions"]))
+        self.assertTrue(any("门牙" in frame["mouth"] for frame in states["happy"]["expressions"]))
+        self.assertGreater(len({frame["mouth"] for state in states.values() for frame in state["expressions"]}), 24)
+        for cast in ("solo", "duo"):
+            for state_id, state in states.items():
+                for frame in state["expressions"]:
+                    expression = "，".join(frame.values()).format(subject="两人" if cast == "duo" else "她")
+                    with self.subTest(cast=cast, state=state_id, expression=expression):
+                        self.assertIn(frame["mouth"].format(subject="两人" if cast == "duo" else "她"), expression)
+                        self.assertLessEqual(len(expression.split("，")), 4)
+        for scale in ("bold", "bold_no_outfit"):
+            for cast in ("solo", "duo"):
+                for era in ("modern", "ancient"):
+                    for shot in ("head_shot", "half_body", "full_body"):
+                        for aspect in ("portrait", "landscape", "square"):
+                            parts = compose_parts(scale, shot, aspect, random.Random(f"mouth-{scale}-{cast}-{era}-{shot}-{aspect}"), render_prompt_lines, era=era, cast=cast)
+                            state = states[parts["character_state"]]
+                            expressions = [
+                                "，".join(frame[key] for key in ("gaze", "brows", "mouth", "detail")).format(subject="两人" if cast == "duo" else "她")
+                                for frame in state["expressions"]
+                            ]
+                            self.assertTrue(any(expression in parts["pose_expression"] for expression in expressions))
+
     def test_every_outfit_names_a_visible_structure_detail(self):
         options = [
             (shot, option)
@@ -39,12 +92,12 @@ class PromptComposerTests(unittest.TestCase):
                 for value in node:
                     yield from strings(value)
 
-        for key in ("ART_DIRECTIONS", "PLACES", "EXPRESSIONS", "POSES", "OUTFITS", "OUTFITS_ANCIENT", "COMPOSITION", "LENSES", "WILD_CAMERA", "LIGHT_TYPES"):
+        for key in ("ART_DIRECTIONS", "PLACES", "PERSONAS", "POSES", "OUTFITS", "OUTFITS_ANCIENT", "COMPOSITION", "LENSES", "WILD_CAMERA", "LIGHT_TYPES"):
             for text in strings(POOLS[key]):
                 with self.subTest(key=key, text=text):
                     self.assertNotIn("或", text)
         tail = "肤质细腻并保留真实纹理，高光不过曝"
-        grades = [direction["grade"] for direction in POOLS["ART_DIRECTIONS"]]
+        grades = [direction["compact_grade"] for direction in POOLS["ART_DIRECTIONS"]]
         lenses = [lens for options in POOLS["LENSES"].values() for lens in options] + [b["lens"] for options in POOLS["WILD_CAMERA"].values() for b in options]
         for lens in lenses:
             for grade in grades:
@@ -76,11 +129,12 @@ class PromptComposerTests(unittest.TestCase):
                             self.assertLess(len(text.split("，")), 7)
                             for clause in re.split("[，。]", text):
                                 self.assertLessEqual(len(clause), 40)
-        for group, table in POOLS["EXPRESSIONS"].items():
-            for energy, options in table.items():
-                for expression in options:
+        for group in ("normal", "bold"):
+            for state_id, state in POOLS["PERSONAS"][group]["states"].items():
+                for frame in state["expressions"]:
+                    expression = "，".join(frame.values()).format(subject="她")
                     line = render_prompt_lines({"pose_expression": f"她站着。{expression}", "shot_key": "half_body", "scale": "bold" if group == "bold" else "normal", "aspect": "portrait"})["pose"]
-                    with self.subTest(group=group, energy=energy, expression=expression):
+                    with self.subTest(group=group, state=state_id, expression=expression):
                         self.assertEqual(line, f"她站着。{expression}。")
                         self.assertRegex(expression, "镜头|看向|直视|望")
                         self.assertRegex(expression, "笑|唇|嘴|神情|眉")
@@ -88,7 +142,7 @@ class PromptComposerTests(unittest.TestCase):
                             self.assertLessEqual(len(clause), 40)
 
     def test_composer_prompts_have_no_fluency_defects(self):
-        for scale in COMPOSER_SCALES:
+        for scale in ("normal", "bold", "bold_no_outfit"):
             for shot in ("head_shot", "half_body", "full_body"):
                 for index in range(10):
                     item = generate_prompt_items(1, {"scale": scale, "shot": shot, "era": "modern"}, f"composer-{scale}-{shot}-{index}")[0]
@@ -116,30 +170,57 @@ class PromptComposerTests(unittest.TestCase):
                     self.assertEqual(bare["outfit"], "")
         self.assertTrue(any(not POOLS["PLACES"][name].get("private") for name in bold_places))
 
-    def test_bold_outfits_are_lingerie_or_swimwear_and_swimwear_stays_at_water(self):
-        # 二档衣着锚点：内衣和比基尼；只允许遮住关键部位的款式及变种（深V连体衣、链条内衣、情趣制服等），
-        # 不再有运动、居家、网眼、外套外披等大面积覆盖的衣装。
+    def test_bold_outfits_are_minimal_three_point_bikini_or_erotic_without_place_restriction(self):
+        # 二档衣着只保留比基尼、三点式内衣、情趣分体制服与细链绑带三点式，不限地点。
         for shot, options in POOLS["OUTFITS"]["bold"].items():
             for option in options:
                 with self.subTest(shot=shot, text=option["text"]):
-                    self.assertIn(option["kind"], ("lingerie", "swim", "leotard", "costume", "harness"))
-                    self.assertEqual(option["kind"] == "swim", option.get("requires") == "water")
-                    if re.search("比基尼|泳衣", option["text"]):
-                        self.assertEqual(option.get("requires"), "water")
+                    self.assertIn(option["kind"], ("lingerie", "swim", "costume", "harness"))
+                    self.assertNotIn("requires", option)
+        non_water_bikini = False
         for shot in ("head_shot", "half_body", "full_body"):
             for index in range(40):
                 parts = compose_parts("bold", shot, "portrait", random.Random(f"anchor-{shot}-{index}"), render_prompt_lines)
-                with self.subTest(shot=shot, index=index):
-                    if re.search("比基尼|泳衣", parts["outfit"]):
-                        self.assertTrue(POOLS["PLACES"][parts["art_place"]].get("water"))
+                if "比基尼" in parts["outfit"] and not POOLS["PLACES"][parts["art_place"]].get("water"):
+                    non_water_bikini = True
+        self.assertTrue(non_water_bikini)
 
-    def test_bold_outfits_only_cover_key_areas_without_outer_layers_or_leg_coverage(self):
-        covering = re.compile("外披|外搭|外罩|睡袍|衬衫|外套|罩衫|牛仔|短裤|围裙|娃娃裙|睡裙|长筒袜|连裤袜|丝袜|网眼|披风|大袖衫|披帛")
+    def test_bold_outfits_only_cover_key_areas_without_outer_layers(self):
+        covering = re.compile(
+            "外披|外搭|外罩|睡袍|衬衫|外套|罩衫|牛仔|短裤|围裙|娃娃裙|睡裙|网眼|披风|大袖衫|披帛|"
+            "连体|舞衣|束身|胸衣|抹胸|腰封|襦裙|纱裙|短裙|裙|旗袍|短上衣|皮质|皮革|乳胶"
+        )
         for key in ("OUTFITS", "OUTFITS_ANCIENT"):
             for shot, options in POOLS[key]["bold"].items():
                 for option in options:
                     with self.subTest(key=key, shot=shot, text=option["text"]):
                         self.assertIsNone(covering.search(option["text"]))
+
+    def test_bold_full_body_outfits_are_barefoot_and_allow_stockings(self):
+        stockings = []
+        for key in ("OUTFITS", "OUTFITS_ANCIENT"):
+            for shot, options in POOLS[key]["bold"].items():
+                for option in options:
+                    with self.subTest(key=key, shot=shot, text=option["text"]):
+                        self.assertNotIn("shoes", option)
+                        self.assertNotRegex(option["text"], "鞋|靴")
+                        if shot == "full_body":
+                            self.assertIn("裸足", option["text"])
+                        else:
+                            self.assertNotRegex(option["text"], "裸足|丝袜")
+                        if "丝袜" in option["text"]:
+                            stockings.append(option)
+                            self.assertIn("丝袜止于脚踝", option["text"])
+        self.assertTrue(stockings)
+        for era in ("modern", "ancient"):
+            for cast in ("solo", "duo"):
+                for aspect in ("portrait", "landscape", "square"):
+                    for index in range(8):
+                        parts = compose_parts("bold", "full_body", aspect, random.Random(f"barefoot-{era}-{cast}-{aspect}-{index}"), render_prompt_lines, era, cast)
+                        outfit = render_prompt_lines({**parts, "shot_key": "full_body", "scale": "bold", "aspect": aspect})["outfit"]
+                        with self.subTest(era=era, cast=cast, aspect=aspect, index=index):
+                            self.assertEqual(outfit.count("裸足"), 2 if cast == "duo" else 1)
+                            self.assertNotRegex(outfit, "鞋|靴")
 
     def test_pose_props_exist_in_place_and_barefoot_skips_shoes(self):
         poses = {
@@ -166,7 +247,7 @@ class PromptComposerTests(unittest.TestCase):
         self.assertTrue(quality.endswith("高光不过曝。"))
 
     def test_ancient_outfit_style_matches_place_and_keeps_bare_feet(self):
-        for scale in COMPOSER_SCALES:
+        for scale in ("normal", "bold", "bold_no_outfit"):
             for index in range(20):
                 parts = compose_parts(scale, "full_body", "portrait", random.Random(f"ancient-{scale}-{index}"), render_prompt_lines, "ancient")
                 place = POOLS["PLACES"][parts["art_place"]]
@@ -196,7 +277,7 @@ class PromptComposerTests(unittest.TestCase):
             for pose in options:
                 with self.subTest(pose=pose["body"]):
                     self.assertRegex(pose["body"], "斜")
-        for scale in COMPOSER_SCALES:
+        for scale in ("normal", "bold", "bold_no_outfit"):
             for shot in ("head_shot", "half_body", "full_body"):
                 for index in range(15):
                     parts = compose_parts(scale, shot, "square", random.Random(f"sq-{scale}-{shot}-{index}"), render_prompt_lines)
@@ -269,16 +350,20 @@ class PromptComposerTests(unittest.TestCase):
         normal = compose_parts("normal", "full_body", "portrait", random.Random("wild-normal"), render_prompt_lines)
         self.assertEqual(normal["art_wild_camera"], "")
 
-    def test_nsfw_matches_bold_no_outfit_except_pose(self):
+    def test_fourth_tier_engine_uses_the_same_composer_directly(self):
         for era in ("modern", "ancient"):
             for shot in ("head_shot", "half_body", "full_body"):
                 selections = {"shot": shot, "era": era, "aspect": "portrait"}
-                nsfw = generate_prompt_items(1, {**selections, "scale": "nsfw"}, f"nsfw-{era}-{shot}")[0]["dimension_parts"]
-                bold = generate_prompt_items(1, {**selections, "scale": "bold_no_outfit"}, f"nsfw-{era}-{shot}")[0]["dimension_parts"]
+                seed = f"pipeline-{era}-{shot}"
+                text = "她微微侧过脸。她看向镜头，唇角微微扬起。"
+                with patch("prompt_composer.pose_expression_options_by_aspect", return_value=[text]):
+                    item = generate_prompt_items(1, {**selections, "scale": "nsfw"}, seed)[0]
+                    parts = compose_parts("nsfw", shot, "portrait", random.Random(seed), render_prompt_lines, era)
                 with self.subTest(era=era, shot=shot):
-                    for name in ("art_direction", "art_place", "scene_light", "camera_line", "quality", "character", "makeup"):
-                        self.assertEqual(nsfw[name], bold[name])
-                    self.assertEqual(nsfw["outfit"], "")
+                    self.assertEqual(item["dimension_parts"], parts)
+                    self.assertEqual(parts["pose_expression"], text)
+                    self.assertEqual(parts["outfit"], "")
+                    self.assertTrue(POOLS["PLACES"][parts["art_place"]]["private"])
 
 
 if __name__ == "__main__":

@@ -8,19 +8,37 @@
 
 ## 概览
 
-- 样本总数：36
+- 样本总数：480
 - Error：0
 - Warning：0
 - Info：0
 
 ## 样本覆盖
 
-- `nsfw` / `full_body` / `landscape`：6
-- `nsfw` / `full_body` / `portrait`：6
-- `nsfw` / `half_body` / `landscape`：6
-- `nsfw` / `half_body` / `portrait`：6
-- `nsfw` / `head_shot` / `landscape`：6
-- `nsfw` / `head_shot` / `portrait`：6
+- `bold` / `full_body` / `landscape`：20
+- `bold` / `full_body` / `portrait`：20
+- `bold` / `half_body` / `landscape`：20
+- `bold` / `half_body` / `portrait`：20
+- `bold` / `head_shot` / `landscape`：20
+- `bold` / `head_shot` / `portrait`：20
+- `bold_no_outfit` / `full_body` / `landscape`：20
+- `bold_no_outfit` / `full_body` / `portrait`：20
+- `bold_no_outfit` / `half_body` / `landscape`：20
+- `bold_no_outfit` / `half_body` / `portrait`：20
+- `bold_no_outfit` / `head_shot` / `landscape`：20
+- `bold_no_outfit` / `head_shot` / `portrait`：20
+- `normal` / `full_body` / `landscape`：20
+- `normal` / `full_body` / `portrait`：20
+- `normal` / `half_body` / `landscape`：20
+- `normal` / `half_body` / `portrait`：20
+- `normal` / `head_shot` / `landscape`：20
+- `normal` / `head_shot` / `portrait`：20
+- `nsfw` / `full_body` / `landscape`：20
+- `nsfw` / `full_body` / `portrait`：20
+- `nsfw` / `half_body` / `landscape`：20
+- `nsfw` / `half_body` / `portrait`：20
+- `nsfw` / `head_shot` / `landscape`：20
+- `nsfw` / `head_shot` / `portrait`：20
 
 ## 检查项目录（每条规则抓什么）
 
@@ -39,23 +57,43 @@
 - **tongue_in_distal_shot (error)**：半身/全身镜头出现舌头动作（看不清）。
 - **camera_aspect_mismatch (info)**：画幅朝向与镜头朝向词不一致（轻量提示）。
 - **photo_realism_missing (info)**：全文未见任何摄影真实感标记。
+- **fluency:* (warning)**：逐行通顺度（prompt_fluency）：冗余表情尾巴、构图词混入姿势、否定式正向词、非视觉场景、服装语法、抽象评价、断句、视线/笑容重复、调色叠加、焦段与镜头不符、超长子句、同一只手两个动作、镜头外部位、场景过短、服装细节堆叠。
 ## 长度统计
 
 ### 总字数（按 档位/景别/画幅）
-- `nsfw` / `full_body` / `landscape`: 中位 414，p90 445，最大 450
-- `nsfw` / `full_body` / `portrait`: 中位 420，p90 435，最大 448
-- `nsfw` / `half_body` / `landscape`: 中位 414，p90 425，最大 429
-- `nsfw` / `half_body` / `portrait`: 中位 418，p90 432，最大 436
-- `nsfw` / `head_shot` / `landscape`: 中位 404，p90 404，最大 410
-- `nsfw` / `head_shot` / `portrait`: 中位 400，p90 403，最大 417
+- `bold` / `full_body` / `landscape`: 中位 560，p90 603，最大 616
+- `bold` / `full_body` / `portrait`: 中位 571，p90 590，最大 592
+- `bold` / `half_body` / `landscape`: 中位 524，p90 553，最大 565
+- `bold` / `half_body` / `portrait`: 中位 527，p90 545，最大 565
+- `bold` / `head_shot` / `landscape`: 中位 465，p90 494，最大 506
+- `bold` / `head_shot` / `portrait`: 中位 471，p90 488，最大 505
+- `bold_no_outfit` / `full_body` / `landscape`: 中位 511，p90 530，最大 551
+- `bold_no_outfit` / `full_body` / `portrait`: 中位 517，p90 531，最大 543
+- `bold_no_outfit` / `half_body` / `landscape`: 中位 474，p90 482，最大 508
+- `bold_no_outfit` / `half_body` / `portrait`: 中位 459，p90 487，最大 501
+- `bold_no_outfit` / `head_shot` / `landscape`: 中位 415，p90 432，最大 453
+- `bold_no_outfit` / `head_shot` / `portrait`: 中位 412，p90 442，最大 449
+- `normal` / `full_body` / `landscape`: 中位 535，p90 551，最大 563
+- `normal` / `full_body` / `portrait`: 中位 514，p90 526，最大 555
+- `normal` / `half_body` / `landscape`: 中位 468，p90 480，最大 495
+- `normal` / `half_body` / `portrait`: 中位 474，p90 487，最大 501
+- `normal` / `head_shot` / `landscape`: 中位 406，p90 415，最大 427
+- `normal` / `head_shot` / `portrait`: 中位 408，p90 427，最大 442
+- `nsfw` / `full_body` / `landscape`: 中位 557，p90 595，最大 595
+- `nsfw` / `full_body` / `portrait`: 中位 545，p90 573，最大 579
+- `nsfw` / `half_body` / `landscape`: 中位 501，p90 533，最大 552
+- `nsfw` / `half_body` / `portrait`: 中位 498，p90 519，最大 529
+- `nsfw` / `head_shot` / `landscape`: 中位 442，p90 461，最大 475
+- `nsfw` / `head_shot` / `portrait`: 中位 438，p90 480，最大 486
 
 ### 维度字数热点（p90）
-- `角色容貌和身材`: 中位 168，p90 176，最大 176
-- `姿势和神情`: 中位 73，p90 83，最大 87
-- `固定提示词`: 中位 64，p90 68，最大 71
-- `妆容`: 中位 58，p90 60，最大 63
-- `场景和光线`: 中位 42，p90 51，最大 51
-- `镜头`: 中位 8，p90 13，最大 17
+- `场景和光线`: 中位 93，p90 124，最大 149
+- `角色容貌和身材`: 中位 99，p90 99，最大 99
+- `姿势和神情`: 中位 55，p90 88，最大 101
+- `固定提示词`: 中位 63，p90 68，最大 69
+- `妆容`: 中位 44，p90 55，最大 67
+- `穿着`: 中位 45，p90 54，最大 66
+- `镜头`: 中位 38，p90 50，最大 71
 
 ## 发现
 

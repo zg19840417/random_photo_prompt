@@ -30,6 +30,7 @@ DEFAULT_REPORT_PATH = ROOT / "docs" / "reports" / "generated_prompt_audit.md"
 
 SCALES = ("normal", "bold", "bold_no_outfit", "nsfw")
 SHOTS = ("head_shot", "half_body", "full_body")
+CASTS = ("solo", "duo")
 SHOT_INPUTS = {"head_shot": "头部", "half_body": "半身", "full_body": "全身"}
 
 # 每个档位「应当出现且非空」的维度
@@ -288,7 +289,7 @@ def fluency_findings(engine, scale, shot, aspect, sample, parts, prompt) -> list
 # ---------------------------------------------------------------------------
 # 运行（流式：逐条生成→审计→丢弃，周期 gc）
 # ---------------------------------------------------------------------------
-def run_audit(samples, scales, shots, engine) -> tuple[list[Finding], dict, list[PromptStats]]:
+def run_audit(samples, scales, shots, engine, cast="solo") -> tuple[list[Finding], dict, list[PromptStats]]:
     findings: list[Finding] = []
     stats: list[PromptStats] = []
     sample_counts: dict[tuple[str, str, str], int] = {}
@@ -296,13 +297,14 @@ def run_audit(samples, scales, shots, engine) -> tuple[list[Finding], dict, list
         for shot in shots:
             for aspect in ("portrait", "landscape"):
                 for index in range(samples):
-                    seed = f"audit-{scale}-{shot}-{aspect}-{index}"
+                    seed = f"audit-{cast}-{scale}-{shot}-{aspect}-{index}"
                     item = engine.generate_prompt_items(
-                        1, {"scale": scale, "shot": SHOT_INPUTS[shot], "aspect": aspect}, seed_text=seed
+                        1, {"scale": scale, "shot": SHOT_INPUTS[shot], "aspect": aspect, "cast": cast}, seed_text=seed
                     )[0]
                     parts = item["dimension_parts"]
                     prompt = item["positive_prompt"]
-                    key = (scale, shot, aspect)
+                    # 双人样本单独标注，避免和单人样本在报告里混在一起。
+                    key = (f"{scale}/{cast}" if cast == "duo" else scale, shot, aspect)
                     sample_counts[key] = sample_counts.get(key, 0) + 1
                     findings.extend(audit_item(engine, scale, shot, aspect, index + 1, item))
                     stats.append(PromptStats(
@@ -440,6 +442,7 @@ def main() -> int:
     parser.add_argument("--samples", type=int, default=15, help="每个 档位/景别/画幅 的样本数")
     parser.add_argument("--scale", action="append", choices=SCALES, help="档位，可重复")
     parser.add_argument("--shot", action="append", choices=SHOTS, help="景别，可重复")
+    parser.add_argument("--cast", choices=CASTS, default="solo", help="人数：单人 solo / 双人 duo")
     parser.add_argument("--report", default=str(DEFAULT_REPORT_PATH), help="报告输出路径")
     parser.add_argument("--fail-on-warning", action="store_true")
     args = parser.parse_args()
@@ -447,7 +450,7 @@ def main() -> int:
     engine = load_prompt_engine()
     scales = selected_values(args.scale, SCALES)
     shots = selected_values(args.shot, SHOTS)
-    findings, sample_counts, stats = run_audit(max(args.samples, 1), scales, shots, engine)
+    findings, sample_counts, stats = run_audit(max(args.samples, 1), scales, shots, engine, args.cast)
     report = build_report(findings, sample_counts, stats)
     report_path = Path(args.report)
     if not report_path.is_absolute():

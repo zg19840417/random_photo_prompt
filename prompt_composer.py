@@ -1,9 +1,9 @@
-"""一档、二档、三档构图器（现代与古装）：先定艺术母题，再按约束挑地点、身体动作、神情、配色服装，用固定句式渲染。
+"""一至四档共用构图器（现代与古装）：先定艺术母题，再按约束挑地点、姿势表情、配色服装，用固定句式渲染。
 
-数据只读 data/art_direction_pools.json：
+主池只读 data/art_direction_pools.json；四档姿势表情经 prompt_data 读取独立 JSON：
 - 母题决定光线、空气感、前景、配色、调色和机位，保证一张图只有一个清楚的氛围；
 - 地点提供环境文本、可互动道具、室内外与私密属性；三档全部只用私密地点，二档不限地点；
-- 姿势只写身体动作并声明所需道具，神情单独成池，两者按动作能量组合；
+- 一至三档先选择气质与状态，再选相容的身体动作和完整神情方案；四档完整姿势原样接入；
 - 二档姿势不写服装，三档直接复用；服装按母题配色填色，赤脚姿势不写鞋。
 渲染后用 prompt_fluency 检查，不合格就重抽，不做字符串修补。固定人物容貌行始终取自原人物池，不在这里改写。
 双人（cast="duo"）沿用同一套母题、地点、光线与配色，只把姿势、神情、构图换成 DUO 池，
@@ -17,17 +17,15 @@ import re
 from pathlib import Path
 from typing import Callable
 
-from prompt_data import character_identity_options, makeup_options
+from prompt_data import character_identity_options, makeup_options, pose_expression_options_by_aspect
 from prompt_fluency import fluency_defects
 
 DATA_PATH = Path(__file__).resolve().parent / "data" / "art_direction_pools.json"
-COMPOSER_SCALES = ("normal", "bold", "bold_no_outfit")
+COMPOSER_SCALES = ("normal", "bold", "bold_no_outfit", "nsfw")
 CASTS = ("solo", "duo")
 NIGHT_MAKEUP_MARKERS = ("夜景", "夜色", "暗夜", "夜拍", "暗调", "月光", "夜")
 _DAY_MAKEUP_MARKERS = ("晨光", "日系", "晴日", "暖阳", "阳光")
 _ATTEMPTS = 8
-# 二档、三档一半的画面使用非常规镜头（畸变、低机位、荷兰角、俯拍、动态模糊）。
-_WILD_CAMERA_CHANCE = 0.5
 _WILD_POSE_CHANCE = 0.55
 # 地点有可互动道具时，优先让人物和道具发生动作（拿、摘、拨、泼、抛），而不只是站、坐、靠。
 _INTERACTIVE_POSE_CHANCE = 0.75
@@ -38,10 +36,12 @@ _DEFINED_MAKEUP_MARKERS = ("轮廓", "骨相", "高光妆", "港风", "清冷", 
 
 def _load_pools() -> dict:
     pools = json.loads(DATA_PATH.read_text(encoding="utf-8"))
-    for key in ("ART_DIRECTIONS", "PLACES", "EXPRESSIONS", "POSES", "OUTFITS", "OUTFITS_ANCIENT", "COMPOSITION", "LENSES", "WILD_CAMERA", "DUO"):
+    for key in ("ART_DIRECTIONS", "PLACES", "PERSONAS", "POSES", "OUTFITS", "OUTFITS_ANCIENT", "COMPOSITION", "LENSES", "WILD_CAMERA", "DUO"):
         if key not in pools:
             raise ValueError(f"{DATA_PATH.name} 缺少 {key}")
     for direction in pools["ART_DIRECTIONS"]:
+        if not all(direction.get(key) for key in ("compact_light", "compact_grade")):
+            raise ValueError(f"母题 {direction['name']} 缺少精简光线或调色")
         if direction.get("light_type") and direction["light_type"] not in pools["LIGHT_TYPES"]:
             raise ValueError(f"母题 {direction['name']} 引用了不存在的光型：{direction['light_type']}")
         missing = [
@@ -53,6 +53,30 @@ def _load_pools() -> dict:
         for group in direction["scales"]:
             if group not in direction["palettes"]:
                 raise ValueError(f"母题 {direction['name']} 缺少 {group} 配色")
+    profiles = set(pools["PERSONAS"]["pose_profiles"])
+    for group in ("normal", "bold"):
+        persona = pools["PERSONAS"][group]
+        states = persona["states"]
+        for state_id, state in states.items():
+            if not state["expressions"] or not set(state["pose_profiles"]) <= profiles:
+                raise ValueError(f"{group}/{state_id} 状态缺少神情或引用了未知动作类型")
+            for frame in state["expressions"]:
+                if set(frame) != {"gaze", "brows", "mouth", "detail"} or not all(frame.values()):
+                    raise ValueError(f"{group}/{state_id} 神情方案不完整")
+        for theme in persona["temperaments"]:
+            if not theme["states"] or not set(theme["states"]) <= set(states):
+                raise ValueError(f"{group}/{theme['id']} 气质引用了未知状态")
+            if not theme["pose_profiles"] or not set(theme["pose_profiles"]) <= profiles:
+                raise ValueError(f"{group}/{theme['id']} 气质引用了未知动作类型")
+            for state_id in theme["states"]:
+                if not set(theme["pose_profiles"]) & set(states[state_id]["pose_profiles"]):
+                    raise ValueError(f"{group}/{theme['id']}/{state_id} 没有相容动作类型")
+        for root in (pools, pools["DUO"]):
+            for table in root["POSES"][group].values():
+                for options in table.values():
+                    for pose in options:
+                        if not pose["persona_profiles"] or not set(pose["persona_profiles"]) <= profiles:
+                            raise ValueError(f"{group} 姿势缺少有效人物状态标签：{pose['body']}")
     return pools
 
 
@@ -84,8 +108,11 @@ def _pool(key: str, cast: str):
     return POOLS["DUO"][key] if cast == "duo" else POOLS[key]
 
 
-def _pose_table(group: str, shot: str, aspect: str, era: str, cast: str = "solo") -> list[dict]:
-    poses = _pool("POSES", cast)[group]
+def _pose_table(scale: str, shot: str, aspect: str, era: str, cast: str = "solo") -> list[dict]:
+    if scale == "nsfw":
+        # 独立池已经包含完整姿势表情句，作为不透明文本接入，不拆句或追加神情。
+        return [{"body": text, "text": text} for text in pose_expression_options_by_aspect(scale, shot, aspect, cast)]
+    poses = _pool("POSES", cast)[_group(scale)]
     if shot == "head_shot":
         # 头部动作与画幅无关，横构图额外加入横向头部动作。
         table = poses["portrait"]["head_shot"] + (poses["landscape"]["head_shot"] if aspect == "landscape" else [])
@@ -100,13 +127,13 @@ def _pose_table(group: str, shot: str, aspect: str, era: str, cast: str = "solo"
 def _place_allowed(place: dict, scale: str, shot: str) -> bool:
     if _group(scale) not in place["scales"]:
         return False
-    if scale == "bold_no_outfit":
+    if scale in {"bold_no_outfit", "nsfw"}:
         return bool(place.get("private"))
     return True
 
 
-def _fitting_poses(group: str, shot: str, aspect: str, era: str, props: list[str], cast: str = "solo") -> list[dict]:
-    return [pose for pose in _pose_table(group, shot, aspect, era, cast) if set(pose.get("props", ())) <= set(props)]
+def _fitting_poses(scale: str, shot: str, aspect: str, era: str, props: list[str], cast: str = "solo") -> list[dict]:
+    return [pose for pose in _pose_table(scale, shot, aspect, era, cast) if set(pose.get("props", ())) <= set(props)]
 
 
 def _choose_pose(rng: random.Random, poses: list[dict]) -> dict:
@@ -120,40 +147,52 @@ def _choose_pose(rng: random.Random, poses: list[dict]) -> dict:
     return _pick(rng, poses)
 
 
+def _choose_persona(group: str, rng: random.Random, complete_pose: bool = False) -> tuple[dict, str, dict | None]:
+    pool = POOLS["PERSONAS"][group]
+    theme = _pick(rng, pool["temperaments"])
+    if complete_pose:
+        return theme, "", None
+    state_id = _pick(rng, theme["states"])
+    return theme, state_id, pool["states"][state_id]
+
+
+def _state_expression(state: dict, cast: str, rng: random.Random) -> str:
+    # 一次选定完整神情方案，部位之间不再分别随机。
+    frame = _pick(rng, state["expressions"])
+    return "，".join(frame[key] for key in ("gaze", "brows", "mouth", "detail")).format(subject="两人" if cast == "duo" else "她")
+
+
 def _light_type(group: str, direction: dict) -> dict | None:
-    # 二档、三档用光型把光线、身体轮廓和构图绑在一起；一档保持清爽叙事，不加身体光线句。
-    if group != "bold" or not direction.get("light_type"):
+    if not POOLS["PERSONAS"][group]["light_composition"] or not direction.get("light_type"):
         return None
     return POOLS["LIGHT_TYPES"][direction["light_type"]]
 
 
 def _scene_line(group: str, shot: str, direction: dict, place: dict, rng: random.Random, cast: str = "solo") -> str:
-    light_type = _light_type(group, direction)
-    body_light = [_pick(rng, light_type["body_light"][shot])] if light_type else []
-    if shot == "head_shot":
-        text = "，".join([place["near"], direction["near_light"], *body_light])
-    else:
-        clauses = [place["half" if shot == "half_body" else "full"], direction["light"], *body_light, _pick(rng, direction["atmosphere"])]
-        if direction["foreground"] and rng.random() < 0.5:
-            clauses.append(_pick(rng, direction["foreground"]))
-        text = "，".join(clauses)
+    location = place[{"head_shot": "near", "half_body": "half"}.get(shot, "full")]
+    light = direction["near_light"] if shot == "head_shot" else direction["compact_light"]
+    text = f"{location}，{light}"
     return re.sub("她(?!们)", "她们", text) if cast == "duo" else text
 
 
 def _wild_camera(group: str, shot: str, aspect: str, rng: random.Random, cast: str = "solo") -> dict | None:
-    if group != "bold" or rng.random() >= _WILD_CAMERA_CHANCE:
+    chance = POOLS["PERSONAS"][group]["wild_camera_chance"]
+    if chance <= 0 or rng.random() >= chance:
         return None
     options = [bundle for bundle in _pool("WILD_CAMERA", cast)[shot] if aspect in bundle["aspects"]]
     return _pick(rng, options) if options else None
 
 
-def _camera_line(group: str, shot: str, aspect: str, direction: dict, wild: dict | None, rng: random.Random, cast: str = "solo") -> str:
+def _camera_line(group: str, shot: str, aspect: str, direction: dict, wild: dict | None, rng: random.Random, cast: str = "solo", temperament: dict | None = None) -> str:
     # 光型构图按单人写（“人物位于…”），双人改用 DUO 构图池。
     light_type = _light_type(group, direction) if cast == "solo" else None
     if wild:
         angle, composition = wild["angle"], wild["composition"]
     else:
-        angle = _pick(rng, direction["camera"])
+        angles = direction["camera"]
+        if temperament:
+            angles = [angle for angle in angles if angle in temperament["camera"]]
+        angle = _pick(rng, angles)
         composition = _pick(rng, light_type["compositions"][shot] if light_type else _pool("COMPOSITION", cast)[shot])
     orientation = {"landscape": "横向", "square": "方形"}.get(aspect, "竖向")
     who = "两人" if cast == "duo" else ""
@@ -163,7 +202,8 @@ def _camera_line(group: str, shot: str, aspect: str, direction: dict, wild: dict
         scope = f"{who}腰部以上的{orientation}半身构图"
     else:
         scope = f"{who}从头到脚的{orientation}全身构图"
-    return f"{angle}，{scope}，{composition}"
+    text = f"{angle}，{scope}，{composition}"
+    return f"{text}，人物呈现{temperament['intro']}" if temperament else text
 
 
 # 固定容貌里“脸部”与“身材”的分界；妆容插在两者之间，原文一个字不改。
@@ -177,13 +217,6 @@ def _split_identity(text: str) -> tuple[str, str]:
     return text[:index], text[index + 1:]
 
 
-def _outfit_fits_place(option, place: dict) -> bool:
-    requires = option.get("requires") if isinstance(option, dict) else None
-    if requires == "water":
-        return bool(place.get("water"))
-    return True
-
-
 def _pick_outfit(group: str, era: str, shot: str, place: dict, palette: list[str], barefoot: bool, rng: random.Random) -> tuple[str, str, str]:
     """选一套服装，返回 (渲染文本, 风格, 服装模板)：模板是填色前的原文，用来判断两套衣服是否同款。"""
     main, support, accent = palette
@@ -193,11 +226,6 @@ def _pick_outfit(group: str, era: str, shot: str, place: dict, palette: list[str
         options = [option for option in POOLS["OUTFITS_ANCIENT"][group][shot] if option["style"] in styles]
     else:
         options = POOLS["OUTFITS"][group][shot]
-    options = [option for option in options if _outfit_fits_place(option, place)]
-    # 泳装只出现在水边；水边地点一半概率优先挑泳装，内衣类不限地点。
-    swim_only = [option for option in options if isinstance(option, dict) and option.get("requires") == "water"]
-    if swim_only and rng.random() < 0.5:
-        options = swim_only
     option = _pick(rng, options)
     if isinstance(option, dict):
         template = option["text"]
@@ -254,6 +282,8 @@ def _duo_outfit_line(group: str, era: str, shot: str, place: dict, palette: list
 
 def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Random, cast: str = "solo") -> dict[str, str]:
     group = _group(scale)
+    temperament, state_id, state = _choose_persona(group, rng, complete_pose=scale == "nsfw")
+    persona_profiles = set(temperament["pose_profiles"]) & set(state["pose_profiles"]) if state else set()
     directions = [
         direction for direction in POOLS["ART_DIRECTIONS"]
         if group in direction["scales"] and era in direction["eras"]
@@ -265,21 +295,27 @@ def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Rand
             continue
         place_name = _pick(rng, place_names)
         place = POOLS["PLACES"][place_name]
-        poses = _fitting_poses(group, shot, aspect, era, place["props"], cast)
+        poses = _fitting_poses(scale, shot, aspect, era, place["props"], cast)
+        if state:
+            poses = [pose for pose in poses if pose.get("expression_visible", True) and persona_profiles & set(pose["persona_profiles"])]
         if poses:
             break
     else:
         raise ValueError(f"没有与 {scale}/{era}/{shot}/{aspect} 相容的母题、地点和姿势组合")
     pose = _choose_pose(rng, poses)
-    expression = _pick(rng, _pool("EXPRESSIONS", cast)[group][pose["energy"]])
+    pose_expression = pose.get("text")
+    if pose_expression is None:
+        expression = _state_expression(state, cast, rng)
+        pose_expression = f"{pose['body'] if cast == 'duo' else _name_hands(pose['body'])}。{expression}"
     palette = _pick(rng, direction["palettes"][group])
     wild = _wild_camera(group, shot, aspect, rng, cast)
     lens = wild["lens"] if wild else _pick(rng, POOLS["LENSES"][shot])
     main, support, accent = palette
-    camera = _camera_line(group, shot, aspect, direction, wild, rng, cast)
-    texture = "肤质细腻并保留真实纹理" if group == "bold" else "肤质保留真实纹理"
+    camera = _camera_line(group, shot, aspect, direction, wild, rng, cast, temperament)
+    texture = POOLS["PERSONAS"][group]["texture"]
+    grade = direction["compact_grade"]
     dress = _duo_outfit_line if cast == "duo" else _outfit_line
-    outfit, outfit_style = ("", "") if scale == "bold_no_outfit" else dress(group, era, shot, place, palette, bool(pose.get("barefoot")), rng)
+    outfit, outfit_style = ("", "") if scale in {"bold_no_outfit", "nsfw"} else dress(group, era, shot, place, palette, bool(pose.get("barefoot")), rng)
     face, body = _split_identity(_pick(rng, character_identity_options(shot)))
     if cast == "duo":
         # 两人共用固定容貌；妆容各写一句，接在容貌后面。
@@ -292,16 +328,19 @@ def _compose_once(scale: str, shot: str, aspect: str, era: str, rng: random.Rand
         "body": body,
         "makeup": _duo_makeup(group, direction, rng) if cast == "duo" else _makeup(group, direction, place, aspect, rng),
         "outfit": outfit,
-        # 双人动作用“左边的女生/右边的女生”区分，不再把“一只手”改写成左手、右手。
-        "pose_expression": f"{pose['body'] if cast == 'duo' else _name_hands(pose['body'])}。{expression}",
+        "pose_expression": pose_expression,
         "scene_light": _scene_line(group, shot, direction, place, rng, cast),
-        "quality": f"{direction['grade']}，画面以{main}和{support}为主色，点缀一点{accent}，{texture}，高光不过曝",
+        "quality": f"{grade}，画面以{main}和{support}为主色，点缀一点{accent}，{texture}，高光不过曝",
         "director": direction["name"],
         "art_direction": direction["name"],
         "art_place": place_name,
         "art_pose": pose["body"],
         "art_wild_camera": wild["angle"] if wild else "",
         "art_outfit_style": outfit_style,
+        "character_temperament": temperament["id"],
+        "character_temperament_label": temperament["label"],
+        "character_state": state_id,
+        "character_state_label": state["label"] if state else "",
         "color_palette": "、".join(palette),
         "theme_name": "",
         "era": era,

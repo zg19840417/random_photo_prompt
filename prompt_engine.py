@@ -2,8 +2,8 @@
 
 一至四档都由 prompt_composer 一次成句，这里不再对文字做任何改写：每个维度的文字原样进入最终提示词，
 只补句末标点和“她穿着”。文字质量靠数据本身和 prompt_fluency 的逐行检查（不合格就重抽）保证。
-四档除姿势表情外与三档一致，姿势表情只从四档专用池原样抽取。
-双人（cast="duo"）只支持一至三档：四档专用姿势池是单人写法。
+四档只有姿势表情的内容单独隔离在四档专用池；姿势行与其余维度一起过同一套通顺门，规则与一至三档相同。
+双人（cast="duo"）一至四档都支持：四档双人是“两个女生 + 男人”，姿势表情取四档专用双人池。
 """
 from __future__ import annotations
 
@@ -13,14 +13,9 @@ import time
 from negative_prompt_engine import build_negative_prompt
 from prompt_composer import NIGHT_MAKEUP_MARKERS, compose_parts, normalize_cast
 from prompt_constants import RESOLUTIONS
-from prompt_data import pose_expression_options_by_aspect
 from prompt_normalize import normalize_aspect, normalize_scale, normalize_shot, shot_label
 
 _NIGHT_SCENE_MARKERS = ("夜晚", "夜景", "月光", "夜色", "暗室", "烛光", "壁灯", "入夜", "日落后", "深夜", "午夜", "夜")
-
-
-def choose(values, rng: random.Random) -> str:
-    return rng.choice(values) if values else ""
 
 
 def _scene_is_night(scene_light: str) -> bool:
@@ -92,8 +87,6 @@ def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str
     shot = normalize_shot(selections.get("shot", ""))
     era = str(selections.get("era", "modern") or "modern")
     cast = normalize_cast(selections.get("cast", "solo"))
-    if cast == "duo" and scale == "nsfw":
-        raise ValueError("四档暂不支持双人，请选一至三档。")
     raw_width = selections.get("width")
     raw_height = selections.get("height")
     try:
@@ -106,13 +99,7 @@ def generate_prompt_items(count: int, selections: dict[str, str], seed_text: str
     width, height = (detected_width, detected_height) if detected_width and detected_height else RESOLUTIONS[shot]
     items = []
     for _ in range(count):
-        if scale == "nsfw":
-            # 四档除姿势表情外与三档完全一致；姿势表情只从四档专用池原样抽取。
-            parts = compose_parts("bold_no_outfit", shot, aspect, rng, render_prompt_lines, era)
-            pose_expression = choose(pose_expression_options_by_aspect("nsfw", shot, aspect), rng)
-            parts.update(pose_expression=pose_expression, art_pose=pose_expression)
-        else:
-            parts = compose_parts(scale, shot, aspect, rng, render_prompt_lines, era, cast)
+        parts = compose_parts(scale, shot, aspect, rng, render_prompt_lines, era, cast)
         items.append(_finish_prompt_item(parts, scale, shot, aspect, width, height, rng))
     return items
 

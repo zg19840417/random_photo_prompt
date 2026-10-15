@@ -110,14 +110,20 @@ def _normalize_pose_text(pose_text: str) -> str:
     return pose_text
 
 
-def pose_expression_options_by_aspect(scale: str, shot: str, aspect: str) -> list[str]:
-    """只服务四档：其余档位的姿势由 prompt_composer 从 art_direction_pools.json 组合。"""
+def pose_expression_options_by_aspect(scale: str, shot: str, aspect: str, cast: str = 'solo') -> list[str]:
+    """只服务四档：其余档位的姿势由 prompt_composer 从 art_direction_pools.json 组合。
+
+    四档只有姿势内容单独隔离在本文件里，单人、双人各一套池；生成规则与一至三档完全一致。
+    """
     if scale != 'nsfw':
         raise ValueError(f'{scale} 的姿势由构图器生成，不读取旧姿势池')
-    return [_normalize_pose_text(text) for text in POSE_EXPRESSION_OPTIONS['nsfw'][shot]]
+    key = 'nsfw_duo' if str(cast or '').strip() in {'duo', '双人', '2'} else 'nsfw'
+    return [_normalize_pose_text(text) for text in POSE_EXPRESSION_OPTIONS[key][shot]]
 
 
 NSFW_POSE_EXPRESSION_SOURCE = 'data/nsfw_pose_expression_options.json'
+# 每镜头最少条数：条数太少，随机重抽就没有差异空间。
+NSFW_POSE_MIN_OPTIONS = 10
 
 # 各景别画面里看不见的部位。池里写了这些内容，加载时直接报错：
 # 运行时静默裁剪会让越界分句被悄悄丢掉，改池的人无从发现，所以不做裁剪，只做校验。
@@ -137,25 +143,28 @@ def _load_nsfw_pose_expression_json() -> None:
         raise RuntimeError(f'四档姿势规则文件无法读取：{path}') from exc
     if not isinstance(data, dict):
         raise RuntimeError('四档姿势规则必须是 JSON 对象。')
-    required_shots = {'head_shot', 'half_body', 'full_body'}
-    if set(data) != required_shots:
-        raise RuntimeError('四档姿势规则必须包含 3 种镜头：head_shot、half_body、full_body。')
-    cleaned = {}
-    for shot in required_shots:
-        options = data.get(shot)
-        if not isinstance(options, list):
-            raise RuntimeError(f'四档 {shot} 姿势规则必须是列表。')
-        cleaned[shot] = [str(item).strip() for item in options if str(item).strip()]
-        if len(cleaned[shot]) != 10:
-            raise RuntimeError(f'四档 {shot} 姿势规则必须恰好为 10 条。')
-        for index, text in enumerate(cleaned[shot], 1):
-            for marker in NSFW_POSE_OUT_OF_SCOPE.get(shot, ()):
-                if marker in text:
-                    raise RuntimeError(
-                        f'四档 {shot} 第 {index} 条写了画面外的“{marker}”：'
-                        f'{shot} 拍不到这个部位，请改写该分句，不要依赖运行时裁剪。'
-                    )
-    POSE_EXPRESSION_OPTIONS['nsfw'] = cleaned
+    if set(data) != set(SHOTS) | {'duo'}:
+        raise RuntimeError('四档姿势规则必须包含 head_shot、half_body、full_body 和 duo 四组。')
+    duo_source = data['duo']
+    if not isinstance(duo_source, dict) or set(duo_source) != set(SHOTS):
+        raise RuntimeError('四档 duo 姿势规则必须包含 3 种镜头：head_shot、half_body、full_body。')
+    for scale_key, source in (('nsfw', data), ('nsfw_duo', duo_source)):
+        cleaned = {}
+        for shot in SHOTS:
+            options = source.get(shot)
+            if not isinstance(options, list):
+                raise RuntimeError(f'四档 {scale_key} {shot} 姿势规则必须是列表。')
+            cleaned[shot] = [str(item).strip() for item in options if str(item).strip()]
+            if len(cleaned[shot]) < NSFW_POSE_MIN_OPTIONS:
+                raise RuntimeError(f'四档 {scale_key} {shot} 姿势规则至少需要 {NSFW_POSE_MIN_OPTIONS} 条。')
+            for index, text in enumerate(cleaned[shot], 1):
+                for marker in NSFW_POSE_OUT_OF_SCOPE.get(shot, ()):
+                    if marker in text:
+                        raise RuntimeError(
+                            f'四档 {scale_key} {shot} 第 {index} 条写了画面外的“{marker}”：'
+                            f'{shot} 拍不到这个部位，请改写该分句，不要依赖运行时裁剪。'
+                        )
+        POSE_EXPRESSION_OPTIONS[scale_key] = cleaned
 
 
 PROMPT_DATA_SOURCE = 'data/prompt_pools.json + data/nsfw_pose_expression_options.json'

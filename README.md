@@ -27,7 +27,7 @@ Mac ComfyUI 的目录：
   - 一档 `normal`：时尚编辑写真，强调服装、光线和构图。
   - 二档 `bold`：成人 glamour/私房写真，保留衣着维度，强化性感氛围。
   - 三档 `bold_no_outfit`：沿用二档逻辑，但最终不组合衣着维度。
-  - 四档 `nsfw`：仅姿势维度使用专用池，其余沿用三档逻辑，不组合衣着维度。
+  - 四档 `nsfw`：仅姿势维度使用专用池（单人与双人各一套），其余沿用三档逻辑，不组合衣着维度。
 - **桌面 ComfyUI 节点**：在工作流执行前把生成提示词写入连接的文本编码节点。
 - **手机端页面**：支持移动端生成、图库查看、详情页、复制提示词、收藏、删除等操作；收藏图片会在收藏目录的独立索引中保留提示词和 Seed。
 - **远端计算与图片直回 Mac**：手机页由 Mac 本机 `8188` 提供，任务提交到远端 Windows/4090，结果经 WebSocket 直接回到 Mac 本地。
@@ -54,7 +54,7 @@ random_photo_prompt/
 ├── video_prompt_engine.py              # 图生视频动作提示词
 ├── data/prompt_pools.json              # 固定人物、妆容、质量尾、负面词
 ├── data/art_direction_pools.json       # 构图器数据池
-├── data/nsfw_pose_expression_options.json  # 四档 NSFW 姿势池（独立 JSON）
+├── data/nsfw_pose_expression_options.json  # 四档 NSFW 姿势池（单人 + 双人，独立 JSON）
 ├── web/mobile.html                     # 手机端页面
 ├── tools/
 │   ├── audit_prompt_pools.py           # 池内容审查
@@ -91,10 +91,10 @@ random_photo_prompt/
 ```text
 data/prompt_pools.json            # 固定人物、妆容、质量尾、基础负面词
 data/art_direction_pools.json     # 一至四档母题、地点、光型、姿势（四档除外）、神情、服装
-data/nsfw_pose_expression_options.json  # 四档 nsfw 姿势与表情池（独立维护）
+data/nsfw_pose_expression_options.json  # 四档 nsfw 姿势与表情池（单人 3×15 条 + 双人 3×10 条，独立维护）
 ```
 
-`data/prompt_pools.json` 由 `prompt_data.py` 在运行时直接加载（`_load_generated_prompt_data`），改完 JSON 重启 ComfyUI 即生效，无需转表。四档 `nsfw` 的姿势和表情维度只使用 `data/nsfw_pose_expression_options.json`，不读主池的 pose 数据。
+`data/prompt_pools.json` 由 `prompt_data.py` 在运行时直接加载（`_load_generated_prompt_data`），改完 JSON 重启 ComfyUI 即生效，无需转表。四档 `nsfw` 的姿势和表情维度只使用 `data/nsfw_pose_expression_options.json`（单人 `head_shot/half_body/full_body`、双人 `duo`），不读主池的 pose 数据；隔离的只有内容，姿势行的结构、子句长度、视线与唇眉、镜头范围和通顺重抽规则与一至三档完全一致。
 
 ## 基本使用
 
@@ -163,7 +163,8 @@ http://Mac局域网IP:8188/random_photo_prompt/mobile
 - 一档服务时尚、多样性和艺术感。
 - 二档服务性感、诱惑和成人 glamour，但仍保留衣着维度。
 - 三档不组合衣着维度，其余沿用二档逻辑。
-- 四档只有姿势维度走专用池，其余沿用三档/二档逻辑。
+- 四档只有姿势维度走专用池（单人、双人各一套），其余沿用三档/二档逻辑；姿势行的生成规则与一至三档相同。
+- 手机端“人数”单人/双人一至四档都支持；四档双人为“两个女生 + 男人”。
 - 手机端和网页端应共用同一套提示词、分辨率和工作流 patch 规则。
 - 改动提示词规则、节点代码、前端或远端相关逻辑后，需要按远端同步规则同步并重启远端 ComfyUI。
 
